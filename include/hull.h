@@ -214,7 +214,7 @@ inline void extrude(std::vector<Tri> &tris, int t0, int v)
 inline int extrudable(std::vector<Tri> &tris,   float epsilon)
 {
 	int t=-1;
-	for(int i=0;i<tris.size();i++)
+	for(unsigned int i=0;i<tris.size();i++)
 	{
 		assert(tris[i].id >= 0);
 		assert(tris[i].id ==i);
@@ -327,7 +327,7 @@ inline std::vector<int3> calchull(float3 *verts,int verts_count, int vlimit)
 			if(above(verts,nt,center,0.01f*epsilon)  || magnitude(cross(verts[nt[1]]-verts[nt[0]],verts[nt[2]]-verts[nt[1]]))< epsilon*epsilon*0.1f )
 			{
 				int nb = tris[j].n[0];
-				assert(nb>=0);assert(!tris[nb].dead());assert(!hasvert(tris[nb].v,v));assert(tris[nb].id<j);
+				assert(nb>=0);assert(!tris[nb].dead());assert(!hasvert(tris[nb].v,v));assert(tris[nb].id<(int)j);
 				extrude(tris,nb,v);
 				j=tris.size(); 
 			}

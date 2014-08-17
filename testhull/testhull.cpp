@@ -5,11 +5,11 @@
 #include <cctype>  // std::tolower
 #include <cstdarg>   // For va_list, va_start, ...
 #include <cstdio>    // For vsnprintf
-#include <GL/glut.h>
 // in project properties, add "../include" to the vc++ directories include path
 
 #include "vecmath.h"
-#include "vecmath.cpp"
+#include "vecmath.cpp"  // need to drag in this for now, will inline whats needed later.
+#include "glwin.h"  // minimal opengl for windows setup wrapper
 
 #include "hull.h"
 
@@ -38,23 +38,7 @@ void Init()
 		g_vlimit = std::max(g_vlimit, 1+ max_element(t));
 }
 
-void OnMouse(int button, int state, int x, int y)
-{
-	g_mouseX = x;
-	g_mouseY = y;
-}
-void OnMotion(int x, int y)
-{
-	g_yaw += (g_mouseX - x) * 0.3f;
-	g_pitch += (y - g_mouseY) * 0.3f;
-	g_mouseX = x;
-	g_mouseY = y;
-}
 
-void OnIdle()
-{
-	glutPostRedisplay();
-}
 void OnKeyboard(unsigned char key, int x, int y)
 {
 	switch (std::tolower(key))
@@ -77,103 +61,12 @@ void OnKeyboard(unsigned char key, int x, int y)
 	}
 }
 
-inline void DrawString(int x, int y, const char* format, ...)
-{
-	// Format output string
-	va_list args;
-	va_start(args, format);
-	char buffer[1024];
-	vsnprintf(buffer, sizeof(buffer), format, args);
-	va_end(args);
 
-	// Set up a pixel-aligned orthographic coordinate space
-	glPushAttrib(GL_ALL_ATTRIB_BITS);
-	glMatrixMode(GL_PROJECTION);
-	glPushMatrix();
-	glLoadIdentity();
-	glOrtho(0, glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT), 0, -1, +1);
-	glMatrixMode(GL_MODELVIEW);
-	glPushMatrix();
-	glLoadIdentity();
-
-
-	glColor3f(1, 1, 1);
-	glRasterPos2i(x + 2, y + 12);
-	const char *s = buffer;
-	while(*s)
-		glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, *s++);
-	glPopMatrix();
-	glMatrixMode(GL_PROJECTION);
-	glPopMatrix();
-	glPopAttrib();
-}
 void glNormal3fv(const float3 &v) { glNormal3fv(&v.x); }
 void glVertex3fv(const float3 &v) { glVertex3fv(&v.x); }
 void glColor3fv (const float3 &v) { glColor3fv(&v.x);  }
 
-void OnDisplay()
-{
-	glPushAttrib(GL_ALL_ATTRIB_BITS);
 
-	// Set up the viewport
-	int winWidth = glutGet(GLUT_WINDOW_WIDTH), winHeight = glutGet(GLUT_WINDOW_HEIGHT);
-	glViewport(0, 0, winWidth, winHeight);
-	glClearColor(0.1f, 0.1f, 0.15f, 1);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-	// Set up matrices
-	glMatrixMode(GL_PROJECTION);
-	glPushMatrix();
-	gluPerspective(60, (double)winWidth / winHeight, 0.01, 10);
-
-	glMatrixMode(GL_MODELVIEW);
-	glPushMatrix();
-	gluLookAt(0, -2, 1, 0, 0, 0, 0, 0, 1);
-
-	glRotatef(g_pitch, 1, 0, 0);
-	glRotatef(g_yaw, 0, 0, 1);
-
-	glEnable(GL_DEPTH_TEST);
-	//glEnable(GL_TEXTURE_2D);
-
-	glDisable(GL_BLEND);
-	glPointSize(4);
-	glBegin(GL_POINTS);
-	glColor3f(0, 1, 0);
-	for (auto &v : g_verts)
-	{
-		glColor3fv((&v - g_verts.data() < g_vlimit) ? float3(0.75, 1, 0) : float3(0.75, 0, 0));
-		glVertex3fv(v);
-	}
-	glEnd();
-
-	glEnable(GL_CULL_FACE);
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glEnable(GL_LIGHTING);
-	glEnable(GL_LIGHT0);
-	glBegin(GL_TRIANGLES);
-	glColor4f(1, 1, 1, 0.25f);
-	for (auto t : g_tris)
-	{
-		glNormal3fv(TriNormal(g_verts[t[0]], g_verts[t[1]], g_verts[t[2]]));
-		for (int j = 0; j < 3; j++)
-			glVertex3fv(g_verts[t[j]]);
-	}
-	glEnd();
-
-
-	// Restore state
-	glPopMatrix();
-	glMatrixMode(GL_PROJECTION);
-	glPopMatrix();
-	glPopAttrib();
-
-	DrawString(10, 10, "Press q to quit.   w,s increase/decrease vlimit and recalc.  Spacebar new pointcloud.");
-	DrawString(10, 28, "vlimit %d  tris %d    y,p = %f,%f", g_vlimit,g_tris.size(), g_yaw, g_pitch);
-
-	glutSwapBuffers();
-}
 
 int main(int argc, char *argv[])
 {
@@ -181,16 +74,85 @@ int main(int argc, char *argv[])
 
 	Init();
 
-	glutInit(&argc, argv);
-	glutInitDisplayMode(GLUT_RGB | GLUT_DEPTH | GLUT_DOUBLE);
-	glutInitWindowSize(800, 600);
-	glutCreateWindow(argc?argv[0]:"TestMath sample");
-	glutDisplayFunc(OnDisplay);
-	glutKeyboardFunc(OnKeyboard);
-	glutMotionFunc(OnMotion);
-	glutMouseFunc(OnMouse);
-	glutIdleFunc(OnIdle);
-	glutMainLoop();
+	GLWin glwin("TestHull sample");
+	glwin.keyboardfunc = OnKeyboard;
+	while (glwin.WindowUp())
+	{
+		if (glwin.MouseState)  // on mouse drag 
+		{
+			g_yaw   += (glwin.MouseX - g_mouseX) * 0.3f;  // poor man's trackball
+			g_pitch += (glwin.MouseY - g_mouseY) * 0.3f;
+		}
+		g_mouseX = glwin.MouseX;
+		g_mouseY = glwin.MouseY;
+
+
+		glPushAttrib(GL_ALL_ATTRIB_BITS);
+
+		// Set up the viewport
+		glViewport(0, 0, glwin.Width,glwin.Height);
+		glClearColor(0.1f, 0.1f, 0.15f, 1);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		// Set up matrices
+		glMatrixMode(GL_PROJECTION);
+		glPushMatrix();
+		glLoadIdentity();
+		gluPerspective(60, (double)glwin.Width/ glwin.Height, 0.01, 10);
+
+		glMatrixMode(GL_MODELVIEW);
+		glPushMatrix();
+		gluLookAt(0, -2, 1, 0, 0, 0, 0, 0, 1);
+
+		glRotatef(g_pitch, 1, 0, 0);
+		glRotatef(g_yaw, 0, 0, 1);
+
+		glEnable(GL_DEPTH_TEST);
+		//glEnable(GL_TEXTURE_2D);
+
+		glDisable(GL_BLEND);
+		glPointSize(4);
+		glBegin(GL_POINTS);
+		glColor3f(0, 1, 0);
+		for (auto &v : g_verts)
+		{
+			glColor3fv((&v - g_verts.data() < g_vlimit) ? float3(0.75, 1, 0) : float3(0.75, 0, 0));
+			glVertex3fv(v);
+		}
+		glEnd();
+
+		glEnable(GL_CULL_FACE);
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glEnable(GL_LIGHTING);
+		glEnable(GL_LIGHT0);
+		glBegin(GL_TRIANGLES);
+		glColor4f(1, 1, 1, 0.25f);
+		for (auto t : g_tris)
+		{
+			glNormal3fv(TriNormal(g_verts[t[0]], g_verts[t[1]], g_verts[t[2]]));
+			for (int j = 0; j < 3; j++)
+				glVertex3fv(g_verts[t[j]]);
+		}
+		glEnd();
+
+
+		// Restore state
+		glPopMatrix();  //should be currently in modelview mode
+		glMatrixMode(GL_PROJECTION);
+		glPopMatrix();
+		glPopAttrib();
+		glMatrixMode(GL_MODELVIEW);  
+
+		glwin.PrintString("Press q to quit.     Spacebar new pointcloud.", 5, 1);
+		glwin.PrintString("Keys w,s increase/decrease vlimit and recalc. ", 5, 2);
+		char buf[256];
+		sprintf(buf, "vlimit %d tris %d  y,p= %f,%f", g_vlimit, g_tris.size(), g_yaw, g_pitch);
+		glwin.PrintString(buf, 5, 3);
+
+		glwin.SwapBuffers();
+	}
+
 
 	std::cout << "\n";
 	return 0;

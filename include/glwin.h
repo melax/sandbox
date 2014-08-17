@@ -1,8 +1,12 @@
 //
 //   glwin.h
 //
-// minimal windows framework for writing small opengl test apps
+// minimal opengl on windows framework for writing small opengl test apps
+// all in one header file.  No extra downloads, installs, cmake, .DLLs, .LIBs. etc...
 //
+// try not to use that 16 bit wchar.
+//
+
 
 //
 //   bitmap font code from the OpenGL red book example programs the copyright from that sample is:
@@ -16,13 +20,19 @@
 //
 
 
+#include <functional>
+
+#define NOMINMAX
 #include <windows.h>
 #include <cstring>
 #include <GL/gl.h>
 #include <GL/glu.h>
+#ifdef WIN32
+#pragma comment(lib,"opengl32.lib")
+#pragma comment(lib,"glu32.lib")
+#endif
 
-
-static LRESULT WINAPI MsgProcG( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam );
+static LRESULT WINAPI MsgProcG( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam );  // cant be an inline function or member,  windows callback.
 
 class GLWin
 {
@@ -153,12 +163,19 @@ class GLWin
 	HWND CreateOpenGLWindow(const char* title)
 	{
 		// make a double-buffered, rgba, opengl window
-		int         pf;
+		
 		HWND        hWnd;
 		WNDCLASS    wc;
+		int         pf;
 		PIXELFORMATDESCRIPTOR pfd;
 		static HINSTANCE hInstance = 0;
-
+		auto className =   // this depends on project's 'character-set' settings
+#           ifdef UNICODE
+				L"OpenGL";
+#           else
+				"OpenGL";
+#           endif
+	
 		/* only register the window class once - use hInstance as a flag. */
 		if (!hInstance) {
 			hInstance = GetModuleHandle(NULL);
@@ -171,24 +188,18 @@ class GLWin
 			wc.hCursor       = LoadCursor(NULL, IDC_ARROW);
 			wc.hbrBackground = NULL;
 			wc.lpszMenuName  = NULL;
-			wc.lpszClassName = "OpenGL";
+			wc.lpszClassName = className;
 
-			if (!RegisterClass(&wc)) {
-				MessageBox(NULL, "RegisterClass() failed:  "
-					   "Cannot register window class.", "Error", MB_OK);
-				return NULL;
-			}
+			if (!RegisterClass(&wc)) 
+				throw("RegisterClass() failed:  Cannot register window class.");
 		}
 
-		hWnd = CreateWindow("OpenGL", title, WS_OVERLAPPEDWINDOW |
+		hWnd = CreateWindow(className, title, WS_OVERLAPPEDWINDOW |
 				WS_CLIPSIBLINGS | WS_CLIPCHILDREN,
 				0,0,Width,Height, NULL, NULL, hInstance, this);
 
-		if (hWnd == NULL) {
-			MessageBox(NULL, "CreateWindow() failed:  Cannot create a window.",
-				   "Error", MB_OK);
-			return NULL;
-		}
+		if (hWnd == NULL)
+			throw("CreateWindow() failed:  Cannot create a window.");
 
 		hDC = GetDC(hWnd);
 
@@ -203,18 +214,10 @@ class GLWin
 		pfd.cColorBits   = 32;
 
 		pf = ChoosePixelFormat(hDC, &pfd);
-		if (pf == 0) {
-			MessageBox(NULL, "ChoosePixelFormat() failed:  "
-				   "Cannot find a suitable pixel format.", "Error", MB_OK); 
-			return 0;
-		} 
- 
-		if (SetPixelFormat(hDC, pf, &pfd) == FALSE) {
-			MessageBox(NULL, "SetPixelFormat() failed:  "
-				   "Cannot set format specified.", "Error", MB_OK);
-			return 0;
-		} 
-
+		if(pf == 0) 
+			throw("ChoosePixelFormat() failed:  Cannot find a suitable pixel format."); 
+		if (SetPixelFormat(hDC, pf, &pfd) == FALSE) 
+			throw( "SetPixelFormat() failed: Cannot set format specified.");
  
 		ReleaseDC(hWnd,hDC);
 		return hWnd;
@@ -294,8 +297,9 @@ public:
 	float3  OldMouseVector;
 	int     MouseState;     // true iff left button down
 	float 	ViewAngle;
+	std::function<void(int, int, int)> keyboardfunc;
 
-	GLWin(const char *title) : Width(512),Height(512),MouseX(0),MouseY(0),MouseState(0),ViewAngle(45.0f)
+	GLWin(const char *title) : Width(512), Height(512), MouseX(0), MouseY(0), MouseState(0), ViewAngle(45.0f) //, keyboardfunc([](int, int, int){})
 	{
 		hWnd = CreateOpenGLWindow(title);
 		if (hWnd == NULL) throw("failed to create opengl window");
@@ -312,7 +316,6 @@ public:
 	{
 		DestroyOpenGLWindow();
 	}
-
 	LONG WINAPI MsgProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{ 
 
@@ -327,12 +330,12 @@ public:
 					PostQuitMessage(0);
 					break;
 			}
+			if(keyboardfunc)
+				keyboardfunc(wParam, MouseX, MouseY); // to match glut's api, add the x and y.
 			return 0;
 
 		case WM_LBUTTONDOWN:
-			/* if we don't set the capture we won't get mouse move
-			   messages when the mouse moves outside the window. */
-			SetCapture(hWnd);
+			SetCapture(hWnd);  // set the capture to get mouse moves outside window
 			MouseX = LOWORD(lParam);
 			MouseY = HIWORD(lParam);
 			ComputeMouseVector();
@@ -346,19 +349,13 @@ public:
 			if(MouseY & 1 << 15) MouseY -= (1 << 16);
 			ComputeMouseVector();
 			MouseState=0;
-			/* remember to release the capture when we are finished. */
 			ReleaseCapture();
 			return 0;
 
 		case WM_MOUSEMOVE:
 			MouseX = LOWORD(lParam);
 			MouseY = HIWORD(lParam);
-			/* Win32 is pretty braindead about the x, y position that
-			   it returns when the mouse is off the left or top edge
-			   of the window (due to them being unsigned). therefore,
-			   roll the Win32's 0..2^16 pointer co-ord range to the
-			   more amenable (and useful) 0..+/-2^15. */
-			if(MouseX & 1 << 15) MouseX -= (1 << 16);
+			if(MouseX & 1 << 15) MouseX -= (1 << 16); // when negative probably needed because 16bit vs 32
 			if(MouseY & 1 << 15) MouseY -= (1 << 16);
 			ComputeMouseVector();
 			return 0;
@@ -385,7 +382,7 @@ public:
 		}
 		return true;
 	}
-	bool SwapBuffers() { return ::SwapBuffers(hDC); }
+	bool SwapBuffers() { return  (::SwapBuffers(hDC)!=0); }
 
 };
 static LRESULT WINAPI MsgProcG( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )

@@ -30,6 +30,8 @@
 #include <sys/timeb.h>
 #include <time.h>
 
+#pragma comment(lib,"winmm.lib")  // for the timing functions fps deltat
+
 #include "vector.h"
 
 
