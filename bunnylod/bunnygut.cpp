@@ -19,9 +19,14 @@
 #include <GL/gl.h>
 #pragma warning(disable : 4244)
 
-#include "vector.h"
+#include "vecmatquat.h"
+#include "array.h"
 #include "progmesh.h"
 #include "rabdata.h"
+
+void glNormal3fv(const float3& v){ glNormal3fv(&v.x); }  // to conveniently just use the float3 struct
+void glVertex3fv(const float3& v){ glVertex3fv(&v.x); }
+void glColor3fv (const float3& v){ glColor3fv (&v.x); }
 
 extern float DeltaT;  // change in time since last frame
 int   render_num;   // number of vertices to draw with
@@ -32,7 +37,7 @@ Array<tridata> tri;       // global Array of triangles
 Array<int> collapse_map;  // to which neighbor each vertex collapses
 int renderpolycount=0;   // polygons rendered in the current frame
 float3 model_position;         // position of bunny
-Quaternion model_orientation;  // orientation of bunny
+Quaternion model_orientation(0,0,0,1);  // orientation of bunny
 
 // Note that the use of the Map() function and the collapse_map
 // Array isn't part of the polygon reduction algorithm.
@@ -160,9 +165,9 @@ void InitModel() {
 	ProgressiveMesh(vert,tri,collapse_map,permutation);
 	PermuteVertices(permutation);
 	model_position    = float3(0,0,-3);
-	Quaternion yaw(float3(0, 1, 0), -3.14f / 4);    // 45 degrees
-	Quaternion pitch(float3(1, 0, 0), 3.14f / 12);  // 15 degrees 
-	model_orientation = pitch*yaw;
+	Quaternion yaw = QuatFromAxisAngle(float3(0, 1, 0), -3.14f / 4);    // 45 degrees
+	Quaternion pitch = QuatFromAxisAngle(float3(1, 0, 0), 3.14f / 12);  // 15 degrees 
+	model_orientation = qmul(pitch,yaw);
 }
 
 void StatusDraw() {
@@ -264,9 +269,9 @@ char *RenderModel() {
 	glPushMatrix();
 	glTranslatef(model_position.x,model_position.y,model_position.z);
 	// Rotate by quaternion: model_orientation
-	float3 axis=model_orientation.axis();
-	float angle=model_orientation.angle()*180.0f/3.14f;
-	glRotatef(angle,axis.x,axis.y,axis.z);
+	float3 axis; float angle;
+	std::tie(axis, angle) = AxisAngleFromQuat(model_orientation);
+	glRotatef(angle*180.0f / 3.14f, axis.x, axis.y, axis.z);
 	DrawModelTriangles();
 	StatusDraw();
 	glPopMatrix();

@@ -39,7 +39,7 @@ Array<Type>::Array(int s){
 }
 
 template <class Type>
-Array<Type>::~Array<Type>(){
+Array<Type>::~Array(){
 	delete element;
 }
 

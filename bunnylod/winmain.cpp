@@ -32,7 +32,7 @@
 
 #pragma comment(lib,"winmm.lib")  // for the timing functions fps deltat
 
-#include "vector.h"
+#include "vecmatquat.h"
 
 
 
@@ -119,10 +119,10 @@ Quaternion VirtualTrackBall(const float3& cop, const float3& cor, const float3& 
 	float angle;
 	m=magnitude(axis);
 	if(m>1)m=1; // avoid potential floating point error
-	Quaternion q(float3(1.0f, 0.0f, 0.0f), 0.0f);  // from axis angle
+	Quaternion q = QuatFromAxisAngle(float3(1.0f, 0.0f, 0.0f), 0.0f);  // from axis angle
 	if(m>0 && (angle=(float)asin(m))>3.14/180) {
  			axis = normalize(axis);
-  			q=Quaternion(axis,angle);
+			q = QuatFromAxisAngle(axis, angle);
 	}
 	return q;
 }
@@ -144,7 +144,7 @@ int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst,
 	{
 
 		if(glwin.MouseState) 
-			model_orientation=VirtualTrackBall(float3(0,0,0),model_position,MouseVectorOld,glwin.MouseVector)*model_orientation;
+			model_orientation=qmul(VirtualTrackBall(float3(0,0,0),model_position,MouseVectorOld,glwin.MouseVector),model_orientation);
 
 		MouseVectorOld = glwin.MouseVector;
 		CalcFPSDeltaT();
@@ -162,7 +162,7 @@ int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst,
 		glwin.PrintString("Demo by Stan Melax (c)1998",5,1);
 		glwin.PrintString("Model by Viewpoint Datalabs (c)1996",5,2);
 		char buf[1024];buf[0]='\0';
-		sprintf(buf,"FPS: %5.2f   ",FPS);
+		sprintf_s(buf,"FPS: %5.2f   ",FPS);
 		glwin.PrintString(buf,0,-1);
 
 		glPopMatrix();

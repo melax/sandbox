@@ -175,7 +175,13 @@ class GLWin
 #           else
 				"OpenGL";
 #           endif
-	
+		auto windowTitle =   // this depends on project's 'character-set' settings
+#           ifdef UNICODE
+			L"insert window title here";
+#           else
+			title;
+#           endif
+
 		/* only register the window class once - use hInstance as a flag. */
 		if (!hInstance) {
 			hInstance = GetModuleHandle(NULL);
@@ -194,7 +200,7 @@ class GLWin
 				throw("RegisterClass() failed:  Cannot register window class.");
 		}
 
-		hWnd = CreateWindow(className, title, WS_OVERLAPPEDWINDOW |
+		hWnd = CreateWindow(className, windowTitle, WS_OVERLAPPEDWINDOW |
 				WS_CLIPSIBLINGS | WS_CLIPCHILDREN,
 				0,0,Width,Height, NULL, NULL, hInstance, this);
 

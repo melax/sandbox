@@ -18,8 +18,8 @@
 #ifndef PROGRESSIVE_MESH_H
 #define PROGRESSIVE_MESH_H
 
-#include "vector.h"
-#include "Array.h"
+#include "vecmatquat.h"
+#include "array.h"
 
 class tridata {
   public:

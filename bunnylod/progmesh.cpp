@@ -13,8 +13,8 @@
 #include <assert.h>
 #include <windows.h>
 
-#include "vector.h"
-#include "Array.h"
+#include "vecmatquat.h"
+#include "array.h"
 #include "progmesh.h"
 
 /*

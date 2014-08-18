@@ -1,26 +1,23 @@
 //
-// This module contains a bunch of well understood functions
-// I apologise if the conventions used here are slightly
-// different than what you are used to.
+// minimal set of well understood vec,quat,mat 3d math routines as needed.
+// Following/extending hlsl conventions.
 // 
- 
 // 2014 update, just inlined the needed vector things in this file.
 // original code was from 1998 and wasn't using the best conventions.
 // For example, quaternions are xyzw, not rxyz now.
 
-#ifndef GENERIC_VECTOR_H
-#define GENERIC_VECTOR_H
+#ifndef GENERIC_VECMATQUAT_H
+#define GENERIC_VECMATQUAT_H
 
 #include <stdio.h>
 #include <math.h>
-
+#include <tuple>  // for std::pair
 
 class float3 {
   public:
 	float x,y,z;
 	float3(float x,float y,float z):x(x),y(y),z(z){}
 	float3():x(0),y(0),z(0){}
-	operator float *() { return &x;};  // this lets glVertex3fv work with this class
 };
 
 
@@ -44,59 +41,58 @@ inline float3 planelineintersection(const float3 &n, float d, const float3 &p1, 
 	return p1 + (dif*t);
 }
 
-class matrix   // float3x3
+/*
+class float3x3
 {
  public:
 	float3 x,y,z;
-	matrix(){x=float3(1.0f,0.0f,0.0f);
+	float3x3(){x=float3(1.0f,0.0f,0.0f);
 	         y=float3(0.0f,1.0f,0.0f);
 	         z=float3(0.0f,0.0f,1.0f);};
-	matrix(float3 x,float3 y,float3 z):x(x),y(y),z(z){}
+	float3x3(float3 x, float3 y, float3 z) :x(x), y(y), z(z){}
 };
-inline matrix transpose(const matrix &m) {
-	return matrix(float3(m.x.x, m.y.x, m.z.x),
+inline float3x3 transpose(const float3x3 &m) {
+	return float3x3(float3(m.x.x, m.y.x, m.z.x),
 		float3(m.x.y, m.y.y, m.z.y),
 		float3(m.x.z, m.y.z, m.z.z));
 }
-inline float3 operator*(const matrix &m_, const float3 &v){
-	auto m = transpose(m_); // since column ordered
-	return float3(dot(m.x, v), dot(m.y, v), dot(m.z, v));
-}
-inline matrix operator*(const matrix &a, const matrix &b){
-	auto m = transpose(a);
-	return matrix(m*b.x, m*b.y, m*b.z);
+inline float3 mul(const float3x3 &m, const float3 &v){  // m is assumed to be column major
+	return m.x*v.x + m.y*v.y + m.z*v.z; 
 }
 
-class Quaternion{
+*/
+
+class Quaternion
+{
  public:
 	 float x,y,z,w;
-	 Quaternion(){x=y=z=0.0f;w=1.0f;};
-	 Quaternion(float3 v,float t){v=normalize(v);w=(float)cos(t/2.0);v=v*(float)sin(t/2.0);x=v.x;y=v.y;z=v.z;};
+	 const float3& xyz() const { return *((float3*)&x); }
+	 float3&       xyz()       { return *((float3*)&x); }
+	 //Quaternion(){ x = y = z = 0.0f; w = 1.0f; };
 	 Quaternion(float _x,float _y,float _z,float _w){x=_x;y=_y;z=_z;w=_w;};
-	 float angle()const {return (float)(acos(w)*2.0);}
-	 float3 axis()const {float3 a(x,y,z); return a*(float)(1/sin(angle()/2.0));}
-	 float3 xdir()const {return float3(1-2*(y*y+z*z),  2*(x*y+w*z),  2*(x*z-w*y));}
-	 float3 ydir()const {return float3(  2*(x*y-w*z),1-2*(x*x+z*z),  2*(y*z+w*x));}
-	 float3 zdir()const {return float3(  2*(x*z+w*y),  2*(y*z-w*x),1-2*(x*x+y*y));}
-	 matrix  getmatrix() const {return matrix(xdir(),ydir(),zdir());}
-	 //operator matrix(){return getmatrix();}
+	 
 };
-inline Quaternion operator*(const Quaternion &a, const Quaternion &b)
+inline Quaternion QuatFromAxisAngle(const float3 &axis, float t) { auto v=normalize(axis)*sinf(t / 2.0f); return{v.x,v.y,v.z,cosf(t/2.0f)}; }
+inline std::pair<float3, float> AxisAngleFromQuat(const Quaternion &q) { auto a = acos(q.w)*2.0f; return std::make_pair(q.xyz() / sinf(a / 2.0f), a); }
+inline float3 qxdir(const Quaternion &q) {return float3(1-2*(q.y*q.y+q.z*q.z),  2*(q.x*q.y+q.w*q.z),  2*(q.x*q.z-q.w*q.y));}
+inline float3 qydir(const Quaternion &q) {return float3(  2*(q.x*q.y-q.w*q.z),1-2*(q.x*q.x+q.z*q.z),  2*(q.y*q.z+q.w*q.x));}
+inline float3 qzdir(const Quaternion &q) {return float3(  2*(q.x*q.z+q.w*q.y),  2*(q.y*q.z-q.w*q.x),1-2*(q.x*q.x+q.y*q.y));}
+//inline float3x3  qmatrix(const Quaternion &q) { return float3x3(qxdir(q), qydir(q), qzdir(q)); }
+inline Quaternion qmul(const Quaternion &a, const Quaternion &b)
 {
-	Quaternion c;
-	c.x = a.w*b.x + a.x*b.w + a.y*b.z - a.z*b.y;
-	c.y = a.w*b.y - a.x*b.z + a.y*b.w + a.z*b.x;
-	c.z = a.w*b.z + a.x*b.y - a.y*b.x + a.z*b.w;
-	c.w = a.w*b.w - a.x*b.x - a.y*b.y - a.z*b.z;
-	return c;
+	return{
+		a.w*b.x + a.x*b.w + a.y*b.z - a.z*b.y,
+		a.w*b.y - a.x*b.z + a.y*b.w + a.z*b.x,
+		a.w*b.z + a.x*b.y - a.y*b.x + a.z*b.w,
+		a.w*b.w - a.x*b.x - a.y*b.y - a.z*b.z
+	};
 }
 
 inline Quaternion operator*(const Quaternion &a, float b) { return{ a.x*b, a.y*b, a.z*b, a.w*b }; }
 inline Quaternion operator+(const Quaternion &a, const Quaternion &b) { return{ a.x + b.x, a.y + b.y, a.z + b.z, a.w + b.w }; }
 inline float dot(const Quaternion &a, const Quaternion &b) { return  a.x*b.x + a.y*b.y + a.z*b.z + a.w*b.w; }
 inline Quaternion qconj(const Quaternion &q) { return {-q.x,-q.y,-q.z,q.w}; } 
-
-inline float3 qrot(const Quaternion &q, const float3 &v) { return q.getmatrix() * v; }  // q*v*conj(q) 
+inline float3 qrot(const Quaternion &q, const float3 &v) { return qmul(qmul(q , Quaternion(v.x,v.y,v.z,0)), qconj(q)).xyz() ; }  // q*v*conj(q) 
 
 
 inline Quaternion slerp(const Quaternion &a_, const Quaternion &b, float interp)
