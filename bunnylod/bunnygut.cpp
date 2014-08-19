@@ -21,7 +21,6 @@
 #pragma warning(disable : 4244)
 
 #include "../include/vecmatquat_minimal.h"
-#include "array.h"
 #include "progmesh.h"
 #include "rabdata.h"
 
@@ -33,9 +32,9 @@ extern float DeltaT;  // change in time since last frame
 int   render_num;   // number of vertices to draw with
 float lodbase=0.5f; // the fraction of vertices used to morph toward
 float morph=1.0f;   // where to render between 2 levels of detail
-Array<float3> vert;       // global Array of vertices
-Array<tridata> tri;       // global Array of triangles
-Array<int> collapse_map;  // to which neighbor each vertex collapses
+std::vector<float3> vert;       // global Array of vertices
+std::vector<tridata> tri;       // global Array of triangles
+std::vector<int> collapse_map;  // to which neighbor each vertex collapses
 int renderpolycount=0;   // polygons rendered in the current frame
 float3 model_position;         // position of bunny
 Quaternion model_orientation(0,0,0,1);  // orientation of bunny
@@ -86,10 +85,9 @@ int Map(int a,int mx) {
 }
 
 void DrawModelTriangles() {
-	assert(collapse_map.num);
+	assert(collapse_map.size());
 	renderpolycount=0;
-	int i=0;
-	for(i=0;i<tri.num;i++) {
+	for (unsigned int i = 0; i<tri.size(); i++) {
 		int p0= Map(tri[i].v[0],render_num);
 		int p1= Map(tri[i].v[1],render_num);
 		int p2= Map(tri[i].v[2],render_num);
@@ -122,19 +120,19 @@ void DrawModelTriangles() {
 }
 
 
-void PermuteVertices(Array<int> &permutation) {
+void PermuteVertices(std::vector<int> &permutation) {
 	// rearrange the vertex Array 
-	Array<float3> temp_Array;
-	int i;
-	assert(permutation.num==vert.num);
-	for(i=0;i<vert.num;i++) {
-		temp_Array.Add(vert[i]);
+	std::vector<float3> temp_Array;
+	unsigned int i;
+	assert(permutation.size() == vert.size());
+	for (i = 0; i<vert.size(); i++) {
+		temp_Array.push_back(vert[i]);
 	}
-	for(i=0;i<vert.num;i++) {
+	for(i=0;i<vert.size();i++) {
 		vert[permutation[i]]=temp_Array[i];
 	}
 	// update the changes in the entries in the triangle Array
-	for(i=0;i<tri.num;i++) {
+	for (i = 0; i<tri.size(); i++) {
 		for(int j=0;j<3;j++) {
 			tri[i].v[j] = permutation[tri[i].v[j]];
 		}
@@ -147,21 +145,21 @@ void GetRabbitData(){
 	int i;
 	for(i=0;i<RABBIT_VERTEX_NUM;i++) {
 		float *vp=rabbit_vertices[i];
-		vert.Add(float3(vp[0],vp[1],vp[2]));
+		vert.push_back(float3(vp[0],vp[1],vp[2]));
 	}
 	for(i=0;i<RABBIT_TRIANGLE_NUM;i++) {
 		tridata td;
 		td.v[0]=rabbit_triangles[i][0];
 		td.v[1]=rabbit_triangles[i][1];
 		td.v[2]=rabbit_triangles[i][2];
-		tri.Add(td);
+		tri.push_back(td);
 	}
-	render_num=vert.num;  // by default lets use all the model to render
+	render_num=vert.size();  // by default lets use all the model to render
 }
 
 
 void InitModel() {
-	Array<int> permutation;
+	std::vector<int> permutation;
 	GetRabbitData();  
 	ProgressiveMesh(vert,tri,collapse_map,permutation);
 	PermuteVertices(permutation);
@@ -174,7 +172,7 @@ void InitModel() {
 void StatusDraw() {
 	//  Draw a slider type widget looking thing
 	// to show portion of vertices being used
-	float b = (float)render_num / (float)vert.num;
+	float b = (float)render_num / (float)vert.size();
 	float a = b*(lodbase );
 	glDisable(GL_LIGHTING);
 	glMatrixMode( GL_PROJECTION );
@@ -254,10 +252,10 @@ void AnimateParameters() {
 		k++;
 	}
 	float interp = (time-keys[k].t)/(keys[k+1].t-keys[k].t);
-	render_num = vert.num*(keys[k].n + interp*keys[k].dn);
+	render_num = vert.size()*(keys[k].n + interp*keys[k].dn);
 	morph    = keys[k].m + interp*keys[k].dm;
 	morph = (morph>1.0f) ? 1.0f : morph;  // clamp value
-	if(render_num>vert.num) render_num=vert.num;
+	if (render_num>vert.size()) render_num = vert.size();
 	if(render_num<0       ) render_num=0;
 }
 

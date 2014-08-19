@@ -134,7 +134,6 @@
   <ItemGroup>
     <ClInclude Include="..\include\glwin.h" />
     <ClInclude Include="..\include\vecmatquat_minimal.h" />
-    <ClInclude Include="array.h" />
     <ClInclude Include="progmesh.h" />
     <ClInclude Include="rabdata.h" />
   </ItemGroup>

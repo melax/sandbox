@@ -13,10 +13,18 @@
 #include <assert.h>
 #define NOMINMAX
 #include <windows.h>
+#include <assert.h>
 
 #include "../include/vecmatquat_minimal.h"
-#include "array.h"
 #include "progmesh.h"
+
+template<class T> int   Contains(const std::vector<T> & c, const T & t)     { return std::count(begin(c), end(c), t); }
+template<class T> int   IndexOf(const std::vector<T> & c, const T & v)     { return std::find(begin(c), end(c), v) - begin(c); } // Note: Not presently called
+template<class T> T &   Add(std::vector<T> & c, T t)                   { c.push_back(t); return c.back(); }
+template<class T> T     Pop(std::vector<T> & c)                        { auto val = std::move(c.back()); c.pop_back(); return val; }
+template<class T> void  AddUnique(std::vector<T> & c, T t)                   { if (!Contains(c, t)) c.push_back(t); }
+template<class T> void  Remove(std::vector<T> & c, T t)                   { auto it = std::find(begin(c), end(c), t); assert(it != end(c)); c.erase(it); assert(!Contains(c, t)); }
+
 
 /*
  *  For the polygon reduction algorithm we use data structures
@@ -42,16 +50,16 @@ class Vertex {
   public:
 	float3           position; // location of point in euclidean space
 	int              id;       // place of vertex in original Array
-	Array<Vertex *>   neighbor; // adjacent vertices
-	Array<Triangle *> face;     // adjacent triangles
+	std::vector<Vertex *>   neighbor; // adjacent vertices
+	std::vector<Triangle *> face;     // adjacent triangles
 	float            objdist;  // cached cost of collapsing edge
 	Vertex *         collapse; // candidate vertex for collapse
 	                 Vertex(float3 v,int _id);
 	                 ~Vertex();
 	void             RemoveIfNonNeighbor(Vertex *n);
 };
-Array<Vertex *>   vertices;
-Array<Triangle *> triangles;
+std::vector<Vertex *>   vertices;
+std::vector<Triangle *> triangles;
 
 
 Triangle::Triangle(Vertex *v0,Vertex *v1,Vertex *v2){
@@ -60,21 +68,20 @@ Triangle::Triangle(Vertex *v0,Vertex *v1,Vertex *v2){
 	vertex[1]=v1;
 	vertex[2]=v2;
 	ComputeNormal();
-	triangles.Add(this);
+	triangles.push_back(this);
 	for(int i=0;i<3;i++) {
-		vertex[i]->face.Add(this);
+		vertex[i]->face.push_back(this);
 		for(int j=0;j<3;j++) if(i!=j) {
-			vertex[i]->neighbor.AddUnique(vertex[j]);
+			AddUnique(vertex[i]->neighbor, vertex[j]);
 		}
 	}
 }
 Triangle::~Triangle(){
-	int i;
-	triangles.Remove(this);
-	for(i=0;i<3;i++) {
-		if(vertex[i]) vertex[i]->face.Remove(this);
+	Remove(triangles,this);
+	for(int i=0;i<3;i++) {
+		if(vertex[i]) Remove(vertex[i]->face,this);
 	}
-	for(i=0;i<3;i++) {
+	for (int i = 0; i<3; i++) {
 		int i2 = (i+1)%3;
 		if(!vertex[i] || !vertex[i2]) continue;
 		vertex[i ]->RemoveIfNonNeighbor(vertex[i2]);
@@ -109,18 +116,17 @@ void Triangle::ReplaceVertex(Vertex *vold,Vertex *vnew)
 		assert(vold==vertex[2]);
 		vertex[2]=vnew;
 	}
-	int i;
-	vold->face.Remove(this);
-	assert(!vnew->face.Contains(this));
-	vnew->face.Add(this);
-	for(i=0;i<3;i++) {
+	Remove(vold->face,this);
+	assert(!Contains(vnew->face,this));
+	vnew->face.push_back(this);
+	for (int i = 0; i<3; i++) {
 		vold->RemoveIfNonNeighbor(vertex[i]);
 		vertex[i]->RemoveIfNonNeighbor(vold);
 	}
-	for(i=0;i<3;i++) {
-		assert(vertex[i]->face.Contains(this)==1);
+	for (int i = 0; i<3; i++) {
+		assert(Contains(vertex[i]->face,this)==1);
 		for(int j=0;j<3;j++) if(i!=j) {
-			vertex[i]->neighbor.AddUnique(vertex[j]);
+			AddUnique(vertex[i]->neighbor,vertex[j]);
 		}
 	}
 	ComputeNormal();
@@ -129,24 +135,24 @@ void Triangle::ReplaceVertex(Vertex *vold,Vertex *vnew)
 Vertex::Vertex(float3 v,int _id) {
 	position =v;
 	id=_id;
-	vertices.Add(this);
+	vertices.push_back(this);
 }
 
 Vertex::~Vertex(){
-	assert(face.num==0);
-	while(neighbor.num) {
-		neighbor[0]->neighbor.Remove(this);
-		neighbor.Remove(neighbor[0]);
+	assert(face.size() == 0);
+	while(neighbor.size()) {
+		Remove(neighbor[0]->neighbor,this);
+		Remove(neighbor,neighbor[0]);
 	}
-	vertices.Remove(this);
+	Remove(vertices,this);
 }
 void Vertex::RemoveIfNonNeighbor(Vertex *n) {
 	// removes n from neighbor Array if n isn't a neighbor.
-	if(!neighbor.Contains(n)) return;
-	for(int i=0;i<face.num;i++) {
+	if(!Contains(neighbor,n)) return;
+	for (unsigned int i = 0; i<face.size(); i++) {
 		if(face[i]->HasVertex(n)) return;
 	}
-	neighbor.Remove(n);
+	Remove(neighbor,n);
 }
 
 
@@ -162,22 +168,21 @@ float ComputeEdgeCollapseCost(Vertex *u,Vertex *v) {
 	// would be generated.  i.e. normal of a remaining face gets
 	// flipped.  I never seemed to run into this problem and
 	// therefore never added code to detect this case.
-	int i;
 	float edgelength = magnitude(v->position - u->position);
 	float curvature=0;
 
 	// find the "sides" triangles that are on the edge uv
-	Array<Triangle *> sides;
-	for(i=0;i<u->face.num;i++) {
+	std::vector<Triangle *> sides;
+	for (unsigned int i = 0; i<u->face.size(); i++) {
 		if(u->face[i]->HasVertex(v)){
-			sides.Add(u->face[i]);
+			sides.push_back(u->face[i]);
 		}
 	}
 	// use the triangle facing most away from the sides 
 	// to determine our curvature term
-	for(i=0;i<u->face.num;i++) {
+	for (unsigned int i = 0; i<u->face.size(); i++) {
 		float mincurv=1; // curve for face i and closer side to it
-		for(int j=0;j<sides.num;j++) {
+		for (unsigned int j = 0; j<sides.size(); j++) {
 			float dotprod = dot(u->face[i]->normal , sides[j]->normal);	  // use dot product of face normals. 
 			mincurv = std::min(mincurv,(1-dotprod)/2.0f);
 		}
@@ -194,7 +199,7 @@ void ComputeEdgeCostAtVertex(Vertex *v) {
 	// only cache the cost of the least cost edge at this vertex
 	// (in member variable collapse) as well as the value of the 
 	// cost (in member variable objdist).
-	if(v->neighbor.num==0) {
+	if (v->neighbor.size() == 0) {
 		// v doesn't have neighbors so it costs nothing to collapse
 		v->collapse=NULL;
 		v->objdist=-0.01f;
@@ -203,7 +208,7 @@ void ComputeEdgeCostAtVertex(Vertex *v) {
 	v->objdist = 1000000;
 	v->collapse=NULL;
 	// search all neighboring edges for "least cost" edge
-	for(int i=0;i<v->neighbor.num;i++) {
+	for (unsigned int i = 0; i<v->neighbor.size(); i++) {
 		float dist;
 		dist = ComputeEdgeCollapseCost(v,v->neighbor[i]);
 		if(dist<v->objdist) {
@@ -216,7 +221,7 @@ void ComputeAllEdgeCollapseCosts() {
 	// For all the edges, compute the difference it would make
 	// to the model if it was collapsed.  The least of these
 	// per vertex is cached in each vertex object.
-	for(int i=0;i<vertices.num;i++) {
+	for (unsigned int i = 0; i<vertices.size(); i++) {
 		ComputeEdgeCostAtVertex(vertices[i]);
 	}
 }
@@ -230,36 +235,41 @@ void Collapse(Vertex *u,Vertex *v){
 		delete u;
 		return;
 	}
-	int i;
-	Array<Vertex *>tmp;
+	std::vector<Vertex *>tmp;
 	// make tmp a Array of all the neighbors of u
-	for(i=0;i<u->neighbor.num;i++) {
-		tmp.Add(u->neighbor[i]);
+	for (unsigned int i = 0; i<u->neighbor.size(); i++) {
+		tmp.push_back(u->neighbor[i]);
 	}
 	// delete triangles on edge uv:
-	for(i=u->face.num-1;i>=0;i--) {
-		if(u->face[i]->HasVertex(v)) {
-			delete(u->face[i]);
+	{
+		auto i = u->face.size();
+		while (i--) {
+			if (u->face[i]->HasVertex(v)) {
+				delete(u->face[i]);
+			}
 		}
 	}
 	// update remaining triangles to have v instead of u
-	for(i=u->face.num-1;i>=0;i--) {
-		u->face[i]->ReplaceVertex(u,v);
+	{
+		auto i = u->face.size();
+		while (i--) {
+			u->face[i]->ReplaceVertex(u, v);
+		}
 	}
 	delete u; 
 	// recompute the edge collapse costs for neighboring vertices
-	for(i=0;i<tmp.num;i++) {
+	for (unsigned int i = 0; i<tmp.size(); i++) {
 		ComputeEdgeCostAtVertex(tmp[i]);
 	}
 }
 
-void AddVertex(Array<float3> &vert){
-	for(int i=0;i<vert.num;i++) {
+void AddVertex(std::vector<float3> &vert){
+	for (unsigned int i = 0; i<vert.size(); i++) {
 		Vertex *v = new Vertex(vert[i],i);
 	}
 }
-void AddFaces(Array<tridata> &tri){
-	for(int i=0;i<tri.num;i++) {
+void AddFaces(std::vector<tridata> &tri){
+	for (unsigned int i = 0; i<tri.size(); i++) {
 		Triangle *t=new Triangle(
 					      vertices[tri[i].v[0]],
 					      vertices[tri[i].v[1]],
@@ -275,7 +285,7 @@ Vertex *MinimumCostEdge(){
 	// does a sequential search through an unsorted Array :-(
 	// Our algorithm could be O(n*lg(n)) instead of O(n*n)
 	Vertex *mn=vertices[0];
-	for(int i=0;i<vertices.num;i++) {
+	for (unsigned int i = 0; i<vertices.size(); i++) {
 		if(vertices[i]->objdist < mn->objdist) {
 			mn = vertices[i];
 		}
@@ -283,27 +293,27 @@ Vertex *MinimumCostEdge(){
 	return mn;
 }
 
-void ProgressiveMesh(Array<float3> &vert, Array<tridata> &tri, 
-                     Array<int> &map, Array<int> &permutation)
+void ProgressiveMesh(std::vector<float3> &vert, std::vector<tridata> &tri,
+                     std::vector<int> &map, std::vector<int> &permutation)
 {
 	AddVertex(vert);  // put input data into our data structures
 	AddFaces(tri);
 	ComputeAllEdgeCollapseCosts(); // cache all edge collapse costs
-	permutation.SetSize(vertices.num);  // allocate space
-	map.SetSize(vertices.num);          // allocate space
+	permutation.resize(vertices.size());  // allocate space
+	map.resize(vertices.size());          // allocate space
 	// reduce the object down to nothing:
-	while(vertices.num > 0) {
+	while (vertices.size() > 0) {
 		// get the next vertex to collapse
 		Vertex *mn = MinimumCostEdge();
 		// keep track of this vertex, i.e. the collapse ordering
-		permutation[mn->id]=vertices.num-1;
+		permutation[mn->id] = vertices.size() - 1;
 		// keep track of vertex to which we collapse to
-		map[vertices.num-1] = (mn->collapse)?mn->collapse->id:-1;
+		map[vertices.size() - 1] = (mn->collapse) ? mn->collapse->id : -1;
 		// Collapse this edge
 		Collapse(mn,mn->collapse);
 	}
 	// reorder the map Array based on the collapse ordering
-	for(int i=0;i<map.num;i++) {
+	for (unsigned int i = 0; i<map.size(); i++) {
 		map[i] = (map[i]==-1)?0:permutation[map[i]];
 	}
 	// The caller of this function should reorder their vertices

@@ -19,7 +19,7 @@
 #define PROGRESSIVE_MESH_H
 
 #include "../include/vecmatquat_minimal.h"
-#include "array.h"
+#include <vector>
 
 class tridata {
   public:
@@ -27,7 +27,7 @@ class tridata {
 	// texture and vertex normal info removed for this demo
 };
 
-void ProgressiveMesh(Array<float3> &vert,  Array<tridata> &tri, 
-                     Array<int> &map,  Array<int> &permutation );
+void ProgressiveMesh(std::vector<float3> &vert, std::vector<tridata> &tri,
+	                 std::vector<int> &map, std::vector<int> &permutation);
 
 #endif
