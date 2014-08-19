@@ -89,7 +89,9 @@
     <ClInclude Include="..\include\coremath.h" />
     <ClInclude Include="..\include\geometry.h" />
     <ClInclude Include="..\include\glwin.h" />
+    <ClInclude Include="..\include\hull.h" />
     <ClInclude Include="..\include\vecmath.h" />
+    <ClInclude Include="..\include\vecmatquat_minimal.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

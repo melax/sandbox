@@ -18,7 +18,7 @@
 #ifndef PROGRESSIVE_MESH_H
 #define PROGRESSIVE_MESH_H
 
-#include "vecmatquat.h"
+#include "../include/vecmatquat_minimal.h"
 #include "array.h"
 
 class tridata {

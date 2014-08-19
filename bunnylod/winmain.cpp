@@ -22,6 +22,7 @@
  */
 
 
+#define NOMINMAX
 #include <windows.h>	/* must include this before GL/gl.h */
 #include <GL/gl.h>		/* OpenGL header file */
 #include <GL/glu.h>		/* OpenGL utilities header file */
@@ -32,10 +33,7 @@
 
 #pragma comment(lib,"winmm.lib")  // for the timing functions fps deltat
 
-#include "vecmatquat.h"
-
-
-
+#include "../include/vecmatquat_minimal.h"
 #include "../include/glwin.h"  // a minimial opengl on windows wrapper, just a header, no lib/dll.
 
 // Functions and Variables from bunny module

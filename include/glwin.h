@@ -32,8 +32,6 @@
 #pragma comment(lib,"glu32.lib")
 #endif
 
-static LRESULT WINAPI MsgProcG( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam );  // cant be an inline function or member,  windows callback.
-
 class GLWin
 {
 
@@ -165,22 +163,10 @@ class GLWin
 		// make a double-buffered, rgba, opengl window
 		
 		HWND        hWnd;
-		WNDCLASS    wc;
+		WNDCLASSA   wc;   // force non unicode 16 version
 		int         pf;
 		PIXELFORMATDESCRIPTOR pfd;
 		static HINSTANCE hInstance = 0;
-		auto className =   // this depends on project's 'character-set' settings
-#           ifdef UNICODE
-				L"OpenGL";
-#           else
-				"OpenGL";
-#           endif
-		auto windowTitle =   // this depends on project's 'character-set' settings
-#           ifdef UNICODE
-			L"insert window title here";
-#           else
-			title;
-#           endif
 
 		/* only register the window class once - use hInstance as a flag. */
 		if (!hInstance) {
@@ -194,15 +180,15 @@ class GLWin
 			wc.hCursor       = LoadCursor(NULL, IDC_ARROW);
 			wc.hbrBackground = NULL;
 			wc.lpszMenuName  = NULL;
-			wc.lpszClassName = className;
+			wc.lpszClassName = "OpenGL";
 
 			if (!RegisterClass(&wc)) 
 				throw("RegisterClass() failed:  Cannot register window class.");
 		}
 
-		hWnd = CreateWindow(className, windowTitle, WS_OVERLAPPEDWINDOW |
+		hWnd = CreateWindowA("OpenGL", title, WS_OVERLAPPEDWINDOW |
 				WS_CLIPSIBLINGS | WS_CLIPCHILDREN,
-				0,0,Width,Height, NULL, NULL, hInstance, this);
+				0,0,Width,Height, NULL, NULL, hInstance, this);  // force non-unicode16 non-wchar version of Windows's CreateWindow
 
 		if (hWnd == NULL)
 			throw("CreateWindow() failed:  Cannot create a window.");
@@ -390,12 +376,13 @@ public:
 	}
 	bool SwapBuffers() { return  (::SwapBuffers(hDC)!=0); }
 
+	static LRESULT WINAPI MsgProcG( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
+	{
+		if(msg==WM_NCCREATE)
+			SetWindowLongPtr(hWnd, GWLP_USERDATA, (LONG)(reinterpret_cast<CREATESTRUCT *>(lParam)->lpCreateParams));  // grab my pointer passed into createwindow
+		auto glwin = reinterpret_cast<GLWin *>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
+		return (glwin)? glwin->MsgProc(hWnd, msg, wParam, lParam ) : DefWindowProc( hWnd, msg, wParam, lParam );
+	}
 };
-static LRESULT WINAPI MsgProcG( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )
-{
-	if(msg==WM_NCCREATE)
-		SetWindowLongPtr(hWnd, GWLP_USERDATA, (LONG)(reinterpret_cast<CREATESTRUCT *>(lParam)->lpCreateParams));  // grab my pointer passed into createwindow
-	auto glwin = reinterpret_cast<GLWin *>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
-	return (glwin)? glwin->MsgProc(hWnd, msg, wParam, lParam ) : DefWindowProc( hWnd, msg, wParam, lParam );
-}
+
 

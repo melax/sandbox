@@ -6,22 +6,42 @@
 // original code was from 1998 and wasn't using the best conventions.
 // For example, quaternions are xyzw, not rxyz now.
 
-#ifndef GENERIC_VECMATQUAT_H
-#define GENERIC_VECMATQUAT_H
+#ifndef GENERIC_VECMATQUAT_MINIMAL_H
+#define GENERIC_VECMATQUAT_MINIMAL_H
 
 #include <stdio.h>
 #include <math.h>
 #include <tuple>  // for std::pair
+#include <algorithm> 
+
+struct int3 
+{
+	int x, y, z;
+	int &operator[](int i){ return (&x)[i]; }
+	const int &operator[](int i)const { return (&x)[i]; }
+};
+inline bool operator==(const int3 &a, const int3 &b)      { return a.x == b.x && a.y == b.y && a.z == b.z; }
+
+struct int4 
+{
+	int x, y, z, w;
+	int &operator[](int i){ return (&x)[i]; }
+	const int &operator[](int i)const { return (&x)[i]; }
+};
+
 
 class float3 {
   public:
 	float x,y,z;
 	float3(float x,float y,float z):x(x),y(y),z(z){}
 	float3():x(0),y(0),z(0){}
+	float &operator[](int i){ return (&x)[i]; }
+	const float &operator[](int i)const { return (&x)[i]; }
 };
 
 
-inline float3 operator+(const float3 &a, const float3 &b) { return {a.x+b.x,a.y+b.y,a.z+b.z}; }
+inline bool operator==(const float3 &a, const float3 &b)  { return a.x == b.x && a.y == b.y && a.z == b.z; }
+inline float3 operator+(const float3 &a, const float3 &b) { return{ a.x + b.x, a.y + b.y, a.z + b.z }; }
 inline float3 operator-(const float3 &v)                  { return { -v.x , -v.y, -v.z }; }
 inline float3 operator-(const float3 &a, const float3 &b) { return {a.x-b.x,a.y-b.y,a.z-b.z}; }
 inline float3 operator*(const float3 &v,float s)          { return { v.x*s , v.y*s, v.z*s }; }  
@@ -31,7 +51,8 @@ inline float  dot  (const float3 &a, const float3 &b)     { return a.x*b.x+a.y*b
 inline float3 cross(const float3 &a, const float3 &b)     { return {a.y*b.z-a.z*b.y, a.z*b.x-a.x*b.z, a.x*b.y-a.y*b.x}; }
 inline float  magnitude(const float3 &v) { return sqrtf(dot(v, v)); }
 inline float3 normalize(const float3 &v) { return v / magnitude(v); }
-
+inline float3 cmin(const float3 &a, const float3 &b)      { return{ std::min(a.x, b.x), std::min(a.y, b.y), std::min(a.z, b.z) }; }
+inline float3 cmax(const float3 &a, const float3 &b)      { return{ std::max(a.x, b.x), std::max(a.y, b.y), std::max(a.z, b.z) }; }
 inline float3 planelineintersection(const float3 &n, float d, const float3 &p1, const float3 &p2)
 {
 	// returns the point where the line p1-p2 intersects the plane n&d
@@ -39,6 +60,24 @@ inline float3 planelineintersection(const float3 &n, float d, const float3 &p1, 
 	float dn = dot(n, dif);
 	float t = -(d + dot(n, p1)) / dn;
 	return p1 + (dif*t);
+}
+inline int maxdir(const float3 *p, int count, const float3 &dir)
+{
+	if (count == 0) 
+		return -1;
+	int m = 0;
+	for (int i = 1; i<count; i++)
+	{
+		if (dot(p[i], dir)>dot(p[m], dir)) m = i;
+	}
+	return m;
+}
+inline float3 TriNormal(const float3 &v0, const float3 &v1, const float3 &v2)  // normal of the triangle with vertex positions v0, v1, and v2
+{
+	float3 cp = cross(v1 - v0, v2 - v1);
+	float m = magnitude(cp);
+	if (m == 0) return float3(1, 0, 0);
+	return cp*(1.0f / m);
 }
 
 /*

@@ -10,6 +10,7 @@
  *  use) to show the model at various levels of detail.
  */
 
+#define NOMINMAX
 #include <windows.h>
 #include <stdio.h>  
 #include <math.h>
@@ -19,7 +20,7 @@
 #include <GL/gl.h>
 #pragma warning(disable : 4244)
 
-#include "vecmatquat.h"
+#include "../include/vecmatquat_minimal.h"
 #include "array.h"
 #include "progmesh.h"
 #include "rabdata.h"
@@ -277,9 +278,9 @@ char *RenderModel() {
 	glPopMatrix();
 
 	static char buf[256];
-	sprintf(buf,"Polys: %d  Vertices: %d ",renderpolycount,render_num);
+	sprintf_s(buf,"Polys: %d  Vertices: %d ",renderpolycount,render_num);
 	if(morph<1.0) {
-		sprintf(buf+strlen(buf),"<-> %d  morph: %4.2f ",
+		sprintf_s(buf+strlen(buf),256-strlen(buf),"<-> %d  morph: %4.2f ",
 		        (int)(lodbase *render_num),morph); 
 	}
 	return buf;

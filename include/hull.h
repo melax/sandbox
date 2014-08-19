@@ -33,15 +33,15 @@
 #include <algorithm>
 #include <assert.h>
 
-#include "vecmath.h"  // hull.h header currently expects int3 and float3 and a few related functions to be implemented in the obvious way
+#include "vecmatquat_minimal.h"  // hull.h header currently expects int3 and float3 and a few related functions to be implemented in the obvious way
 
 
 
 
 
-inline int3 roll3(const int3 &a) { return int3(a[1], a[2], a[0]); }
+inline int3 roll3(const int3 &a) { return{ a[1], a[2], a[0] }; }
 inline bool isa(const int3 &a, const int3 &b) { return (a == b || roll3(a) == b || a == roll3(b)); }
-inline bool b2b(const int3 &a, const int3 &b) { return isa(a, int3(b[2], b[1], b[0])); }
+inline bool b2b(const int3 &a, const int3 &b) { return isa(a, { b[2], b[1], b[0] }); }
 
 inline bool above(float3* vertices, const int3& t, const float3 &p, float epsilon)
 {
@@ -82,7 +82,7 @@ public:
 	int id;   // should only need this for assert statements
 	int vmax;
 	float rise;
-	Tri(int a, int b, int c, int id, int3 n = { -1, -1, -1 }) :v(a, b, c), id(id), n(n)
+	Tri(int a, int b, int c, int id, int3 n = { -1, -1, -1 }) :v({ a, b, c }), id(id), n(n)
 	{
 		vmax=-1;
 		rise = 0.0f;
@@ -237,7 +237,7 @@ inline int4 FindSimplex(float3 *verts,int verts_count)
 	int	p1 = maxdir(verts,verts_count,-basis[0]);
 	basis[0] = verts[p0]-verts[p1];
 	if(p0==p1 || basis[0]==float3(0,0,0)) 
-		return int4(-1,-1,-1,-1);
+		return{ -1, -1, -1, -1 };
 	basis[1] = cross(float3(1,0,0),basis[0]);
 	basis[2] = cross(float3(0,1,0),basis[0]);
 	basis[1] = normalize( (magnitude(basis[1])>magnitude(basis[2])) ? basis[1]:basis[2]);
@@ -247,16 +247,16 @@ inline int4 FindSimplex(float3 *verts,int verts_count)
 		p2 = maxdir(verts,verts_count,-basis[1]);
 	}
 	if(p2 == p0 || p2 == p1) 
-		return int4(-1,-1,-1,-1);
+		return{ -1, -1, -1, -1 };
 	basis[1] = verts[p2] - verts[p0];
 	basis[2] = cross(basis[1],basis[0]);
 	int p3 = maxdir(verts,verts_count,basis[2]);
 	if(p3==p0||p3==p1||p3==p2) p3 = maxdir(verts,verts_count,-basis[2]);
 	if(p3==p0||p3==p1||p3==p2) 
-		return int4(-1,-1,-1,-1);
+		return{ -1, -1, -1, -1 };
 	assert(!(p0==p1||p0==p2||p0==p3||p1==p2||p1==p3||p2==p3));
-	if(dot(verts[p3]-verts[p0],cross(verts[p1]-verts[p0],verts[p2]-verts[p0])) <0) {Swap(p2,p3);}
-	return int4(p0,p1,p2,p3);
+	if(dot(verts[p3]-verts[p0],cross(verts[p1]-verts[p0],verts[p2]-verts[p0])) <0) {std::swap(p2,p3);}
+	return {p0,p1,p2,p3};
 }
 
 
@@ -282,10 +282,10 @@ inline std::vector<int3> calchull(float3 *verts,int verts_count, int vlimit)
 	std::vector<Tri> tris;
 	assert(tris.size() == 0);
 	float3 center = (verts[p[0]]+verts[p[1]]+verts[p[2]]+verts[p[3]]) /4.0f;  // a valid interior point
-	tris.push_back(Tri(p[2],p[3],p[1],tris.size(),int3(2,3,1))); 
-	tris.push_back(Tri(p[3],p[2],p[0],tris.size(),int3(3,2,0))); 
-	tris.push_back(Tri(p[0],p[1],p[3],tris.size(),int3(0,1,3))); 
-	tris.push_back(Tri(p[1],p[0],p[2],tris.size(),int3(1,0,2))); 
+	tris.push_back(Tri(p[2],p[3],p[1],tris.size(),{2,3,1})); 
+	tris.push_back(Tri(p[3],p[2],p[0],tris.size(),{3,2,0})); 
+	tris.push_back(Tri(p[0],p[1],p[3],tris.size(),{0,1,3})); 
+	tris.push_back(Tri(p[1],p[0],p[2],tris.size(),{1,0,2})); 
 	isextreme[p[0]]=isextreme[p[1]]=isextreme[p[2]]=isextreme[p[3]]=1;
 	checkit(tris,tris[0]);checkit(tris,tris[1]);checkit(tris,tris[2]);checkit(tris,tris[3]);
 

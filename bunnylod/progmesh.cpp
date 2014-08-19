@@ -11,9 +11,10 @@
 #include <math.h>
 #include <stdlib.h>
 #include <assert.h>
+#define NOMINMAX
 #include <windows.h>
 
-#include "vecmatquat.h"
+#include "../include/vecmatquat_minimal.h"
 #include "array.h"
 #include "progmesh.h"
 
@@ -178,9 +179,9 @@ float ComputeEdgeCollapseCost(Vertex *u,Vertex *v) {
 		float mincurv=1; // curve for face i and closer side to it
 		for(int j=0;j<sides.num;j++) {
 			float dotprod = dot(u->face[i]->normal , sides[j]->normal);	  // use dot product of face normals. 
-			mincurv = min(mincurv,(1-dotprod)/2.0f);
+			mincurv = std::min(mincurv,(1-dotprod)/2.0f);
 		}
-		curvature = max(curvature,mincurv);
+		curvature = std::max(curvature, mincurv);
 	}
 	// the more coplanar the lower the curvature term   
 	return edgelength * curvature;

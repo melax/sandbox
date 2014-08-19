@@ -5,12 +5,11 @@
 #include <cctype>  // std::tolower
 #include <cstdarg>   // For va_list, va_start, ...
 #include <cstdio>    // For vsnprintf
+#include <vector>
 // in project properties, add "../include" to the vc++ directories include path
 
-#include "vecmath.h"
-#include "vecmath.cpp"  // need to drag in this for now, will inline whats needed later.
+#include "vecmatquat_minimal.h"   
 #include "glwin.h"  // minimal opengl for windows setup wrapper
-
 #include "hull.h"
 
 float g_pitch, g_yaw;
@@ -147,7 +146,7 @@ int main(int argc, char *argv[])
 		glwin.PrintString("Press q to quit.     Spacebar new pointcloud.", 5, 1);
 		glwin.PrintString("Keys w,s increase/decrease vlimit and recalc. ", 5, 2);
 		char buf[256];
-		sprintf(buf, "vlimit %d tris %d  y,p= %f,%f", g_vlimit, g_tris.size(), g_yaw, g_pitch);
+		sprintf_s(buf, "vlimit %d tris %d  y,p= %f,%f", g_vlimit, g_tris.size(), g_yaw, g_pitch);
 		glwin.PrintString(buf, 5, 3);
 
 		glwin.SwapBuffers();
