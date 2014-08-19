@@ -255,7 +255,7 @@ void AnimateParameters() {
 	render_num = vert.size()*(keys[k].n + interp*keys[k].dn);
 	morph    = keys[k].m + interp*keys[k].dm;
 	morph = (morph>1.0f) ? 1.0f : morph;  // clamp value
-	if (render_num>vert.size()) render_num = vert.size();
+	if (render_num> (int) vert.size()) render_num = vert.size();
 	if(render_num<0       ) render_num=0;
 }
 

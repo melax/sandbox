@@ -65,12 +65,7 @@ inline int maxdir(const float3 *p, int count, const float3 &dir)
 {
 	if (count == 0) 
 		return -1;
-	int m = 0;
-	for (int i = 1; i<count; i++)
-	{
-		if (dot(p[i], dir)>dot(p[m], dir)) m = i;
-	}
-	return m;
+	return std::max_element(p, p + count, [dir](const float3 &a, const float3 &b){return dot(a, dir) < dot(b, dir); }) - p;
 }
 inline float3 TriNormal(const float3 &v0, const float3 &v1, const float3 &v2)  // normal of the triangle with vertex positions v0, v1, and v2
 {

@@ -31,7 +31,7 @@ void Init()
 	g_verts.resize(0);
 	for (int i = 0; i < g_vcount; i++)
 		g_verts.push_back(vrand() - float3(0.5f, 0.5f, 0.5f));
-	g_tris = ::calchull(g_verts.data(), g_verts.size(), g_vlimit);
+	g_tris = ::calchull(g_verts, g_vlimit);
 	g_vlimit = 0;
 	for (auto t : g_tris)
 		g_vlimit = std::max(g_vlimit, 1+ max_element(t));
@@ -52,7 +52,7 @@ void OnKeyboard(unsigned char key, int x, int y)
 	case 'w':
 	case 's':
 		g_vlimit+=(key=='s')?-1:1;  g_vlimit = std::max(4, g_vlimit);
-		g_tris = ::calchull(g_verts.data(), g_verts.size(), g_vlimit);
+		g_tris = ::calchull(g_verts, g_vlimit);
 		break;
 	default:
 		std::cout << "unassigned key (" << (int)key << "): '" << key << "'\n";

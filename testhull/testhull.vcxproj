@@ -42,15 +42,17 @@
     <LinkIncremental>true</LinkIncremental>
     <IncludePath>..\include\;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
     <LibraryPath>$(VC_LibraryPath_x86);$(WindowsSDK_LibraryPath_x86);</LibraryPath>
-    <OutDir>$(ProjectDir)</OutDir>
+    <OutDir>$(ProjectDir)\</OutDir>
     <TargetName>$(ProjectName)_$(Configuration)</TargetName>
+    <IntDir>$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
     <IncludePath>..\include\;$(VC_IncludePath);$(WindowsSDK_IncludePath);</IncludePath>
     <LibraryPath>$(VC_LibraryPath_x86);$(WindowsSDK_LibraryPath_x86);</LibraryPath>
-    <OutDir>$(ProjectDir)</OutDir>
+    <OutDir>$(ProjectDir)\</OutDir>
     <TargetName>$(ProjectName)_$(Configuration)</TargetName>
+    <IntDir>$(Configuration)\</IntDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -86,11 +88,8 @@
     <ClCompile Include="testhull.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\include\coremath.h" />
-    <ClInclude Include="..\include\geometry.h" />
     <ClInclude Include="..\include\glwin.h" />
     <ClInclude Include="..\include\hull.h" />
-    <ClInclude Include="..\include\vecmath.h" />
     <ClInclude Include="..\include\vecmatquat_minimal.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
