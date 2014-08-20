@@ -31,23 +31,39 @@ struct int4
 
 
 class float3 {
-  public:
-	float x,y,z;
-	float3(float x,float y,float z):x(x),y(y),z(z){}
-	float3():x(0),y(0),z(0){}
+public:
+	float x, y, z;
+	float3(float x, float y, float z) :x(x), y(y), z(z){}
+	float3() :x(0), y(0), z(0){}
+	float &operator[](int i){ return (&x)[i]; }
+	const float &operator[](int i)const { return (&x)[i]; }
+};
+
+class float4 {
+public:
+	float x, y, z,w;
+	float4(float x, float y, float z,float w) :x(x), y(y), z(z),w(w){}
+	float4() :x(0), y(0), z(0),w(0){}
+	float3& xyz() { return *((float3*)(&x)); }
+	const float3& xyz() const { return *((float3*)(&x)); }
 	float &operator[](int i){ return (&x)[i]; }
 	const float &operator[](int i)const { return (&x)[i]; }
 };
 
 
 inline bool operator==(const float3 &a, const float3 &b)  { return a.x == b.x && a.y == b.y && a.z == b.z; }
+inline bool operator!=(const float3 &a, const float3 &b)  { return !(a==b); }
 inline float3 operator+(const float3 &a, const float3 &b) { return{ a.x + b.x, a.y + b.y, a.z + b.z }; }
 inline float3 operator-(const float3 &v)                  { return { -v.x , -v.y, -v.z }; }
 inline float3 operator-(const float3 &a, const float3 &b) { return {a.x-b.x,a.y-b.y,a.z-b.z}; }
-inline float3 operator*(const float3 &v,float s)          { return { v.x*s , v.y*s, v.z*s }; }  
+inline float3 operator*(const float3 &v, float s)         { return{ v.x*s, v.y*s, v.z*s }; }
 inline float3 operator*(float s,const float3 &v)          { return v*s;}
 inline float3 operator/(const float3 &v,float s)          { return v * (1.0f/s) ;}
-inline float  dot  (const float3 &a, const float3 &b)     { return a.x*b.x+a.y*b.y+a.z*b.z; }
+inline float3 operator+=(float3 &a, const float3 &b)      { return a = a + b; }
+inline float3 operator-=(float3 &a, const float3 &b)      { return a = a - b; }
+inline float3 operator*=(float3 &v, const float &s )      { return v = v * s; }
+inline float3 operator/=(float3 &v, const float &s )      { return v = v / s; }
+inline float  dot(const float3 &a, const float3 &b)       { return a.x*b.x + a.y*b.y + a.z*b.z; }
 inline float3 cross(const float3 &a, const float3 &b)     { return {a.y*b.z-a.z*b.y, a.z*b.x-a.x*b.z, a.x*b.y-a.y*b.x}; }
 inline float  magnitude(const float3 &v) { return sqrtf(dot(v, v)); }
 inline float3 normalize(const float3 &v) { return v / magnitude(v); }
@@ -75,7 +91,7 @@ inline float3 TriNormal(const float3 &v0, const float3 &v1, const float3 &v2)  /
 	return cp*(1.0f / m);
 }
 
-/*
+
 class float3x3
 {
  public:
@@ -84,17 +100,29 @@ class float3x3
 	         y=float3(0.0f,1.0f,0.0f);
 	         z=float3(0.0f,0.0f,1.0f);};
 	float3x3(float3 x, float3 y, float3 z) :x(x), y(y), z(z){}
+	float3 &operator[](int i){ return (&x)[i]; }
+	const float3 &operator[](int i)const { return (&x)[i]; }
 };
+
+inline float3x3 operator*(const float3x3 &m, float s)         { return{ m.x*s, m.y*s, m.z*s }; }
 inline float3x3 transpose(const float3x3 &m) {
 	return float3x3(float3(m.x.x, m.y.x, m.z.x),
 		float3(m.x.y, m.y.y, m.z.y),
 		float3(m.x.z, m.y.z, m.z.z));
 }
-inline float3 mul(const float3x3 &m, const float3 &v){  // m is assumed to be column major
-	return m.x*v.x + m.y*v.y + m.z*v.z; 
+inline float3 mul(const float3x3 &m, const float3 &v){ return m.x*v.x + m.y*v.y + m.z*v.z; } // m is assumed to be column major
+inline float determinant(const float3x3& a)  { return a.x.x*(a.y.y*a.z.z - a.z.y*a.y.z) + a.x.y*(a.y.z*a.z.x - a.z.z*a.y.x) + a.x.z*(a.y.x*a.z.y - a.z.x*a.y.y); }
+inline float3x3 adjoint(const float3x3 & a)
+{
+	return{ { a.y.y*a.z.z - a.z.y*a.y.z, a.z.y*a.x.z - a.x.y*a.z.z, a.x.y*a.y.z - a.y.y*a.x.z },
+	{ a.y.z*a.z.x - a.z.z*a.y.x, a.z.z*a.x.x - a.x.z*a.z.x, a.x.z*a.y.x - a.y.z*a.x.x },
+	{ a.y.x*a.z.y - a.z.x*a.y.y, a.z.x*a.x.y - a.x.x*a.z.y, a.x.x*a.y.y - a.y.x*a.x.y } };
 }
+inline float3x3 inverse(float3x3 & a)  { return adjoint(a) *(1.0f / determinant(a)); }
 
-*/
+
+
+
 
 class Quaternion
 {
@@ -104,7 +132,9 @@ class Quaternion
 	 float3&       xyz()       { return *((float3*)&x); }
 	 //Quaternion(){ x = y = z = 0.0f; w = 1.0f; };
 	 Quaternion(float _x,float _y,float _z,float _w){x=_x;y=_y;z=_z;w=_w;};
-	 
+	 float &operator[](int i){ return (&x)[i]; }
+	 const float &operator[](int i)const { return (&x)[i]; }
+
 };
 inline Quaternion QuatFromAxisAngle(const float3 &axis, float t) { auto v=normalize(axis)*sinf(t / 2.0f); return{v.x,v.y,v.z,cosf(t/2.0f)}; }
 inline std::pair<float3, float> AxisAngleFromQuat(const Quaternion &q) { auto a = acos(q.w)*2.0f; return std::make_pair(q.xyz() / sinf(a / 2.0f), a); }

@@ -170,7 +170,7 @@ class GLWin
 
 		/* only register the window class once - use hInstance as a flag. */
 		if (!hInstance) {
-			hInstance = GetModuleHandle(NULL);
+			hInstance = GetModuleHandleA(NULL);
 			wc.style         = CS_OWNDC;
 			wc.lpfnWndProc   = (WNDPROC)MsgProcG;
 			wc.cbClsExtra    = 0;
@@ -182,8 +182,8 @@ class GLWin
 			wc.lpszMenuName  = NULL;
 			wc.lpszClassName = "OpenGL";
 
-			if (!RegisterClass(&wc)) 
-				throw("RegisterClass() failed:  Cannot register window class.");
+			if (!RegisterClassA(&wc)) 
+				throw("RegisterClassA() failed:  Cannot register window class.");
 		}
 
 		hWnd = CreateWindowA("OpenGL", title, WS_OVERLAPPEDWINDOW |
