@@ -182,11 +182,9 @@ LPSTR lpszCmdLine, int nCmdShow)
 			glVertex3fv(v);
 		glEnd();
 
-		Contact hitinfo;
-//		auto supportfunc = [](std::vector<float3> &c){  return[&c](const float3& d) ->float3 { return c[maxdir(c.data(), c.size(), d)]; }; };
-		int sep = Separated([](const float3& dir) { return a_verts[maxdir(a_verts.data(), a_verts.size(), dir)]; },  
-			[](const float3& dir) { return b_verts[maxdir(b_verts.data(), b_verts.size(), dir)]; },
-			hitinfo, 1);
+
+		auto hitinfo = Separated(a_verts, b_verts, 1);
+
 		glPointSize(5);
 		glBegin(GL_POINTS);
 		glColor3f(1, 0.5f, 0.5f);
