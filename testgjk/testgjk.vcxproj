@@ -81,6 +81,7 @@
     <ClCompile Include="testgjk.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\include\geometric.h" />
     <ClInclude Include="..\include\gjk.h" />
     <ClInclude Include="..\include\glwin.h" />
     <ClInclude Include="..\include\hull.h" />

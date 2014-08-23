@@ -12,13 +12,11 @@
 #include "glwin.h"  // minimal opengl for windows setup wrapper
 #include "hull.h"
 
-float g_pitch, g_yaw;
-int g_mouseX, g_mouseY;
-int g_vlimit = 64;
 
 std::vector<float3> g_verts;
 std::vector<int3> g_tris;
-int g_vcount = 20;
+int g_vlimit = 64;
+int g_cloudsize = 20;
 
 inline float randf(){ return static_cast<float>(rand()) / static_cast<float>(RAND_MAX); }
 
@@ -29,7 +27,7 @@ void Init()
 {
 	g_vlimit = 64;
 	g_verts.resize(0);
-	for (int i = 0; i < g_vcount; i++)
+	for (int i = 0; i < g_cloudsize; i++)
 		g_verts.push_back(vrand() - float3(0.5f, 0.5f, 0.5f));
 	g_tris = ::calchull(g_verts, g_vlimit);
 	g_vlimit = 0;
@@ -75,15 +73,15 @@ int main(int argc, char *argv[])
 
 	GLWin glwin("TestHull sample");
 	glwin.keyboardfunc = OnKeyboard;
+	float3 mousevec_prev;
+	float4 model_orientation(0, 0, 0, 1);
 	while (glwin.WindowUp())
 	{
 		if (glwin.MouseState)  // on mouse drag 
 		{
-			g_yaw   += (glwin.MouseX - g_mouseX) * 0.3f;  // poor man's trackball
-			g_pitch += (glwin.MouseY - g_mouseY) * 0.3f;
+			model_orientation = qmul(VirtualTrackBall(float3(0, 0, 2), float3(0,0,0), mousevec_prev, glwin.MouseVector), model_orientation);
 		}
-		g_mouseX = glwin.MouseX;
-		g_mouseY = glwin.MouseY;
+		mousevec_prev = glwin.MouseVector;
 
 
 		glPushAttrib(GL_ALL_ATTRIB_BITS);
@@ -101,10 +99,15 @@ int main(int argc, char *argv[])
 
 		glMatrixMode(GL_MODELVIEW);
 		glPushMatrix();
-		gluLookAt(0, -2, 1, 0, 0, 0, 0, 0, 1);
+		gluLookAt(0, 0, 2, 0, 0, 0, 0, 1, 0);
 
-		glRotatef(g_pitch, 1, 0, 0);
-		glRotatef(g_yaw, 0, 0, 1);
+
+		float3 axis; float angle;
+		std::tie(axis, angle) = AxisAngleFromQuat(model_orientation);
+		glRotatef(angle*180.0f / 3.14f, axis.x, axis.y, axis.z);
+
+		//glRotatef(g_pitch, 1, 0, 0);
+		//glRotatef(g_yaw, 0, 0, 1);
 
 		glEnable(GL_DEPTH_TEST);
 		//glEnable(GL_TEXTURE_2D);
@@ -146,7 +149,7 @@ int main(int argc, char *argv[])
 		glwin.PrintString("Press q to quit.     Spacebar new pointcloud.", 5, 1);
 		glwin.PrintString("Keys w,s increase/decrease vlimit and recalc. ", 5, 2);
 		char buf[256];
-		sprintf_s(buf, "vlimit %d tris %d  y,p= %f,%f", g_vlimit, g_tris.size(), g_yaw, g_pitch);
+		sprintf_s(buf, "vlimit %d tris %d", g_vlimit, g_tris.size());
 		glwin.PrintString(buf, 5, 3);
 
 		glwin.SwapBuffers();

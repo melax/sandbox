@@ -11,8 +11,8 @@
 #include <cstdarg>   // For va_list, va_start, ...
 #include <cstdio>    // For vsnprintf
 #include <vector>
-// in project properties, add "../include" to the vc++ directories include path
 
+// in project properties, add "../include" to the vc++ directories include path
 #include "vecmatquat_minimal.h"   
 #include "glwin.h"  // minimal opengl for windows setup wrapper
 #include "hull.h"
@@ -85,46 +85,6 @@ void OnKeyboard(unsigned char key, int x, int y)
 	}
 }
 
-
-int     argmax(const float a[], int n)
-{
-	int r = 0;
-	for (int i = 1; i<n; i++)
-	{
-		if (a[i]>a[r])
-		{
-			r = i;
-		}
-	}
-	return r;
-}
-
-// still in the process of rearranging basic math and geom routines, putting these here for now...
-float3 vabs(const float3 &v)
-{
-	return float3(fabsf(v.x), fabsf(v.y), fabsf(v.z));
-}
-float3 Orth(const float3& v)
-{
-	float3 absv = vabs(v);
-	float3 u(1, 1, 1);
-	u[argmax(&absv[0], 3)] = 0.0f;
-	return normalize(cross(u, v));
-}
-Quaternion RotationArc(float3 v0, float3 v1){
-	static Quaternion q(0, 0, 0, 1);
-	v0 = normalize(v0);  // Comment these two lines out if you know its not needed.
-	v1 = normalize(v1);  // If vector is already unit length then why do it again?
-	float3  c = cross(v0, v1);
-	float   d = dot(v0, v1);
-	if (d <= -1.0f) { float3 a = Orth(v0); return Quaternion(a.x, a.y, a.z, 0); } // 180 about any orthogonal axis axis
-	float   s = sqrtf((1 + d) * 2);
-	q.x = c.x / s;
-	q.y = c.y / s;
-	q.z = c.z / s;
-	q.w = s / 2.0f;
-	return q;
-}
 
 
 // int main(int argc, char *argv[])
@@ -212,12 +172,12 @@ LPSTR lpszCmdLine, int nCmdShow)
 		glDisable(GL_LIGHTING);
 		glBegin(GL_QUADS);
 		auto q = RotationArc(float3(0, 0, 1), hitinfo.normal);
-		glColor4f(0.0f, 0.0f, 1.0f, 0.50);
+		glColor4f(((hitinfo)?0.6f:0), 0.0f, 1.0f, 0.50);
 		glVertex3fv(hitinfo.impact + qxdir(q));
 		glVertex3fv(hitinfo.impact + qydir(q));
 		glVertex3fv(hitinfo.impact - qxdir(q));
 		glVertex3fv(hitinfo.impact - qydir(q));
-		glColor4f(0.0f, 1.0f, 0.0f, 0.50);
+		glColor4f(((hitinfo)?0.6f:0), 1.0f, 0.0f, 0.50);
 		glVertex3fv(hitinfo.impact - qydir(q));
 		glVertex3fv(hitinfo.impact - qxdir(q));
 		glVertex3fv(hitinfo.impact + qydir(q));
@@ -232,10 +192,9 @@ LPSTR lpszCmdLine, int nCmdShow)
 		glMatrixMode(GL_MODELVIEW);  
 
 		glwin.PrintString("Press q to quit.     Spacebar new pointcloud.", 5, 1);
-		//glwin.PrintString("Keys w,s increase/decrease vlimit and recalc. ", 5, 2);
-		//char buf[256];
-		//sprintf_s(buf, "vlimit %d tris %d  y,p= %f,%f", g_vlimit, g_tris.size(), g_yaw, g_pitch);
-		//glwin.PrintString(buf, 5, 3);
+		char buf[256];
+		sprintf_s(buf, "separation %5.2f", hitinfo.separation );
+		glwin.PrintString(buf, 5, 2);
 
 		glwin.SwapBuffers();
 	}

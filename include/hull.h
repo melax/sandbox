@@ -29,12 +29,16 @@
 // 
 // 
 
+#pragma once
+#ifndef CONVEX_HULL_H
+#define CONVEX_HULL_H
+
 #include <utility>      // for std::swap()
 #include <algorithm>
 #include <assert.h>
 
 #include "vecmatquat_minimal.h"  // hull code expects int3 and float3 and a few related functions to be implemented in the obvious way
-
+#include "geometric.h"           // collection of basic 3d functions
 
 
 
@@ -376,3 +380,6 @@ inline std::vector<int3> calchull(std::vector<float3> &verts, int vlimit)       
 {
 	return 	convex_hull_implementation::calchull(verts.data(), verts.size(), vlimit);
 }
+
+
+#endif // CONVEX_HULL_H

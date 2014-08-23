@@ -19,69 +19,9 @@
 #include <functional>
 
 #include "vecmatquat_minimal.h"
-
-// still reorganizing little geometry functions, putting these here for now:
-
-inline float3 NormalOf(const float3 &v0, const float3 &v1, const float3 &v2)
-{
-	return normalize(cross(v2 - v0, v2 - v1));
-}
-
-inline float3 PlaneLineIntersection(const float3 &normal, const float dist, const float3 &p0, const float3 &p1)
-{
-	// returns the point where the line p0-p1 intersects the plane n&d
-	float3 dif;
-	dif = p1 - p0;
-	float dn = dot(normal, dif);
-	float t = -(dist + dot(normal, p0)) / dn;
-	return p0 + (dif*t);
-}
-
-inline float3 LineProject(const float3 &p0, const float3 &p1, const float3 &a)
-{
-	// project point a on segment [p0,p1]
-	float3 d = p1 - p0;
-	float t = dot(d, (a - p0)) / dot(d, d);
-	return p0 + d*t;
-}
+#include "geometric.h"           // a collection of useful utilities such as intersection and projection
 
 
-inline float LineProjectTime(const float3 &p0, const float3 &p1, const float3 &a)
-{
-	// project point a on segment [p0,p1]
-	float3 d = p1 - p0;
-	float t = dot(d, (a - p0)) / dot(d, d);
-	return t;
-}
-inline float3 BaryCentric(const float3 &v0, const float3 &v1, const float3 &v2, float3 s)
-{
-	float3x3 m(v0, v1, v2);
-	if (determinant(m) == 0)
-	{
-		int k = (magnitude(v1 - v2)>magnitude(v0 - v2)) ? 1 : 0;
-		float t = LineProjectTime(v2, m[k], s);
-		return float3((1 - k)*t, k*t, 1 - t);
-	}
-	return mul(inverse(m), s);
-}
-inline int tri_interior(const float3& v0, const float3& v1, const float3& v2, const float3& d)
-{
-	float3 b = BaryCentric(v0, v1, v2, d);
-	return (b.x >= 0.0f && b.y >= 0.0f && b.z >= 0.0f);
-}
-
-
-inline  float3 PlaneProjectOf(const float3 &v0, const float3 &v1, const float3 &v2, const float3 &point)
-{
-	float3 cp = cross(v2 - v0, v2 - v1);
-	float dtcpm = -dot(cp, v0);
-	float cpm2 = dot(cp, cp);
-	if (cpm2 == 0.0f)
-	{
-		return LineProject(v0, (magnitude(v1 - v0)>magnitude(v2 - v0)) ? v1 : v2, point);
-	}
-	return point - cp * (dot(cp, point) + dtcpm) / cpm2;
-}
 
 
 namespace gjk_implementation
@@ -115,9 +55,6 @@ namespace gjk_implementation
 		MKPoint(){}
 	};
 
-
-
-
 	struct MinkSimplex
 	{
 		float3 v;
@@ -144,9 +81,6 @@ namespace gjk_implementation
 		p.p += ((dot(n, ray) > 0.0f) ? ray : float3(0, 0, 0));
 		return p;
 	}
-
-
-
 
 
 	inline int NextMinkSimplex0(MinkSimplex &dst, const MinkSimplex &src, const MKPoint &w)
@@ -556,7 +490,7 @@ namespace gjk_implementation
 				Expandable expd(next);
 				expd.expandit(last,A,B);
 				float4 separationplane(0,0,0,0);
-				separationplane.xyz() = NormalOf(last.W[0].p,last.W[1].p,last.W[2].p);
+				separationplane.xyz() = TriNormal(last.W[0].p,last.W[1].p,last.W[2].p);
 				if(dot(separationplane.xyz(),last.v)>0) separationplane.xyz() *=-1.0f;
 				Contact hitinfo;
 				hitinfo.normal = separationplane.xyz();
@@ -574,7 +508,7 @@ namespace gjk_implementation
 				hitinfo.separation = -magnitude(last.pa - last.pb); //  dot(separationplane.normal,w.p-v);
 			 
 				fillhitv(hitinfo,last);
-				assert(!hitinfo);
+				assert(hitinfo);
 				return hitinfo;
 			}
 			if(dot(next.v,next.v)>=dot(last.v, last.v))   // i.e. if magnitude(w.p)>magnitude(v) 
@@ -607,7 +541,7 @@ namespace gjk_implementation
 		}
 		assert(k==1);
 		assert(s>=0);
-		float3 n = NormalOf(v0.p,v1.p,v2.p);
+		float3 n = TriNormal(v0.p, v1.p, v2.p);
 		if(dot(n,ray)<0.0f)
 		{
 			n=-n;
@@ -634,7 +568,7 @@ namespace gjk_implementation
 				assert(tri_interior(v2.p,v0.p,v.p,ray));
 				v1=v;
 			}
-			n = NormalOf(v0.p,v1.p,v2.p);
+			n = TriNormal(v0.p, v1.p, v2.p);
 			v = PointOnMinkowski(A,B,ray,n);
 			//v = mkp.p;
 		}

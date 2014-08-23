@@ -18,12 +18,12 @@
 #include "../include/vecmatquat_minimal.h"
 #include "progmesh.h"
 
-template<class T> int   Contains(const std::vector<T> & c, const T & t)     { return std::count(begin(c), end(c), t); }
-template<class T> int   IndexOf(const std::vector<T> & c, const T & v)     { return std::find(begin(c), end(c), v) - begin(c); } // Note: Not presently called
+template<class T> int   Contains(const std::vector<T> & c, const T & t){ return std::count(begin(c), end(c), t); }
+template<class T> int   IndexOf(const std::vector<T> & c, const T & v) { return std::find(begin(c), end(c), v) - begin(c); } // Note: Not presently called
 template<class T> T &   Add(std::vector<T> & c, T t)                   { c.push_back(t); return c.back(); }
 template<class T> T     Pop(std::vector<T> & c)                        { auto val = std::move(c.back()); c.pop_back(); return val; }
-template<class T> void  AddUnique(std::vector<T> & c, T t)                   { if (!Contains(c, t)) c.push_back(t); }
-template<class T> void  Remove(std::vector<T> & c, T t)                   { auto it = std::find(begin(c), end(c), t); assert(it != end(c)); c.erase(it); assert(!Contains(c, t)); }
+template<class T> void  AddUnique(std::vector<T> & c, T t)             { if (!Contains(c, t)) c.push_back(t); }
+template<class T> void  Remove(std::vector<T> & c, T t)                { auto it = std::find(begin(c), end(c), t); assert(it != end(c)); c.erase(it); assert(!Contains(c, t)); }
 
 
 /*

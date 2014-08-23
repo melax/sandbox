@@ -21,6 +21,10 @@
  *  Go to the www.opengl.org web site if you need help with this.
  */
 
+// 2014 update, just inlined the needed vector things in the vecmatquat_minimal.h file.
+// original code was from 1998 and wasn't using the best conventions.
+// For example, quaternions are xyzw, not rxyz now.
+
 
 #define NOMINMAX
 #include <windows.h>	/* must include this before GL/gl.h */
@@ -33,14 +37,15 @@
 
 #pragma comment(lib,"winmm.lib")  // for the timing functions fps deltat
 
-#include "../include/vecmatquat_minimal.h"
-#include "../include/glwin.h"  // a minimial opengl on windows wrapper, just a header, no lib/dll.
+#include "../include/vecmatquat_minimal.h"    // typical 3D math routines following hlsl style for the most part
+#include "../include/geometric.h"
+#include "../include/glwin.h"                 // a minimial opengl on windows wrapper, just a header, no lib/dll.
 
 // Functions and Variables from bunny module
 extern void       InitModel();
 extern char *     RenderModel();
 extern float3     model_position;      // position of bunny 
-extern Quaternion model_orientation;   // orientation of bunny 
+extern float4 model_orientation;   // orientation of bunny 
 
 // Global Variables
 float   DeltaT = 0.1f;
@@ -78,54 +83,6 @@ void CalcFPSDeltaT()
 	FPS = (float)rv;
 	last = current;
 }
-
-
-
-Quaternion VirtualTrackBall(const float3& cop, const float3& cor, const float3& dir1, const float3& dir2)
-{
-	// Implement track ball functionality to spin stuf on the screen
-	//  cop   center of projection
-	//  cor   center of rotation
-	//  dir1  old mouse direction 
-	//  dir2  new mouse direction
-	// pretend there is a sphere around cor.  Then find the points
-	// where dir1 and dir2 intersect that sphere.  Find the
-	// rotation that takes the first point to the second.
-	float m;
-	// compute plane 
-	float3 nrml = cor - cop;
-	float fudgefactor = 1.0f/(magnitude(nrml) * 0.25f); // since trackball proportional to distance from cop
-	nrml = normalize(nrml);
-	float dist = -dot(nrml,cor);
-	float3 u = planelineintersection(nrml, dist, cop, cop + dir1);
-	u=u-cor;
-	u=u*fudgefactor;
-	m= magnitude(u);
-	if(m>1) {u=u*1.0f/m;}
-	else {
-		u=u - (nrml * (float)sqrt(1-m*m));
-	}
-	auto v= planelineintersection(nrml,dist,cop,cop+dir2);
-	v=v-cor;
-	v=v*fudgefactor;
-	m= magnitude(v);
-	if(m>1) {v=v*1.0f/m;}
-	else {
-		v=v - (nrml * (float)sqrt(1-m*m));
-	}
-	auto axis = cross(u,v);
-	float angle;
-	m=magnitude(axis);
-	if(m>1)m=1; // avoid potential floating point error
-	Quaternion q = QuatFromAxisAngle(float3(1.0f, 0.0f, 0.0f), 0.0f);  // from axis angle
-	if(m>0 && (angle=(float)asin(m))>3.14/180) {
- 			axis = normalize(axis);
-			q = QuatFromAxisAngle(axis, angle);
-	}
-	return q;
-}
-
-
 
 
 

@@ -37,7 +37,7 @@ std::vector<tridata> tri;       // global Array of triangles
 std::vector<int> collapse_map;  // to which neighbor each vertex collapses
 int renderpolycount=0;   // polygons rendered in the current frame
 float3 model_position;         // position of bunny
-Quaternion model_orientation(0,0,0,1);  // orientation of bunny
+float4 model_orientation(0,0,0,1);  // orientation of bunny
 
 // Note that the use of the Map() function and the collapse_map
 // Array isn't part of the polygon reduction algorithm.
@@ -164,8 +164,8 @@ void InitModel() {
 	ProgressiveMesh(vert,tri,collapse_map,permutation);
 	PermuteVertices(permutation);
 	model_position    = float3(0,0,-3);
-	Quaternion yaw = QuatFromAxisAngle(float3(0, 1, 0), -3.14f / 4);    // 45 degrees
-	Quaternion pitch = QuatFromAxisAngle(float3(1, 0, 0), 3.14f / 12);  // 15 degrees 
+	float4 yaw = QuatFromAxisAngle(float3(0, 1, 0), -3.14f / 4);    // 45 degrees
+	float4 pitch = QuatFromAxisAngle(float3(1, 0, 0), 3.14f / 12);  // 15 degrees 
 	model_orientation = qmul(pitch,yaw);
 }
 
@@ -267,7 +267,7 @@ char *RenderModel() {
 	glColor3f(1,1,1);
 	glPushMatrix();
 	glTranslatef(model_position.x,model_position.y,model_position.z);
-	// Rotate by quaternion: model_orientation
+	// Rotate by float4: model_orientation
 	float3 axis; float angle;
 	std::tie(axis, angle) = AxisAngleFromQuat(model_orientation);
 	glRotatef(angle*180.0f / 3.14f, axis.x, axis.y, axis.z);

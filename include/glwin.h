@@ -39,7 +39,7 @@ class GLWin
 	GLuint fontOffset;
 	void MakeRasterFont(void)
 	{
-		GLubyte rasters[][13] = {  
+		GLubyte rasters[][13] = {    //   bitmap font code from the OpenGL red book example
 			{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, 
 			{0x00, 0x00, 0x18, 0x18, 0x00, 0x00, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18}, 
 			{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x36, 0x36, 0x36, 0x36}, 
@@ -147,7 +147,6 @@ class GLWin
 		}
 	}
 
-
 	void SpitLetters(char *s) 
 	{
 		glPushAttrib (GL_LIST_BIT);
@@ -156,38 +155,25 @@ class GLWin
 		glPopAttrib ();
 	}
 
-
-
-	HWND CreateOpenGLWindow(const char* title)
+	HWND CreateOpenGLWindow(const char* title)  // make a double-buffered, rgba, opengl window
 	{
-		// make a double-buffered, rgba, opengl window
-		
-		HWND        hWnd;
-		WNDCLASSA   wc;   // force non unicode 16 version
-		int         pf;
-		PIXELFORMATDESCRIPTOR pfd;
-		static HINSTANCE hInstance = 0;
+		HINSTANCE hInstance = hInstance = GetModuleHandleA(NULL);
+		WNDCLASSA   wc;   // force non-unicode16 version using 'A' suffix 
+		wc.style = CS_OWNDC;
+		wc.lpfnWndProc   = (WNDPROC)MsgProcG;
+		wc.cbClsExtra    = 0;
+		wc.cbWndExtra    = 0;
+		wc.hInstance     = hInstance;
+		wc.hIcon         = LoadIcon(NULL, IDI_WINLOGO);
+		wc.hCursor       = LoadCursor(NULL, IDC_ARROW);
+		wc.hbrBackground = NULL;
+		wc.lpszMenuName  = NULL;
+		wc.lpszClassName = "OpenGL";
 
-		/* only register the window class once - use hInstance as a flag. */
-		if (!hInstance) {
-			hInstance = GetModuleHandleA(NULL);
-			wc.style         = CS_OWNDC;
-			wc.lpfnWndProc   = (WNDPROC)MsgProcG;
-			wc.cbClsExtra    = 0;
-			wc.cbWndExtra    = 0;
-			wc.hInstance     = hInstance;
-			wc.hIcon         = LoadIcon(NULL, IDI_WINLOGO);
-			wc.hCursor       = LoadCursor(NULL, IDC_ARROW);
-			wc.hbrBackground = NULL;
-			wc.lpszMenuName  = NULL;
-			wc.lpszClassName = "OpenGL";
+		if (!RegisterClassA(&wc)) 
+			throw("RegisterClassA() failed:  Cannot register window class.");  // supposedly should only register the window class once
 
-			if (!RegisterClassA(&wc)) 
-				throw("RegisterClassA() failed:  Cannot register window class.");
-		}
-
-		hWnd = CreateWindowA("OpenGL", title, WS_OVERLAPPEDWINDOW |
-				WS_CLIPSIBLINGS | WS_CLIPCHILDREN,
+		HWND hWnd = CreateWindowA("OpenGL", title, WS_OVERLAPPEDWINDOW | WS_CLIPSIBLINGS | WS_CLIPCHILDREN,
 				0,0,Width,Height, NULL, NULL, hInstance, this);  // force non-unicode16 non-wchar version of Windows's CreateWindow
 
 		if (hWnd == NULL)
@@ -197,6 +183,7 @@ class GLWin
 
 		/* there is no guarantee that the contents of the stack that become
 		   the pfd are zeroed, therefore _make sure_ to clear these bits. */
+		PIXELFORMATDESCRIPTOR pfd;
 		memset(&pfd, 0, sizeof(pfd));
 		pfd.nSize        = sizeof(pfd);
 		pfd.nVersion     = 1;
@@ -205,7 +192,7 @@ class GLWin
 		pfd.cDepthBits   = 32;
 		pfd.cColorBits   = 32;
 
-		pf = ChoosePixelFormat(hDC, &pfd);
+		int pf = ChoosePixelFormat(hDC, &pfd);
 		if(pf == 0) 
 			throw("ChoosePixelFormat() failed:  Cannot find a suitable pixel format."); 
 		if (SetPixelFormat(hDC, pf, &pfd) == FALSE) 
@@ -351,7 +338,6 @@ public:
 			if(MouseY & 1 << 15) MouseY -= (1 << 16);
 			ComputeMouseVector();
 			return 0;
-
 
 		case WM_CLOSE:
 			PostQuitMessage(0);
