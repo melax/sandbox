@@ -1,10 +1,8 @@
 
 #include <stdlib.h>
 #include <iostream>
+#include <cctype>     // std::tolower
 #include <algorithm>
-#include <cctype>  // std::tolower
-#include <cstdarg>   // For va_list, va_start, ...
-#include <cstdio>    // For vsnprintf
 #include <vector>
 // in project properties, add "../include" to the vc++ directories include path
 

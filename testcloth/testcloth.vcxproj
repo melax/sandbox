@@ -11,9 +11,9 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{A15B7BD9-DC89-4553-80E6-5140731C804C}</ProjectGuid>
+    <ProjectGuid>{000A15B7-0000-0000-0000-000000000000}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>testgjk</RootNamespace>
+    <RootNamespace>testcloth</RootNamespace>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -82,14 +82,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="testgjk.cpp" />
+    <ClCompile Include="testcloth.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\include\geometric.h" />
-    <ClInclude Include="..\include\gjk.h" />
     <ClInclude Include="..\include\glwin.h" />
-    <ClInclude Include="..\include\hull.h" />
-    <ClInclude Include="..\include\vecmatquat_minimal.h" />
+    <ClInclude Include="..\include\vecmatquat.h" />
+    <ClInclude Include="springnet.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

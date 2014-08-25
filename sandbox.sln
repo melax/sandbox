@@ -9,6 +9,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "testgjk", "testgjk\testgjk.
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "testhull", "testhull\testhull.vcxproj", "{0000E173-0000-0000-0000-000000000000}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "testcloth", "testcloth\testcloth.vcxproj", "{000A15B7-0000-0000-0000-000000000000}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -27,6 +29,10 @@ Global
 		{0000E173-0000-0000-0000-000000000000}.Debug|Win32.Build.0 = Debug|Win32
 		{0000E173-0000-0000-0000-000000000000}.Release|Win32.ActiveCfg = Release|Win32
 		{0000E173-0000-0000-0000-000000000000}.Release|Win32.Build.0 = Release|Win32
+		{000A15B7-0000-0000-0000-000000000000}.Debug|Win32.ActiveCfg = Debug|Win32
+		{000A15B7-0000-0000-0000-000000000000}.Debug|Win32.Build.0 = Debug|Win32
+		{000A15B7-0000-0000-0000-000000000000}.Release|Win32.ActiveCfg = Release|Win32
+		{000A15B7-0000-0000-0000-000000000000}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

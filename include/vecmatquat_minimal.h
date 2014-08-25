@@ -2,9 +2,18 @@
 // minimal set of well understood vec,quat,mat 3d math routines as needed.
 // Following/extending hlsl conventions.
 // 
+//  defines the same set of structs as the alternative file vecmatquat.h.   
+//  This vecmatquat_minimal.h version is meant to enable copy-paste just the code snippets that are needed.
+//  
 
-#ifndef GENERIC_VECMATQUAT_MINIMAL_H
-#define GENERIC_VECMATQUAT_MINIMAL_H
+#ifdef VECMATQUAT_FULL_H
+#error
+#endif
+
+
+#ifndef VECMATQUAT_H
+#define VECMATQUAT_H
+#define VECMATQUAT_MINIMAL_H
 
 #include <stdio.h>
 #include <math.h>
@@ -85,6 +94,7 @@ inline float3x3 adjoint(const float3x3 & a)
 	{ a.y.x*a.z.y - a.z.x*a.y.y, a.z.x*a.x.y - a.x.x*a.z.y, a.x.x*a.y.y - a.y.x*a.x.y } };
 }
 inline float3x3 inverse(float3x3 & a)  { return adjoint(a) *(1.0f / determinant(a)); }
+inline float3x3 outerprod(const float3 &a, const float3 &b) { return {a*b.x, a*b.y, a*b.z }; }
 
 
 
@@ -139,4 +149,4 @@ inline std::pair<float3, float> AxisAngleFromQuat(const float4 &q) { auto a = ac
 
 
 
-#endif
+#endif // VECMATQUAT_H

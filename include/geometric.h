@@ -125,12 +125,11 @@ float4 RotationArc(const float3 &v0_, const float3 &v1_)
 
 float4 VirtualTrackBall(const float3 &cop, const float3 &cor, const float3 &dir1, const float3 &dir2)
 {
-	// from game programming gems.  track ball functionality to spin stuf on the screen
+	// Simple track ball functionality to spin stuf on the screen.
 	//  cop   center of projection   cor   center of rotation
-	//  dir1  old mouse direction   dir2  new mouse direction
-	// Pretend there is a sphere around cor.  Then find the points
-	// where dir1 and dir2 intersect that sphere.  Find the
-	// rotation that takes the first point to the second.
+	//  dir1  old mouse direction    dir2  new mouse direction
+	// Pretend there is a sphere around cor.    Take rotation
+	// between apprx points where dir1 and dir2 intersect sphere.  
 	float3 nrml = cor - cop; // compute plane 
 	float fudgefactor = 1.0f / (magnitude(nrml) * 0.25f); // since trackball proportional to distance from cop
 	nrml = normalize(nrml);

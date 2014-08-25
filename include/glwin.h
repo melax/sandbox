@@ -7,16 +7,10 @@
 // try not to use that 16 bit wchar.
 //
 
-
 //
 //   bitmap font code from the OpenGL red book example programs the copyright from that sample is:
+//   (c) Copyright 1993, Silicon Graphics, Inc.     1993-1995 Microsoft Corporation    ALL RIGHTS RESERVED
 //
-// (c) Copyright 1993, Silicon Graphics, Inc.
-//                1993-1995 Microsoft Corporation
-//
-// ALL RIGHTS RESERVED
-//
-// Please refer to OpenGL/readme.txt for additional information
 //
 
 
@@ -25,6 +19,8 @@
 #define NOMINMAX
 #include <windows.h>
 #include <cstring>
+#include <cstdarg>   // For va_list, va_start, ...
+#include <cstdio>    // For vsnprintf
 #include <GL/gl.h>
 #include <GL/glu.h>
 #ifdef WIN32
@@ -270,6 +266,7 @@ public:
     HGLRC   hRC;              // opengl context 
 	int 	Width  ;
 	int 	Height ;
+	int     mousewheel;   // if and how much its been rolled up/down this frame
 	int     MouseX ;
 	int     MouseY ;
 	float3  MouseVector;      // 3D direction mouse points
@@ -278,7 +275,7 @@ public:
 	float 	ViewAngle;
 	std::function<void(int, int, int)> keyboardfunc;
 
-	GLWin(const char *title) : Width(512), Height(512), MouseX(0), MouseY(0), MouseState(0), ViewAngle(45.0f) //, keyboardfunc([](int, int, int){})
+	GLWin(const char *title) : Width(512), Height(512), MouseX(0), MouseY(0), MouseState(0), mousewheel(0), ViewAngle(45.0f) //, keyboardfunc([](int, int, int){})
 	{
 		hWnd = CreateOpenGLWindow(title);
 		if (hWnd == NULL) throw("failed to create opengl window");
@@ -338,7 +335,11 @@ public:
 			if(MouseY & 1 << 15) MouseY -= (1 << 16);
 			ComputeMouseVector();
 			return 0;
-
+		case  WM_MOUSEWHEEL:
+			//shiftdown = (wParam&MK_SHIFT) ? 1 : 0;  
+			//ctrldown = (wParam&MK_CONTROL) ? 1 : 0;
+			mousewheel += GET_WHEEL_DELTA_WPARAM(wParam) / WHEEL_DELTA;
+			return 0;
 		case WM_CLOSE:
 			PostQuitMessage(0);
 			return 0;
@@ -347,7 +348,8 @@ public:
 	}
 	bool WindowUp()
 	{
-		MSG   msg;		// Windows message		
+		mousewheel = 0;    // reset to 0 each frame
+		MSG   msg;		   // Windows message		
 		while(PeekMessage(&msg, hWnd, 0, 0, PM_NOREMOVE)) {
 		    if(GetMessage(&msg, hWnd, 0, 0)) {
 				TranslateMessage(&msg);
