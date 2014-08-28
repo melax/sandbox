@@ -80,6 +80,7 @@ namespace linalg
 
     template<class T, int M> bool       operator != (const vec<T, M> & a, const vec<T, M> & b)  { return !(a == b); }
     template<class T, int M> vec<T,M>   operator -  (const vec<T,M> & a)                        { return a.apply(T(), [](T x, T) { return -x; }); }
+    template<class T, int M> vec<T,M>   vabs        (const vec<T,M> & a)                        { return a.apply(T(), [](T x, T) { return std::abs(x); }); }
     template<class T, int M> vec<T,M>   operator +  (const vec<T,M> & a, const vec<T,M> & b)    { return a.apply(b, std::plus      <T>()); }
     template<class T, int M> vec<T,M>   operator -  (const vec<T,M> & a, const vec<T,M> & b)    { return a.apply(b, std::minus     <T>()); }
     template<class T, int M> vec<T,M>   operator *  (const vec<T,M> & a, T b)                   { return a.apply(b, std::multiplies<T>()); }

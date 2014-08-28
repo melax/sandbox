@@ -9,20 +9,20 @@
 //               generalized the interface so function now takes two functions (or lambdas) 
 //               that return the supportmap for a given direction.
 //
-//
-// For the moving version, Jay Stelly gets credit for the brilliant  tunnel idea to 
-// search the polytope in reverse to determine time of impact.  
-// Idea perhaps not published, but might be described on molly rocket or bullet forums.
-//
+
+#pragma once
+#ifndef GJK_H
+#define GJK_H
+
 
 #include <assert.h>
 #include <functional>
 
-#include "vecmatquat_minimal.h"
+#include "vecmatquat.h"
 #include "geometric.h"           // a collection of useful utilities such as intersection and projection
 
 
-
+class Shape; // yuck
 
 namespace gjk_implementation
 {
@@ -31,7 +31,7 @@ namespace gjk_implementation
 	class Contact
 	{
 	public:
-		//Collidable*		C[2];
+		Shape*		C[2];
 		int				type; //  v[t] on c[0] for t<type on c[1] for t>=type so 2 is edge-edge collision
 		float3			v[4];
 		float3			normal; // worldspace  points from C[1] to C[0]
@@ -590,6 +590,7 @@ namespace gjk_implementation
 
 	inline Contact Sweep(std::function<float3(const float3&)>A, std::function<float3(const float3&)>B, const float3& dir)
 	{
+		// For this moving version, Jay Stelly gets credit for the idea to tunnel in the reverse direction along the ray
 		int(*NextMinkSimplex[4])(MinkSimplex &dst, const MinkSimplex &src, const MKPoint &w) =
 		{
 			NextMinkSimplex0,
@@ -654,3 +655,15 @@ inline gjk_implementation::Contact Separated(const std::vector<float3> &a, const
 {
 	return gjk_implementation::Separated(SupportFunc(a), SupportFunc(b), findclosest);
 }
+
+inline std::function<float3(const float3&)> SupportFunc(const std::vector<float3> &points,const float3& position,const float4 &orientation)   // example supportfunc for posed meshes 
+{
+	return[&points,&position,&orientation](const float3 &dir){ return position + qrot(orientation,points[maxdir(points.data(), points.size(), qrot(qconj(orientation),dir))]); };
+}
+inline gjk_implementation::Contact Separated(const std::vector<float3> &a,const float3 &ap,const float4 &aq, const std::vector<float3> &b,const float3 &bp,const float4 &bq, int findclosest=1)
+{
+	return gjk_implementation::Separated(SupportFunc(a,ap,aq), SupportFunc(b,bp,bq), findclosest);
+}
+
+
+#endif // GJK_H

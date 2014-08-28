@@ -148,5 +148,65 @@ inline float4 QuatFromAxisAngle(const float3 &axis, float t) { auto v = normaliz
 inline std::pair<float3, float> AxisAngleFromQuat(const float4 &q) { auto a = acos(q.w)*2.0f; return std::make_pair(q.xyz() / sinf(a / 2.0f), a); }
 
 
+//-------- copied from geometric.h -------
+
+inline float3 PlaneLineIntersection(const float3 &n, const float d, const float3 &p0, const float3 &p1)   // returns the point where the line p0-p2 intersects the plane n&d
+{
+	float3 dif = p1 - p0;
+	float dn = dot(n, dif);
+	float t = -(d + dot(n, p0)) / dn;
+	return p0 + (dif*t);
+}
+inline int     argmax(const float a[], int n)
+{
+	int r = 0;
+	for (int i = 1; i<n; i++)
+	{
+		if (a[i]>a[r])
+		{
+			r = i;
+		}
+	}
+	return r;
+}
+inline float3 Orth(const float3& v)
+{
+	float3 absv = vabs(v);
+	float3 u(1, 1, 1);
+	u[argmax(&absv[0], 3)] = 0.0f;
+	return normalize(cross(u, v));
+}
+inline float4 RotationArc(const float3 &v0_, const float3 &v1_)
+{
+	auto v0 = normalize(v0_);  // Comment these two lines out if you know its not needed.
+	auto v1 = normalize(v1_);  // If vector is already unit length then why do it again?
+	auto  c = cross(v0, v1);
+	auto  d = dot(v0, v1);
+	if (d <= -1.0f) { float3 a = Orth(v0); return float4(a.x, a.y, a.z, 0); } // 180 about any orthogonal axis axis
+	auto  s = sqrtf((1 + d) * 2);
+	return{ c.x / s, c.y / s, c.z / s, s / 2.0f };
+}
+inline float4 VirtualTrackBall(const float3 &cop, const float3 &cor, const float3 &dir1, const float3 &dir2)
+{
+	// Simple track ball functionality to spin stuf on the screen.
+	//  cop   center of projection   cor   center of rotation
+	//  dir1  old mouse direction    dir2  new mouse direction
+	// Pretend there is a sphere around cor.    Take rotation
+	// between apprx points where dir1 and dir2 intersect sphere.  
+	float3 nrml = cor - cop; // compute plane 
+	float fudgefactor = 1.0f / (magnitude(nrml) * 0.25f); // since trackball proportional to distance from cop
+	nrml = normalize(nrml);
+	float dist = -dot(nrml, cor);
+	float3 u = (PlaneLineIntersection(nrml, dist, cop, cop + dir1) - cor) * fudgefactor;
+	float m = magnitude(u);
+	u = (m > 1) ? u / m : u - (nrml * sqrtf(1 - m*m));
+	float3 v = (PlaneLineIntersection(nrml, dist, cop, cop + dir2) - cor) * fudgefactor;
+	m = magnitude(v);
+	v = (m>1) ? v / m : v - (nrml * sqrtf(1 - m*m));
+	return RotationArc(u, v);
+}
+//--------------------------------
+
+
 
 #endif // VECMATQUAT_H

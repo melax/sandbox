@@ -6,7 +6,7 @@
 #include <vector>
 // in project properties, add "../include" to the vc++ directories include path
 
-#include "vecmatquat_minimal.h"   
+#include "vecmatquat.h"   
 #include "glwin.h"  // minimal opengl for windows setup wrapper
 #include "hull.h"
 
@@ -21,7 +21,7 @@ inline float randf(){ return static_cast<float>(rand()) / static_cast<float>(RAN
 float3 vrand(){ return {randf(),randf(),randf()}; }
 int max_element(const int3& v) { return std::max(std::max(v.x, v.y),v.z); }
 
-void Init()
+void Init()  // creates a random point cloud and generates initial hull for it.
 {
 	g_vlimit = 64;
 	g_verts.resize(0);
@@ -47,7 +47,7 @@ void OnKeyboard(unsigned char key, int x, int y)
 		break;
 	case 'w':
 	case 's':
-		g_vlimit+=(key=='s')?-1:1;  g_vlimit = std::max(4, g_vlimit);
+		g_vlimit+=(key=='s')?-1:1;  g_vlimit = std::max(4, g_vlimit);  // same point cloud, just change the max allowable number of verts to use
 		g_tris = ::calchull(g_verts, g_vlimit);
 		break;
 	default:
@@ -81,6 +81,12 @@ int main(int argc, char *argv[])
 		}
 		mousevec_prev = glwin.MouseVector;
 
+		if (glwin.mousewheel)  // lets also support mouse wheel to increase/decrease number of points used to generate hull
+		{
+			g_vlimit += glwin.mousewheel;  g_vlimit = std::max(4, g_vlimit);
+			g_tris = ::calchull(g_verts, g_vlimit);
+		}
+
 
 		glPushAttrib(GL_ALL_ATTRIB_BITS);
 
@@ -89,26 +95,20 @@ int main(int argc, char *argv[])
 		glClearColor(0.1f, 0.1f, 0.15f, 1);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		// Set up matrices
 		glMatrixMode(GL_PROJECTION);
 		glPushMatrix();
 		glLoadIdentity();
-		gluPerspective(60, (double)glwin.Width/ glwin.Height, 0.01, 10);
+		gluPerspective(glwin.ViewAngle, (double)glwin.Width/ glwin.Height, 0.01, 10);
 
 		glMatrixMode(GL_MODELVIEW);
 		glPushMatrix();
 		gluLookAt(0, 0, 2, 0, 0, 0, 0, 1, 0);
 
-
-		float3 axis; float angle;
-		std::tie(axis, angle) = AxisAngleFromQuat(model_orientation);
-		glRotatef(angle*180.0f / 3.14f, axis.x, axis.y, axis.z);
-
-		//glRotatef(g_pitch, 1, 0, 0);
-		//glRotatef(g_yaw, 0, 0, 1);
+		float4 R[4] = { { 1, 0, 0, 0 }, { 0, 1, 0, 0 }, { 0, 0, 1, 0 }, { 0, 0, 0, 1 } };
+		R[0].xyz() = qxdir(model_orientation); R[1].xyz() = qydir(model_orientation); R[2].xyz() = qzdir(model_orientation);
+		glMultMatrixf(&R[0].x);
 
 		glEnable(GL_DEPTH_TEST);
-		//glEnable(GL_TEXTURE_2D);
 
 		glDisable(GL_BLEND);
 		glPointSize(4);
@@ -144,11 +144,11 @@ int main(int argc, char *argv[])
 		glPopAttrib();
 		glMatrixMode(GL_MODELVIEW);  
 
-		glwin.PrintString("Press q to quit.     Spacebar new pointcloud.", 5, 1);
-		glwin.PrintString("Keys w,s increase/decrease vlimit and recalc. ", 5, 2);
+		glwin.PrintString("Press q to quit.     Spacebar new pointcloud.", 5, 0);
+		glwin.PrintString("w,s or mwheel to increase/decrease vlimit. ", 5, 1);
 		char buf[256];
 		sprintf_s(buf, "vlimit %d tris %d", g_vlimit, g_tris.size());
-		glwin.PrintString(buf, 5, 3);
+		glwin.PrintString(buf, 5, 2);
 
 		glwin.SwapBuffers();
 	}

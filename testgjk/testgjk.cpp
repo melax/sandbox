@@ -13,7 +13,7 @@
 #include <vector>
 
 // in project properties, add "../include" to the vc++ directories include path
-#include "vecmatquat_minimal.h"   
+#include "vecmatquat.h"   
 #include "glwin.h"  // minimal opengl for windows setup wrapper
 #include "hull.h"
 #include "gjk.h"

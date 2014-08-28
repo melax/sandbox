@@ -147,10 +147,10 @@ int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst,LPSTR lpszC
 		glPopAttrib();
 		glMatrixMode(GL_MODELVIEW);  
 
-		glwin.PrintString("Press ESC to quit.  w wireframe on/off. ", 0, 0);
+		glwin.PrintString("Press ESC to quit.  w toggles wireframe. ", 0, 0);
 		glwin.PrintString("Use left mouse motion and wheel to move points.", 0, 1);
 		char buf[256];
-		sprintf_s(buf, "selection %d", selection );
+		sprintf_s(buf, "(w)ireframe %s   vert selected %d", ((g_wireframe)?"ON ":"OFF"),selection);
 		glwin.PrintString(buf, 0, 2);
 #       ifdef _DEBUG
 		  glwin.PrintString("Running DEBUG Version.  Peformance may be SLoooow.", 2, -1);

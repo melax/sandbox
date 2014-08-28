@@ -38,7 +38,7 @@
 #pragma comment(lib,"winmm.lib")  // for the timing functions fps deltat
 
 #include "../include/vecmatquat_minimal.h"    // typical 3D math routines following hlsl style for the most part
-#include "../include/geometric.h"
+//#include "../include/geometric.h"
 #include "../include/glwin.h"                 // a minimial opengl on windows wrapper, just a header, no lib/dll.
 
 // Functions and Variables from bunny module
@@ -50,6 +50,8 @@ extern float4 model_orientation;   // orientation of bunny
 // Global Variables
 float   DeltaT = 0.1f;
 float   FPS;
+
+
 
 
 

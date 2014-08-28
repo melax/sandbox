@@ -13,9 +13,15 @@
 #define GEOMETRIC_H
 
 #include <algorithm>   // for std::max_element()
-#include "vecmatquat_minimal.h"
+#include "vecmatquat.h"
 
 // still reorganizing little geometry functions, putting these here for now:
+
+#define COPLANAR   (0)
+#define UNDER      (1)
+#define OVER       (2)
+#define SPLIT      (OVER|UNDER)
+#define PAPERWIDTH (0.0001f)  
 
 
 inline float3 PlaneLineIntersection(const float3 &n, const float d, const float3 &p0, const float3 &p1)   // returns the point where the line p0-p2 intersects the plane n&d
@@ -24,6 +30,13 @@ inline float3 PlaneLineIntersection(const float3 &n, const float d, const float3
 	float dn = dot(n, dif);
 	float t = -(d + dot(n, p0)) / dn;
 	return p0 + (dif*t);
+}
+inline float3 PlaneLineIntersection(const float4 &plane, const float3 &p0, const float3 &p1) { return PlaneLineIntersection(plane.xyz(), plane.w, p0, p1); } // returns the point where the line p0-p2 intersects the plane n&d
+
+inline int PlaneTest(const float4 &plane, const float3 &v, float epsilon = PAPERWIDTH) {
+	float a = dot(v, plane.xyz()) + plane.w;
+	int   flag = (a>epsilon) ? OVER : ((a<-epsilon) ? UNDER : COPLANAR);
+	return flag;
 }
 
 inline float3 LineProject(const float3 &p0, const float3 &p1, const float3 &a)
@@ -89,7 +102,7 @@ inline float3 TriNormal(const float3 &v0, const float3 &v1, const float3 &v2)  /
 }
 
 
-int     argmax(const float a[], int n)
+inline int     argmax(const float a[], int n)
 {
 	int r = 0;
 	for (int i = 1; i<n; i++)
@@ -104,14 +117,14 @@ int     argmax(const float a[], int n)
 
 // still in the process of rearranging basic math and geom routines, putting these here for now...
 
-float3 Orth(const float3& v)
+inline float3 Orth(const float3& v)
 {
 	float3 absv = vabs(v);
 	float3 u(1, 1, 1);
 	u[argmax(&absv[0], 3)] = 0.0f;
 	return normalize(cross(u, v));
 }
-float4 RotationArc(const float3 &v0_, const float3 &v1_)
+inline float4 RotationArc(const float3 &v0_, const float3 &v1_)
 {
 	auto v0 = normalize(v0_);  // Comment these two lines out if you know its not needed.
 	auto v1 = normalize(v1_);  // If vector is already unit length then why do it again?
@@ -123,7 +136,7 @@ float4 RotationArc(const float3 &v0_, const float3 &v1_)
 }
 
 
-float4 VirtualTrackBall(const float3 &cop, const float3 &cor, const float3 &dir1, const float3 &dir2)
+inline float4 VirtualTrackBall(const float3 &cop, const float3 &cor, const float3 &dir1, const float3 &dir2)
 {
 	// Simple track ball functionality to spin stuf on the screen.
 	//  cop   center of projection   cor   center of rotation
@@ -142,5 +155,70 @@ float4 VirtualTrackBall(const float3 &cop, const float3 &cor, const float3 &dir1
 	v = (m>1) ? v / m : v - (nrml * sqrtf(1 - m*m));
 	return RotationArc(u, v);
 }
+
+inline float4x4 MatrixFromRotationTranslation(const float4 & rotationQuat, const float3 & translationVec)    { return{ { qxdir(rotationQuat), 0 }, { qydir(rotationQuat), 0 }, { qzdir(rotationQuat), 0 }, { translationVec, 1 } }; }
+
+
+
+
+inline float Volume(const float3 *vertices, const int3 *tris, const int count)
+{
+	// count is the number of triangles (tris) 
+	float  volume = 0;
+	for (int i = 0; i<count; i++)  // for each triangle
+	{
+		volume += determinant(float3x3(vertices[tris[i][0]], vertices[tris[i][1]], vertices[tris[i][2]])); //divide by 6 later for efficiency
+	}
+	return volume / 6.0f;  // since the determinant give 6 times tetra volume
+}
+
+inline float3 CenterOfMass(const float3 *vertices, const int3 *tris, const int count)
+{
+	// count is the number of triangles (tris) 
+	float3 com(0, 0, 0);
+	float  volume = 0; // actually accumulates the volume*6
+	for (int i = 0; i<count; i++)  // for each triangle
+	{
+		float3x3 A(vertices[tris[i][0]], vertices[tris[i][1]], vertices[tris[i][2]]);
+		float vol = determinant(A);  // dont bother to divide by 6 
+		com += vol * (A.x + A.y + A.z);  // divide by 4 at end
+		volume += vol;
+	}
+	com /= volume*4.0f;
+	return com;
+}
+inline float3x3 Inertia(const float3 *vertices, const int3 *tris, const int count, const float3& com)
+{
+	// count is the number of triangles (tris) 
+	// The moments are calculated based on the center of rotation (com) which defaults to [0,0,0] if unsupplied
+	// assume mass==1.0  you can multiply by mass later.
+	// for improved accuracy the next 3 variables, the determinant d, and its calculation should be changed to double
+	float  volume = 0;                          // technically this variable accumulates the volume times 6
+	float3 diag(0, 0, 0);                       // accumulate matrix main diagonal integrals [x*x, y*y, z*z]
+	float3 offd(0, 0, 0);                       // accumulate matrix off-diagonal  integrals [y*z, x*z, x*y]
+	for (int i = 0; i<count; i++)  // for each triangle
+	{
+		float3x3 A(vertices[tris[i][0]] - com, vertices[tris[i][1]] - com, vertices[tris[i][2]] - com);  // matrix trick for volume calc by taking determinant
+		float    d = determinant(A);  // vol of tiny parallelapiped= d * dr * ds * dt (the 3 partials of my tetral triple integral equasion)
+		volume += d;                   // add vol of current tetra (note it could be negative - that's ok we need that sometimes)
+		for (int j = 0; j<3; j++)
+		{
+			int j1 = (j + 1) % 3;
+			int j2 = (j + 2) % 3;
+			diag[j] += (A[0][j] * A[1][j] + A[1][j] * A[2][j] + A[2][j] * A[0][j] +
+				A[0][j] * A[0][j] + A[1][j] * A[1][j] + A[2][j] * A[2][j]) *d; // divide by 60.0f later;
+			offd[j] += (A[0][j1] * A[1][j2] + A[1][j1] * A[2][j2] + A[2][j1] * A[0][j2] +
+				A[0][j1] * A[2][j2] + A[1][j1] * A[0][j2] + A[2][j1] * A[1][j2] +
+				A[0][j1] * A[0][j2] * 2 + A[1][j1] * A[1][j2] * 2 + A[2][j1] * A[2][j2] * 2) *d; // divide by 120.0f later
+		}
+	}
+	diag /= volume*(60.0f / 6.0f);  // divide by total volume (vol/6) since density=1/volume
+	offd /= volume*(120.0f / 6.0f);
+	return{ { diag.y + diag.z, -offd.z, -offd.y },
+	{ -offd.z, diag.x + diag.z, -offd.x },
+	{ -offd.y, -offd.x, diag.x + diag.y } };
+}
+
+
 
 #endif //GEOMETRIC_H

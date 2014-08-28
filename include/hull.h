@@ -37,7 +37,7 @@
 #include <algorithm>
 #include <assert.h>
 
-#include "vecmatquat_minimal.h"  // hull code expects int3 and float3 and a few related functions to be implemented in the obvious way
+#include "vecmatquat.h"  // hull code expects int3 and float3 and a few related functions to be implemented in the obvious way
 #include "geometric.h"           // collection of basic 3d functions
 
 
