@@ -70,8 +70,6 @@ class RigidBody : public State
 	float			friction;  // friction multiplier
 					RigidBody(std::vector<WingMesh*> &wmeshes,const float3 &_position);
 					~RigidBody();
-	//WingMesh *		local_geometry;
-	//WingMesh *		world_geometry;
 	float			hittime;
 	int				rest;
 	State			old;
@@ -81,8 +79,6 @@ class RigidBody : public State
 	float3          com; // computed in constructor, but geometry gets translated initially 
 	float3          PositionUser() {return pose()* -com; }  // based on original origin
 	std::vector<Spring*>	springs;
-	//virtual int		Support(const float3& dir)const{return local_geometry->Support(qrot(qconj(orientation),dir)); } // return world_geometry->Support(dir); }
-	//virtual float3	GetVert(int v)const {return position + qrot(orientation,local_geometry->GetVert(v));} // world_geometry->GetVert(v);}
 	std::vector<Shape*>   shapes;
 	std::vector<RigidBody*> ignore; // things to ignore during collision checks
 };
@@ -98,8 +94,6 @@ class Shape
 	const float4 &Orientation() const {return rb->orientation;}
 	const Pose& pose() const {return rb->pose();}
 	WingMesh local_geometry;
-	//virtual float3	Support(const float3& dir)const{return rb->pose() * local_geometry->Support(qrot(qconj(rb->orientation),dir)); } // return world_geometry->Support(dir); }
-	//virtual float3	GetVert(int v)const {return rb->position + qrot(rb->orientation, local_geometry->GetVert(v));} // world_geometry->GetVert(v);}
 	Shape(RigidBody *_rb,WingMesh _geometry);
 	~Shape();
 };

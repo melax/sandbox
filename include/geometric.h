@@ -159,7 +159,17 @@ inline float4 VirtualTrackBall(const float3 &cop, const float3 &cor, const float
 inline float4x4 MatrixFromRotationTranslation(const float4 & rotationQuat, const float3 & translationVec)    { return{ { qxdir(rotationQuat), 0 }, { qydir(rotationQuat), 0 }, { qzdir(rotationQuat), 0 }, { translationVec, 1 } }; }
 
 
-
+template<class T, int N>
+inline std::pair<linalg::vec<T, N>, linalg::vec<T, N> > Extents(const std::vector<linalg::vec<T, N> > &verts)
+{
+	linalg::vec<T, N> bmin(std::numeric_limits<T>::max()), bmax(std::numeric_limits<T>::lowest());
+	for (auto v : verts)
+	{
+		bmin = cmin(bmin, v);
+		bmax = cmax(bmax, v);
+	}
+	return std::make_pair(bmin, bmax);  // typical useage:   std::tie(mymin,mymax) = Extents(myverts);  
+}
 
 inline float Volume(const float3 *vertices, const int3 *tris, const int count)
 {

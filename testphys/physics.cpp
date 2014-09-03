@@ -157,7 +157,6 @@ public:
 	float  targetspin;
 	float  mintorque;
 	float  maxtorque;
-	//int    equality;  // flag for whether <= or == i.e. two-sided instead of just one-sided
 	LimitAngular():Limit(NULL,NULL){}
 	LimitAngular(RigidBody *_rb0,RigidBody *_rb1=NULL,const float3 &_axis=float3(0,0,1),float _targetspin=0.0f,float _mintorque=-FLT_MAX,float _maxtorque=FLT_MAX);
 	void Iter();
@@ -166,7 +165,6 @@ public:
 
 LimitAngular::LimitAngular(RigidBody *_rb0,RigidBody *_rb1,const float3 &_axis,float _targetspin,float _mintorque,float _maxtorque):Limit(_rb0,_rb1),axis(_axis),targetspin(_targetspin),mintorque(_mintorque),maxtorque(_maxtorque)
 {
-	//equality = 1;
 	torque=0.0f;
 }
 void LimitAngular::Iter()
@@ -176,7 +174,6 @@ void LimitAngular::Iter()
 	float dspin = targetspin - currentspin;  // the amount of spin we have to add to satisfy the limit.
 	float spintotorque = 1.0f / (  ((rb0)?dot(axis,mul(rb0->Iinv,axis)):0.0f) + ((rb1)?dot(axis,mul(rb1->Iinv,axis)):0.0f)  );
 	float dtorque = dspin * spintotorque ;  // how we have to change the angular impulse
-	//if(!equality) dtorque = Max(dtorque,-torque);  // one-sided limit total torque cannot go below 0
 	dtorque = std::min(dtorque,maxtorque*physics_deltaT-torque); // total torque cannot exceed maxtorque
 	dtorque = std::max(dtorque,mintorque*physics_deltaT-torque); // total torque cannot fall below -maxtorque
 	if(rb0)
@@ -238,11 +235,8 @@ void LimitLinear::PostIter()
 		Pose p = (this->rb0) ? this->rb0->pose() : Pose() ;
 		Line(p*this->position0-this->normal*impulsesum * showimpulse,p*position0+this->normal* impulsesum * showimpulse, float3(1,0.25f,0));
 	}
-	targetspeed=std::min(targetspeed,targetspeednobias); // (equality)?0:Min(targetspeed,0.0f);  // not zero since its ok to let it fall to the limit;
+	targetspeed=std::min(targetspeed,targetspeednobias); 
 }
-
-float physics_impulsesound= 1.0f; // falling for at least a second?   force X time??
-EXPORTVAR(physics_impulsesound);
 
 void LimitLinear::Finalize()
 {
@@ -368,7 +362,6 @@ Shape::~Shape()
 }
 
 
-
 RigidBody::RigidBody(std::vector<WingMesh*> &_meshes,const float3 &_position) : orientation_next(0,0,0,1), orientation_old(0,0,0,1), orientation_start(0,0,0,1)
 {
 	position_start=position_old=position_next=position=_position;
@@ -399,20 +392,16 @@ RigidBody::RigidBody(std::vector<WingMesh*> &_meshes,const float3 &_position) : 
 	massinv = 1.0f / mass;
 	Iinv = (tensorinv_massless = inverse(tensor))  * massinv;
 
-	radius=0; 
-	bmin=float3(FLT_MAX,FLT_MAX,FLT_MAX);
-	bmax=float3(FLT_MIN,FLT_MIN,FLT_MIN);
-	for(unsigned int i=0;i<shapemeshes.size();i++)
-	 for(unsigned int j=0;j<shapemeshes[i]->verts.size();j++) 
-	{
-		radius = std::max(radius,magnitude(shapemeshes[i]->verts[j]));
-		bmax = cmax(bmax,shapemeshes[i]->verts[j]); 
-		bmin = cmin(bmin,shapemeshes[i]->verts[j]); 
-	}
+	std::vector<float3> allverts;
+	for (auto &m : shapemeshes)
+		allverts.insert(allverts.end(), m->verts.begin(), m->verts.end());
+	radius = magnitude(*std::max_element(allverts.begin(), allverts.end(), [](const float3 &a, const float3 &b){return dot(a, a) < dot(b, b); }));
+	std::tie(bmin, bmax) = Extents(allverts);
 }
 
 
-RigidBody::~RigidBody(){
+RigidBody::~RigidBody()
+{
 	// I still have other memory leaks here
 
 //	while(springs.size()) {
@@ -448,8 +437,6 @@ int AddSpringForces(RigidBody *rba,const State &state,float3 *force,float3 *torq
 }
 
 
-
- 
 
 float physics_driftmax = 0.03f;
 EXPORTVAR(physics_driftmax);
