@@ -227,14 +227,13 @@ LPSTR lpszCmdLine, int nCmdShow)
 		glPopAttrib();
 		glMatrixMode(GL_MODELVIEW);  
 
-		glwin.PrintString("Press ESC or q to quit.   SPACE to simulate.", 5, 1);
+		glwin.PrintString("ESC or q quits. SPACE to simulate. r to restart", 5, 1);
 		char buf[256];
 		sprintf_s(buf, "simulation %s", (g_simulate)?"ON":"OFF");
 		glwin.PrintString(buf, 5, 2);
 
 		glwin.SwapBuffers();
 	}
-
 
 	std::cout << "\n";
 	return 0;

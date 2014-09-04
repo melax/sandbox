@@ -1028,24 +1028,3 @@ float3x3 Inertia(const std::vector<WingMesh*> &meshes, const float3& com)
 //-----------------------
 
 
-/*
-int WingMeshToFaces(WingMesh *m,std::vector<Face*> &faces)
-{
-	int i;
-	assert(m->unpacked==0);
-    assert(m->fback.size() == m->faces.size());
-	int k=0;
-	for(i=0;i<m->faces.size();i++)
-	{
-		Face *face = new Face();
-		faces.push_back(face);
-		face->xyz() = m->faces[i].xyz();
-		extern void texplanar(Face *face);
-		texplanar(face);
-		int e0 = m->fback[i];
-		int e=e0;
-		do{ face->vertex.push_back(m->verts[m->edges[e].v]);  e = m->edges[e].next;} while (e!=e0);
-	}
-	return faces.size();
-}
-*/

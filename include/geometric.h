@@ -12,7 +12,9 @@
 #ifndef GEOMETRIC_H
 #define GEOMETRIC_H
 
-#include <algorithm>   // for std::max_element()
+#include <algorithm>   // for std::max_element() used by maxdir and supportmap funcs
+#include <limits>      // for std::numeric_limits used by Extents()
+#include <vector>
 #include "vecmatquat.h"
 
 // still reorganizing little geometry functions, putting these here for now:
@@ -39,15 +41,6 @@ inline int PlaneTest(const float4 &plane, const float3 &v, float epsilon = PAPER
 	return flag;
 }
 
-inline float3 LineProject(const float3 &p0, const float3 &p1, const float3 &a)
-{
-	// project point a on segment [p0,p1]
-	float3 d = p1 - p0;
-	float t = dot(d, (a - p0)) / dot(d, d);
-	return p0 + d*t;
-}
-
-
 inline float LineProjectTime(const float3 &p0, const float3 &p1, const float3 &a)
 {
 	// project point a on segment [p0,p1]
@@ -55,6 +48,8 @@ inline float LineProjectTime(const float3 &p0, const float3 &p1, const float3 &a
 	float t = dot(d, (a - p0)) / dot(d, d);
 	return t;
 }
+inline float3 LineProject(const float3 &p0, const float3 &p1, const float3 &a) { return p0 + (p1 - p0) * LineProjectTime(p0, p1, a); }
+
 inline float3 BaryCentric(const float3 &v0, const float3 &v1, const float3 &v2, float3 s)
 {
 	float3x3 m(v0, v1, v2);
@@ -66,7 +61,7 @@ inline float3 BaryCentric(const float3 &v0, const float3 &v1, const float3 &v2, 
 	}
 	return mul(inverse(m), s);
 }
-inline int tri_interior(const float3& v0, const float3& v1, const float3& v2, const float3& d)
+inline bool tri_interior(const float3& v0, const float3& v1, const float3& v2, const float3& d)
 {
 	float3 b = BaryCentric(v0, v1, v2, d);
 	return (b.x >= 0.0f && b.y >= 0.0f && b.z >= 0.0f);
@@ -87,7 +82,7 @@ inline  float3 PlaneProjectOf(const float3 &v0, const float3 &v1, const float3 &
 
 
 
-inline int maxdir(const float3 *p, int count, const float3 &dir)
+inline int maxdir(const float3 *p, int count, const float3 &dir)  // returns index
 {
 	if (count == 0)
 		return -1;
@@ -102,17 +97,10 @@ inline float3 TriNormal(const float3 &v0, const float3 &v1, const float3 &v2)  /
 }
 
 
-inline int     argmax(const float a[], int n)
+inline int argmax(const float a[], int count)  // returns index
 {
-	int r = 0;
-	for (int i = 1; i<n; i++)
-	{
-		if (a[i]>a[r])
-		{
-			r = i;
-		}
-	}
-	return r;
+	if (count == 0) return -1;
+	return std::max_element(a,a+count)-a;
 }
 
 // still in the process of rearranging basic math and geom routines, putting these here for now...
