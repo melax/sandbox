@@ -78,7 +78,7 @@ void wmwire(const WingMesh &m)
 }
 void wmdraw(const WingMesh &m)
 {
-	auto tris = WingMeshTris(&m);
+	auto tris = WingMeshTris(m);
 	gldraw(m.verts, tris);
 }
 
@@ -91,10 +91,6 @@ void rbdraw(const RigidBody *rb,int wireframe)
 	glPopMatrix();
 }
 
-void Init()
-{
-}
-
 
 template<class T> std::vector<T> ArrayOfOne(T t){ std::vector<T> a; a.push_back(t); return a; }
 
@@ -104,18 +100,20 @@ LPSTR lpszCmdLine, int nCmdShow)
 {
 	std::cout << "Test Physics\n";
 
-	Init();
 	extern std::vector<RigidBody*> g_rigidbodies;
 	auto wma = WingMeshCube({ -1, -1, -1 }, { 1, 1, 1 });
 	auto wmb = WingMeshCube({ -1, -1, -1 }, { 1, 1, 1 });
 	auto rba = new RigidBody(ArrayOfOne(wma), {  1.5f, 0.0f, 1.5f });
 	auto rbb = new RigidBody(ArrayOfOne(wmb), { -1.5f, 0.0f, 1.5f });
 	rbb->orientation = normalize(float4(0.1f, 0.01f, 0.3f, 1.0f));
-	for (float z = 4.0f; z < 12.0f; z += 3.0f)
-		new RigidBody(ArrayOfOne(WingMeshCube({ -0.5f, -0.5f, -0.5f }, { 0.5f, 0.5f, 0.5f })), { 0.0f, 0.0f, 1.5f + z });
+	for (float z = 5.5f; z < 14.0f; z += 3.0f)
+		new RigidBody(ArrayOfOne(WingMeshCube({ -0.5f, -0.5f, -0.5f }, { 0.5f, 0.5f, 0.5f })), { 0.0f, 0.0f, z });
+	for (float z = 15.0f; z < 20.0f; z += 3.0f)
+		new RigidBody(ArrayOfOne(WingMeshDual( WingMeshCube({ -0.5f, -0.5f, -0.5f }, { 0.5f, 0.5f, 0.5f }),0.65f)), { 2.0f, -1.0f,  z }) ;
 
 	std::vector<WingMesh*> world_geometry;
-	world_geometry.push_back(WingMeshCube({ -10, -10, -5 }, { 10, 10, -2 }));
+	WingMesh world_slab = WingMeshCube({ -10, -10, -5 }, { 10, 10, -2 });
+	world_geometry.push_back(&world_slab);
 
 
 
@@ -128,15 +126,13 @@ LPSTR lpszCmdLine, int nCmdShow)
 			case ' ':
 				g_simulate = !g_simulate;
 				break;
-			case 27:   // ESC
-			case 'q':
-				exit(0);
-				break;
+			case 'q': case 27:   // ESC
+				exit(0); break;  
 			case 'r':
 				for (auto &rb : g_rigidbodies)
 				{
 					rb->position = rb->position_start;
-					//rb->orientation = rb->orientation_start;
+					//rb->orientation = rb->orientation_start;  // when commented out this provides some variation
 					rb->momentum = float3(0, 0, 0);
 					rb->rotation = float3(0, 0, 0);
 				}
@@ -164,13 +160,11 @@ LPSTR lpszCmdLine, int nCmdShow)
 			PhysicsUpdate(world_geometry);
 
 
-
 		glPushAttrib(GL_ALL_ATTRIB_BITS);
-
-		// Set up the viewport
-		glViewport(0, 0, glwin.Width,glwin.Height);
+		glViewport(0, 0, glwin.Width,glwin.Height);  // Set up the viewport
 		glClearColor(0.1f, 0.1f, 0.15f, 1);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glEnable(GL_DEPTH_TEST);
 
 		// Set up matrices
 		glMatrixMode(GL_PROJECTION);
@@ -181,29 +175,14 @@ LPSTR lpszCmdLine, int nCmdShow)
 		glMatrixMode(GL_MODELVIEW);
 		glPushMatrix();
 		gluLookAt(0, -8, 5, 0, 0, 0, 0, 0, 1);
-
 		glRotatef(g_pitch, 1, 0, 0);
 		glRotatef(g_yaw, 0, 0, 1);
 
-		glEnable(GL_DEPTH_TEST);
-		//glEnable(GL_TEXTURE_2D);
-
-		glDisable(GL_BLEND);
-		glPointSize(3);
-		glBegin(GL_POINTS);
-		glColor3f(0, 1, 0.5f);
-//		for (auto &v : wma->verts)
-//			glVertex3fv(rba->pose()*v);
-		glColor3f(0, 0.5f, 1.0f);
-//		for (auto &v : wmb->verts)
-//			glVertex3fv(rbb->pose*v);
-		glEnd();
-
+		// wireframe pass:
 		glColor3f(0, 1, 0.5f);
 		rbdraw(rba,1);
 		glColor3f(0, 0.5f, 1.0f);
 		rbdraw(rbb, 1);  // wireframe
-
 		glColor3f(0, 0.5f, 0.5f);
 		for (unsigned int i = 2; i < g_rigidbodies.size(); i++)
 			rbdraw(g_rigidbodies[i], 1);  // wireframe
@@ -227,10 +206,10 @@ LPSTR lpszCmdLine, int nCmdShow)
 		glPopAttrib();
 		glMatrixMode(GL_MODELVIEW);  
 
-		glwin.PrintString("ESC or q quits. SPACE to simulate. r to restart", 5, 1);
+		glwin.PrintString("ESC/q quits. SPACE to simulate. r to restart", 5, 0);
 		char buf[256];
 		sprintf_s(buf, "simulation %s", (g_simulate)?"ON":"OFF");
-		glwin.PrintString(buf, 5, 2);
+		glwin.PrintString(buf, 5, 1);
 
 		glwin.SwapBuffers();
 	}

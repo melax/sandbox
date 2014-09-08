@@ -68,7 +68,7 @@ class RigidBody : public State
 	float           damping;
 	float			gravscale;
 	float			friction;  // friction multiplier
-					RigidBody(std::vector<WingMesh*> &wmeshes,const float3 &_position);
+					RigidBody(std::vector<WingMesh> wmeshes,const float3 &_position);
 					~RigidBody();
 	float			hittime;
 	int				rest;
@@ -94,8 +94,8 @@ class Shape
 	const float4 &Orientation() const {return rb->orientation;}
 	const Pose& pose() const {return rb->pose();}
 	WingMesh local_geometry;
-	Shape(RigidBody *_rb,WingMesh _geometry);
-	~Shape();
+	Shape(RigidBody *rb, WingMesh local_geometry) :rb(rb), local_geometry(local_geometry) {}
+	~Shape(){};
 };
 inline float3    SupportPoint(const Shape *s, const float3& dir) { return s->pose() * SupportPoint(&s->local_geometry, qrot(qconj(s->Orientation()),dir)); }
 

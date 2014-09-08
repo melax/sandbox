@@ -16,7 +16,7 @@ static int fusenodes=0;
 BSPNode *BSPClean(BSPNode *n)
 {
 	// removes empty cells.
-	if(n->convex == NULL) 
+	if(n->convex.verts.size() == 0) 
 	{
 		delete n;
 		return NULL;
@@ -55,7 +55,7 @@ BSPNode *BSPClean(BSPNode *n)
 		n->xyz() = float3(0, 0, 0);
 		n->w  =0;
 	}
-	assert(n->convex);
+	assert(n->convex.verts.size());
 	return n;
 }
 

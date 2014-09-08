@@ -235,7 +235,7 @@ int HitCheckCylinder(float r,float h,BSPNode *node,int solid,float3 v0,float3 v1
 	if(node->isleaf )
 	{
 		if(usebevels && node->isleaf==UNDER) {
-			return HitCheckBevelsCylinder(r,h,node->convex,v0,v1,impact,nv0);
+			return HitCheckBevelsCylinder(r,h,&node->convex,v0,v1,impact,nv0);
 		}
 		if(node->isleaf==UNDER){
 			if(impact) *impact = v0;

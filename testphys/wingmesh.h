@@ -77,19 +77,17 @@ class WingMesh
 
 inline float3    SupportPoint(const WingMesh *m, const float3& dir) { return m->verts[maxdir(m->verts.data(), m->verts.size(), dir)]; }
 
-WingMesh* Dual(WingMesh *m,float r=1.0f,const float3 &p=float3(0,0,0));
-WingMesh* WingMeshCreate(float3 *verts,int3 *tris,int n);
-WingMesh* WingMeshCreate(float3 *verts,int3 *tris,int n,int *hidden_edges,int hidden_edges_count);
-void      WingMeshDelete(WingMesh *m); 
-WingMesh *WingMeshDup(WingMesh *src);
-WingMesh *WingMeshCube(const float3 &bmin,const float3 &bmax);
-WingMesh *WingMeshCrop(WingMesh *_m,const float4 &slice);
-int       WingMeshSplitTest(const WingMesh *m,const float4 &plane);
+WingMesh  WingMeshDual(const WingMesh &m,float r=1.0f,const float3 &p=float3(0,0,0));
+WingMesh  WingMeshCreate(float3 *verts,int3 *tris,int n);
+WingMesh  WingMeshCreate(float3 *verts,int3 *tris,int n,int *hidden_edges,int hidden_edges_count);
+WingMesh  WingMeshCube(const float3 &bmin,const float3 &bmax);
+WingMesh  WingMeshCrop(const WingMesh &_m,const float4 &slice);
+int       WingMeshSplitTest(const WingMesh &m,const float4 &plane);
 void      WingMeshTranslate(WingMesh *m,const float3 &offset);
 void      WingMeshRotate(WingMesh *m,const float4 &rot);
-float     WingMeshVolume(WingMesh *m);
+float     WingMeshVolume(const WingMesh &m);
 
-std::vector<int3> WingMeshTris(const WingMesh *m);  // generates a list of indexed triangles from the wingmesh's faces
+std::vector<int3> WingMeshTris(const WingMesh &m);  // generates a list of indexed triangles from the wingmesh's faces
 
 float3x3  Inertia(const std::vector<WingMesh*> &meshes, const float3& com=float3(0,0,0));
 float3    CenterOfMass(const std::vector<WingMesh*> &meshes);

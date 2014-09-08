@@ -38,7 +38,7 @@ class BSPNode :public float4
 	BSPNode *		over;
 	int				isleaf;
 	int				flag;  // using this for GC
-	WingMesh *		convex;
+	WingMesh 		convex;
 	std::vector<Face *>	brep;
 	explicit		BSPNode(const float4 &p);
 	explicit		BSPNode(const float3 &n=float3(0,0,0),float d=0);
@@ -108,7 +108,7 @@ void     AssignTex(Face* face);
 
 
 
-BSPNode *BSPCompile(std::vector<Face *> &inputfaces,WingMesh *convex_space,int side=0); 
+BSPNode *BSPCompile(std::vector<Face *> &inputfaces,WingMesh convex_space,int side=0); 
 void     BSPMakeBrep(BSPNode *r,std::vector<Face*> &faces);
 void     BSPDeriveConvex(BSPNode *node,WingMesh *convex);
 BSPNode* BSPDup(BSPNode *n);

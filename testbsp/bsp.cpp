@@ -32,7 +32,6 @@ BSPNode::BSPNode(const float3 &n,float d):float4(n,d){
 	under = NULL;
 	over  = NULL;
 	isleaf= 0;
-	convex= NULL;
 	flag = 0;
 	bspnodecount++;
 }
@@ -41,14 +40,12 @@ BSPNode::BSPNode(const float4 &p) : float4(p)
 	under=over=NULL;
 	isleaf=0;
 	flag=0;
-	convex=NULL;
 	bspnodecount--;
 }
 
 BSPNode::~BSPNode() {
 	delete under;
 	delete over;
-	delete convex;
 	while(brep.size()) {
 		delete brep.back();
 		brep.pop_back();
@@ -104,14 +101,14 @@ static int count[4];
 //	return flag;
 //}
 
-float sumbboxdim(WingMesh *convex)
+float sumbboxdim(const WingMesh convex)
 {
 	float3 bmin,bmax;
-	std::tie(bmin, bmax) = Extents<float,3>(convex->verts); // (convex->verts.data(), convex->verts.size(), bmin, bmax);
+	std::tie(bmin, bmax) = Extents<float,3>(convex.verts); // (convex->verts.data(), convex->verts.size(), bmin, bmax);
 	return dot(float3(1,1,1),bmax-bmin);
 }
 
-float PlaneCost(std::vector<Face *> &inputfaces,const float4 &split,WingMesh *space,int onbrep)
+float PlaneCost(std::vector<Face *> &inputfaces,const float4 &split,const WingMesh &space,int onbrep)
 {
 	count[COPLANAR] = 0;
 	count[UNDER]    = 0;
@@ -120,7 +117,7 @@ float PlaneCost(std::vector<Face *> &inputfaces,const float4 &split,WingMesh *sp
 	for(unsigned int i=0;i<inputfaces.size();i++) {
 		count[FaceSplitTest(inputfaces[i],split.xyz(),split.w,FUZZYWIDTH)]++;
 	}
-    if (space->verts.size() == 0) {
+    if (space.verts.size() == 0) {
 		// The following formula isn't that great.
 		// Better to use volume as well eh.
 		return (float)(abs(count[OVER]-count[UNDER]) + count[SPLIT] - count[COPLANAR]);
@@ -128,8 +125,8 @@ float PlaneCost(std::vector<Face *> &inputfaces,const float4 &split,WingMesh *sp
 	float volumeover =(float)1.0;
 	float volumeunder=(float)1.0;
 	float volumetotal=WingMeshVolume(space);
-	WingMesh *spaceunder= WingMeshCrop(space,float4( split.xyz(), split.w));
-	WingMesh *spaceover = WingMeshCrop(space,float4(-split.xyz(),-split.w));
+	WingMesh spaceunder= WingMeshCrop(space,float4( split.xyz(), split.w));
+	WingMesh spaceover = WingMeshCrop(space,float4(-split.xyz(),-split.w));
 	if(usevolcalc==1)
 	{
 		volumeunder = WingMeshVolume(spaceunder);
@@ -140,8 +137,6 @@ float PlaneCost(std::vector<Face *> &inputfaces,const float4 &split,WingMesh *sp
 		volumeunder = sumbboxdim(spaceunder);
 		volumeover  = sumbboxdim(spaceover );
 	}
-	delete spaceover;
-	delete spaceunder;
 	assert(volumeover/volumetotal>=-0.01);
 	assert(volumeunder/volumetotal>=-0.01);
 	if(fabs((volumeover+volumeunder-volumetotal)/volumetotal)>0.01)	{
@@ -188,7 +183,7 @@ void DividePolys(const float4 &splitplane,std::vector<Face *> &inputfaces,
 
 
 
-BSPNode * BSPCompile(std::vector<Face *> &inputfaces,WingMesh *space,int side) 
+BSPNode * BSPCompile(std::vector<Face *> &inputfaces,WingMesh space,int side) 
 {
     if (inputfaces.size() == 0) {
 		BSPNode *node = new BSPNode();
@@ -300,8 +295,8 @@ BSPNode * BSPCompile(std::vector<Face *> &inputfaces,WingMesh *space,int side)
 		}
 	}
 
-	WingMesh* space_under = WingMeshCrop(space, float4( split.xyz(),  split.w));
-	WingMesh* space_over  = WingMeshCrop(space, float4(-split.xyz(), -split.w));
+	WingMesh space_under = WingMeshCrop(space, float4( split.xyz(),  split.w));
+	WingMesh space_over  = WingMeshCrop(space, float4(-split.xyz(), -split.w));
 
 	node->under = BSPCompile(under,space_under,UNDER);
 	node->over  = BSPCompile(over ,space_over ,OVER );
@@ -330,32 +325,23 @@ void DeriveCells(BSPNode *node,Polyhedron *cell) {
 }
 */
 
-void BSPDeriveConvex(BSPNode *node,WingMesh *convex) {
+void BSPDeriveConvex(BSPNode *node,WingMesh convex) 
+{
 	assert(node);
-    if (convex && convex->edges.size() && convex->verts.size())
+    if ( convex.edges.size() && convex.verts.size())
 	{
-		assert(convex->verts.size());
-		assert(convex->edges.size());
-		assert(convex->faces.size());
+		assert(convex.verts.size());
+		assert(convex.edges.size());
+		assert(convex.faces.size());
 	}
-	else 
-	{
-		convex=NULL;
-	}
-	if(node->convex)  // clean up previous convex if there is one.  
-	{
-		delete node->convex;
-		node->convex=NULL;
-	}
-
 	node->convex = convex;
 	if(node->isleaf) {
 		return;
 	}
 	// if we are "editing" a bsp then the current plane may become coplanar to one of its parents (boundary of convex) or outside of the current volume (outside the convex)
-	WingMesh *cu=NULL;
-	WingMesh *co=NULL;
-	if(convex)
+	WingMesh cu;
+	WingMesh co;
+	if(convex.verts.size())  // non empty
 	{
 		int f=WingMeshSplitTest(convex,*node);
 		if(f==SPLIT)
@@ -365,11 +351,11 @@ void BSPDeriveConvex(BSPNode *node,WingMesh *convex) {
 		}
 		else if(f==OVER)
 		{
-			co = WingMeshDup(convex);
+			co = convex;
 		}
 		else if(f==UNDER)
 		{
-			cu = WingMeshDup(convex);
+			cu = convex;
 		}
 		else
 		{
@@ -399,7 +385,7 @@ std::vector<WingMesh*> BSPGetSolids(BSPNode *bsp)
 		stack.push_back(n->over);
 		if(n->isleaf == UNDER)
 		{
-			meshes.push_back(n->convex);
+			meshes.push_back(&n->convex);
 		}
 	}
 	return meshes;
@@ -411,7 +397,7 @@ void BSPGetSolidsr(BSPNode *n,std::vector<WingMesh*> &meshes)
 		if(!n) return;
 		if(n->isleaf == UNDER)
 		{
-			meshes.push_back(n->convex);
+			meshes.push_back(&n->convex);
 		}
 		BSPGetSolidsr(n->under,meshes);
 		BSPGetSolidsr(n->over,meshes);
@@ -427,9 +413,7 @@ void BSPTranslate(BSPNode *n,const float3 &_offset)
 		return;
 	}
 	n->w = n->w - dot(n->xyz(), offset);
-	if(n->convex) {
-		WingMeshTranslate(n->convex,_offset);
-	}
+	WingMeshTranslate(&n->convex,_offset);
 	for(auto & f : n->brep) {
 		FaceTranslate(f,_offset);
 	}
@@ -444,10 +428,7 @@ void BSPRotate(BSPNode *n,const float4 &r)
 		return;
 	}
 	n->xyz() = qrot(r, n->xyz());
-	if(n->convex) 
-	{
-		WingMeshRotate(n->convex,r);
-	}
+	WingMeshRotate(&n->convex,r);
 	for (auto & f : n->brep) {
 		FaceRotate(f, r);
 	}
@@ -460,13 +441,12 @@ void BSPScale(BSPNode *n,float s)
 {
 	if(!n) return;
 	n->w = n->w * s;
-	if(n->convex) {
-		for(unsigned int i=0;i<n->convex->verts.size();i++){
-			n->convex->verts[i] *= s;
-		}
-		for(unsigned int i=0;i<n->convex->faces.size();i++) {
-			n->convex->faces[i].w *=s;
-		}
+	// if(n->convex) 
+	for(unsigned int i=0;i<n->convex.verts.size();i++){
+		n->convex.verts[i] *= s;
+	}
+	for(unsigned int i=0;i<n->convex.faces.size();i++) {
+		n->convex.faces[i].w *=s;
 	}
 	for(unsigned i=0;i<n->brep.size();i++) {
 		Face *f = n->brep[i];
@@ -539,9 +519,7 @@ BSPNode *BSPDup(BSPNode *n)
 	a->xyz() = n->xyz();
 	a->w   = n->w;
 	a->isleaf = n->isleaf;
-	if(n->convex) {
-		a->convex = WingMeshDup(n->convex);
-	}
+	a->convex = (n->convex);
 	for(unsigned int i=0;i<n->brep.size();i++) {
 		a->brep.push_back(FaceDup(n->brep[i]));
 	}

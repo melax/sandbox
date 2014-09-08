@@ -469,40 +469,40 @@ static BSPNode *root=NULL;
 */
 
 
-void GenerateFacesReverse(WingMesh *m,std::vector<Face*> &flist) 
+void GenerateFacesReverse(const WingMesh &m,std::vector<Face*> &flist) 
 {
-	for(unsigned int i=0;i<m->faces.size();i++)
+	for(unsigned int i=0;i<m.faces.size();i++)
 	{
 		Face *f = new Face();
-		f->xyz() = -m->faces[i].xyz();
-		f->w     = -m->faces[i].w;
+		f->xyz() = -m.faces[i].xyz();
+		f->w     = -m.faces[i].w;
 		extern int currentmaterial;
 		f->matid=currentmaterial;
-		int e0 = m->fback[i];
+		int e0 = m.fback[i];
 		int e=e0;
 		do {
-			f->vertex.push_back(m->verts[m->edges[e].v]);
-			e = m->edges[e].prev;
+			f->vertex.push_back(m.verts[m.edges[e].v]);
+			e = m.edges[e].prev;
 		} while (e!=e0);
 		AssignTex(f);
 		flist.push_back(f);
 	}
 }
 
-void GenerateFaces(WingMesh *m,std::vector<Face*> &flist) 
+void GenerateFaces(const WingMesh &m,std::vector<Face*> &flist) 
 {
-	for(unsigned int i=0;i<m->faces.size();i++)
+	for(unsigned int i=0;i<m.faces.size();i++)
 	{
 		Face *f = new Face();
-		f->xyz() = m->faces[i].xyz();
-		f->w     = m->faces[i].w;
+		f->xyz() = m.faces[i].xyz();
+		f->w     = m.faces[i].w;
 		extern int currentmaterial;
 		f->matid=currentmaterial;
-		int e0 = m->fback[i];
+		int e0 = m.fback[i];
 		int e=e0;
 		do {
-			f->vertex.push_back(m->verts[m->edges[e].v]);
-			e = m->edges[e].next;
+			f->vertex.push_back(m.verts[m.edges[e].v]);
+			e = m.edges[e].next;
 		} while (e!=e0);
 		AssignTex(f);
 		flist.push_back(f);
@@ -517,8 +517,7 @@ static void GenerateFaces(BSPNode *n)
 		return;
 	}
 	if(n->isleaf==OVER) {
-		if(!n->convex) { return; }
-		assert(n->convex);
+		if(n->convex.verts.size()==0) { return; }
 		std::vector<Face *>flist;
 		GenerateFacesReverse(n->convex,flist);
 		for(unsigned int i=0;i<flist.size();i++) {

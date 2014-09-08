@@ -354,22 +354,16 @@ LimitAngular ConeLimit(RigidBody* rb0,const float3 &n0,RigidBody* rb1,const floa
 }
 
 
-Shape::Shape(RigidBody *_rb, WingMesh local_geometry) :rb(_rb),local_geometry(local_geometry)
-{
-}
-Shape::~Shape()
-{
-}
 
 
-RigidBody::RigidBody(std::vector<WingMesh*> &_meshes,const float3 &_position) : orientation_next(0,0,0,1), orientation_old(0,0,0,1), orientation_start(0,0,0,1)
+RigidBody::RigidBody(std::vector<WingMesh> meshes,const float3 &_position) : orientation_next(0,0,0,1), orientation_old(0,0,0,1), orientation_start(0,0,0,1)
 {
 	position_start=position_old=position_next=position=_position;
 	rest=0;   
 	hittime=0.0f;
 	g_rigidbodies.push_back(this);
-	collide=(_meshes.size())?3:0;
-	resolve=(_meshes.size())?1:0;
+	collide=(meshes.size())?3:0;
+	resolve=(meshes.size())?1:0;
 	usesound = 0;
 	mass=1;
 	gravscale=1.0f;
@@ -377,8 +371,8 @@ RigidBody::RigidBody(std::vector<WingMesh*> &_meshes,const float3 &_position) : 
 	friction = physics_coloumb;
 
 	std::vector<WingMesh*> shapemeshes;
-    for (auto m : _meshes)
-		shapemeshes.push_back(& (shapes.push_back(new Shape(this,*m)),shapes.back())->local_geometry);
+    for (auto &m : meshes)
+		shapemeshes.push_back(& (shapes.push_back(new Shape(this,std::move(m))),shapes.back())->local_geometry);
 
 
 	com = CenterOfMass(shapemeshes);

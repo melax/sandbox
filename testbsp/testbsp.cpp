@@ -23,23 +23,23 @@ void glVertex3fv(const float3 &v) { glVertex3fv(&v.x); }
 void glColor3fv (const float3 &v) { glColor3fv(&v.x);  }
 
 
-std::vector<Face*> WingMeshToFaces(WingMesh *m)
+std::vector<Face*> WingMeshToFaces(const WingMesh &m)
 {
 	std::vector<Face*> faces;
-	assert(m->unpacked == 0);
-    assert(m->fback.size() == m->faces.size());
+	assert(m.unpacked == 0);
+    assert(m.fback.size() == m.faces.size());
 	int k=0;
-	for(unsigned int i=0;i<m->faces.size();i++)
+	for(unsigned int i=0;i<m.faces.size();i++)
 	{
 		Face *face = new Face();
 		faces.push_back(face);
-		face->xyz() = m->faces[i].xyz();
-		face->w     = m->faces[i].w;
+		face->xyz() = m.faces[i].xyz();
+		face->w     = m.faces[i].w;
 		//extern void texplanar(Face *face);
 		//texplanar(face);
-		int e0 = m->fback[i];
+		int e0 = m.fback[i];
 		int e=e0;
-		do{ face->vertex.push_back(m->verts[m->edges[e].v]);  e = m->edges[e].next;} while (e!=e0);
+		do{ face->vertex.push_back(m.verts[m.edges[e].v]);  e = m.edges[e].next;} while (e!=e0);
 	}
 	return faces;
 }
@@ -98,7 +98,7 @@ void wmwire(const WingMesh &m)
 }
 void wmdraw(const WingMesh &m)
 {
-	gldraw(m.verts, WingMeshTris(&m));  // admittedly this generates tri list each time
+	gldraw(m.verts, WingMeshTris(m));  // admittedly this generates tri list each time
 }
 
 
@@ -164,9 +164,9 @@ LPSTR lpszCmdLine, int nCmdShow)
 		glRotatef(yaw, 0, 0, 1);
 
 		glColor3f(0, 1, 0.5f);   // wireframe render the boolean operands
-		wmwire(*ac);  
+		wmwire(ac);  
 		glColor3f(0, 0.5f, 1);
-		wmwire(*bc);
+		wmwire(bc);
 		glColor3f(1, 1, 1);
 
 		glEnable(GL_LIGHTING);
@@ -186,11 +186,11 @@ LPSTR lpszCmdLine, int nCmdShow)
 				if (n->isleaf == UNDER)
 				{
 					float3 c(0, 0, 0);
-					for (auto &v : n->convex->verts)
-						c += v * (1.0f/n->convex->verts.size());  // approx center for convex cell
+					for (auto &v : n->convex.verts)
+						c += v * (1.0f/n->convex.verts.size());  // approx center for convex cell
 					glPushMatrix();
 					glTranslatef(c.x*0.1f, c.y*0.1f, c.z*0.1f);  // expand outward to slightly separate the cells
-					wmdraw(*n->convex);
+					wmdraw(n->convex);
 					glPopMatrix();
 				}
 				stack.push_back(n->under);

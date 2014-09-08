@@ -150,46 +150,46 @@ float4 &ComputeNormal(WingMesh &m,int f)
 	return p;
 }
 
-WingMesh* WingMeshCreate(float3 *verts,int3 *tris,int n)
+WingMesh WingMeshCreate(float3 *verts,int3 *tris,int n)
 {
-	if(n==0) return NULL;
-	WingMesh *m = new WingMesh();
-	int verts_count=-1;
+	WingMesh m;
+	if (n == 0) return m;
+	int verts_count = -1;
 	for(int i=0;i<n;i++) for(int j=0;j<3;j++)
 	{
 		verts_count = std::max(verts_count,tris[i][j]);
 	}
 	verts_count++;
-	m->verts.resize(verts_count);
-	for(unsigned int i=0;i<m->verts.size();i++)
+	m.verts.resize(verts_count);
+	for(unsigned int i=0;i<m.verts.size();i++)
 	{
-		m->verts[i]=verts[i];
+		m.verts[i]=verts[i];
 	}
 	for(int i=0;i<n;i++)
 	{
 		int3 &t=tris[i];
 		WingMesh::HalfEdge e0,e1,e2;
 		e0.face=e1.face=e2.face=i;
-		int k=m->edges.size();
+		int k=m.edges.size();
 		e0.id = e1.prev = e2.next = k+0;
 		e1.id = e2.prev = e0.next = k+1;
 		e2.id = e0.prev = e1.next = k+2;
 		e0.v = (short)tris[i][0];
 		e1.v = (short)tris[i][1];
 		e2.v = (short)tris[i][2];
-		m->edges.push_back(e0);
-		m->edges.push_back(e1);
-		m->edges.push_back(e2);
+		m.edges.push_back(e0);
+		m.edges.push_back(e1);
+		m.edges.push_back(e2);
 	}
-	m->faces.resize(n);
+	m.faces.resize(n);
 	for(int i=0;i<n;i++)
 	{
 		float3 normal = TriNormal(verts[tris[i][0]],verts[tris[i][1]],verts[tris[i][2]]);
 		float  dist   = -dot(normal,verts[tris[i][0]]);
-		m->faces[i] = float4(normal,dist);
+		m.faces[i] = float4(normal,dist);
 	}
-	linkmesh(*m);
-	WingMeshInitBackLists(*m);
+	linkmesh(m);
+	WingMeshInitBackLists(m);
 	return m;
 }
 static void SwapSlots(WingMesh &m,int a,int b)
@@ -471,103 +471,98 @@ void WingMeshSort(WingMesh &m)
 
 
 
-WingMesh* WingMeshCreate(float3 *verts,int3 *tris,int n,int *hidden_edges,int hidden_edges_count)
+WingMesh WingMeshCreate(float3 *verts,int3 *tris,int n,int *hidden_edges,int hidden_edges_count)
 {
-	WingMesh *m=WingMeshCreate(verts,tris,n);
-	RemoveEdges(*m,hidden_edges,hidden_edges_count);
+	WingMesh m=WingMeshCreate(verts,tris,n);
+	RemoveEdges(m,hidden_edges,hidden_edges_count);
 	return m;
 }
-void WingMeshDelete(WingMesh *m){delete m;}
 
-WingMesh *Dual(WingMesh *m,float r,const float3 &p)
+WingMesh WingMeshDual(const WingMesh &m, float r, const float3 &p)
 {
-	WingMesh *d = new WingMesh();
-    d->faces.resize(m->verts.size());
-    d->fback.resize(m->vback.size());
-	for(unsigned int i=0;i<m->verts.size();i++)
+	WingMesh d;  // new WingMesh
+    d.faces.resize(m.verts.size());
+    d.fback.resize(m.vback.size());
+	for(unsigned int i=0;i<m.verts.size();i++)
 	{
-		d->faces[i] = float4(normalize(m->verts[i]),r*r/magnitude(m->verts[i]));
-		d->fback[i] = m->vback[i];
+		d.faces[i] = float4(normalize(m.verts[i]),r*r/magnitude(m.verts[i]));
+		d.fback[i] = m.vback[i];
 	}
-    d->verts.resize(m->faces.size());
-    d->vback.resize(m->fback.size());
-	for(unsigned int i=0;i<m->faces.size();i++)
+    d.verts.resize(m.faces.size());
+    d.vback.resize(m.fback.size());
+	for(unsigned int i=0;i<m.faces.size();i++)
 	{
-		d->verts[i] = m->faces[i].xyz()*(r*r/m->faces[i].w);
-		d->vback[i] = m->edges[m->fback[i]].adj;
+		d.verts[i] = m.faces[i].xyz()*(-r*r/m.faces[i].w);
+		d.vback[i] = m.edges[m.fback[i]].adj;
 	}
-    d->edges.resize(m->edges.size());
-	for(unsigned int i=0;i<m->edges.size();i++)
+    d.edges.resize(m.edges.size());
+	for(unsigned int i=0;i<m.edges.size();i++)
 	{
-		d->edges[i] = m->edges[i];
-		d->edges[i].face = m->edges[i].v;
-		d->edges[i].v = m->edges[m->edges[i].adj].face;
-		d->edges[i].next = m->edges[m->edges[i].prev].adj ;
-		d->edges[i].prev = m->edges[m->edges[i].adj ].next;
+		d.edges[i] = m.edges[i];
+		d.edges[i].face = m.edges[i].v;
+		d.edges[i].v = m.edges[m.edges[i].adj].face;
+		d.edges[i].next = m.edges[m.edges[i].prev].adj ;
+		d.edges[i].prev = m.edges[m.edges[i].adj ].next;
 	}
-	checkit(*d);
+	checkit(d);
 	return d;
 }
 
 
-WingMesh *WingMeshCube(const float3 &bmin,const float3 &bmax)
+WingMesh WingMeshCube(const float3 &bmin,const float3 &bmax)
 {
-	WingMesh *wm = new WingMesh();
-	wm->verts.resize(8);
-	wm->verts[0] = float3(bmin.x,bmin.y,bmin.z);
-	wm->verts[1] = float3(bmin.x,bmin.y,bmax.z);
-	wm->verts[2] = float3(bmin.x,bmax.y,bmin.z);
-	wm->verts[3] = float3(bmin.x,bmax.y,bmax.z);
-	wm->verts[4] = float3(bmax.x,bmin.y,bmin.z);
-	wm->verts[5] = float3(bmax.x,bmin.y,bmax.z);
-	wm->verts[6] = float3(bmax.x,bmax.y,bmin.z);
-	wm->verts[7] = float3(bmax.x,bmax.y,bmax.z);
-	wm->faces.resize(6);
-	wm->faces[0] = float4(float3(-1,0,0), bmin.x);
-	wm->faces[1] = float4(float3(1,0,0), -bmax.x);
-	wm->faces[2] = float4(float3(0,-1,0), bmin.y);
-	wm->faces[3] = float4(float3(0,1,0), -bmax.y);
-	wm->faces[4] = float4(float3(0,0,-1), bmin.z);
-	wm->faces[5] = float4(float3(0,0,1), -bmax.z);
-	wm->edges.resize(24);
-	wm->edges[0 ] = WingMesh::HalfEdge( 0,0,11, 1, 3,0);
-	wm->edges[1 ] = WingMesh::HalfEdge( 1,1,23, 2, 0,0);
-	wm->edges[2 ] = WingMesh::HalfEdge( 2,3,15, 3, 1,0);
-	wm->edges[3 ] = WingMesh::HalfEdge( 3,2,16, 0, 2,0);
+	WingMesh wm;
+	wm.verts.resize(8);
+	wm.verts[0] = float3(bmin.x,bmin.y,bmin.z);
+	wm.verts[1] = float3(bmin.x,bmin.y,bmax.z);
+	wm.verts[2] = float3(bmin.x,bmax.y,bmin.z);
+	wm.verts[3] = float3(bmin.x,bmax.y,bmax.z);
+	wm.verts[4] = float3(bmax.x,bmin.y,bmin.z);
+	wm.verts[5] = float3(bmax.x,bmin.y,bmax.z);
+	wm.verts[6] = float3(bmax.x,bmax.y,bmin.z);
+	wm.verts[7] = float3(bmax.x,bmax.y,bmax.z);
+	wm.faces.resize(6);
+	wm.faces[0] = float4(float3(-1,0,0), bmin.x);
+	wm.faces[1] = float4(float3(1,0,0), -bmax.x);
+	wm.faces[2] = float4(float3(0,-1,0), bmin.y);
+	wm.faces[3] = float4(float3(0,1,0), -bmax.y);
+	wm.faces[4] = float4(float3(0,0,-1), bmin.z);
+	wm.faces[5] = float4(float3(0,0,1), -bmax.z);
+	wm.edges.resize(24);
+	wm.edges[0 ] = WingMesh::HalfEdge( 0,0,11, 1, 3,0);
+	wm.edges[1 ] = WingMesh::HalfEdge( 1,1,23, 2, 0,0);
+	wm.edges[2 ] = WingMesh::HalfEdge( 2,3,15, 3, 1,0);
+	wm.edges[3 ] = WingMesh::HalfEdge( 3,2,16, 0, 2,0);
 										 
-	wm->edges[4 ] = WingMesh::HalfEdge( 4,6,13, 5, 7,1);
-	wm->edges[5 ] = WingMesh::HalfEdge( 5,7,21, 6, 4,1);
-	wm->edges[6 ] = WingMesh::HalfEdge( 6,5, 9, 7, 5,1);
-	wm->edges[7 ] = WingMesh::HalfEdge( 7,4,18, 4, 6,1);
-										 
-	wm->edges[8 ] = WingMesh::HalfEdge( 8,0,19, 9,11,2);
-	wm->edges[9 ] = WingMesh::HalfEdge( 9,4, 6,10, 8,2);
-	wm->edges[10] = WingMesh::HalfEdge(10,5,20,11, 9,2);
-	wm->edges[11] = WingMesh::HalfEdge(11,1, 0, 8,10,2);
-										 
-	wm->edges[12] = WingMesh::HalfEdge(12,3,22,13,15,3);
-	wm->edges[13] = WingMesh::HalfEdge(13,7, 4,14,12,3);
-	wm->edges[14] = WingMesh::HalfEdge(14,6,17,15,13,3);
-	wm->edges[15] = WingMesh::HalfEdge(15,2, 2,12,14,3);
-										 
-	wm->edges[16] = WingMesh::HalfEdge(16,0, 3,17,19,4);
-	wm->edges[17] = WingMesh::HalfEdge(17,2,14,18,16,4);
-	wm->edges[18] = WingMesh::HalfEdge(18,6, 7,19,17,4);
-	wm->edges[19] = WingMesh::HalfEdge(19,4, 8,16,18,4);
-										 
-	wm->edges[20] = WingMesh::HalfEdge(20,1,10,21,23,5);
-	wm->edges[21] = WingMesh::HalfEdge(21,5, 5,22,20,5);
-	wm->edges[22] = WingMesh::HalfEdge(22,7,12,23,21,5);
-	wm->edges[23] = WingMesh::HalfEdge(23,3, 1,20,22,5);
-	WingMeshInitBackLists(*wm);
-	checkit(*wm);
+	wm.edges[4 ] = WingMesh::HalfEdge( 4,6,13, 5, 7,1);
+	wm.edges[5 ] = WingMesh::HalfEdge( 5,7,21, 6, 4,1);
+	wm.edges[6 ] = WingMesh::HalfEdge( 6,5, 9, 7, 5,1);
+	wm.edges[7 ] = WingMesh::HalfEdge( 7,4,18, 4, 6,1);
+
+	wm.edges[8 ] = WingMesh::HalfEdge( 8,0,19, 9,11,2);
+	wm.edges[9 ] = WingMesh::HalfEdge( 9,4, 6,10, 8,2);
+	wm.edges[10] = WingMesh::HalfEdge(10,5,20,11, 9,2);
+	wm.edges[11] = WingMesh::HalfEdge(11,1, 0, 8,10,2);
+
+	wm.edges[12] = WingMesh::HalfEdge(12,3,22,13,15,3);
+	wm.edges[13] = WingMesh::HalfEdge(13,7, 4,14,12,3);
+	wm.edges[14] = WingMesh::HalfEdge(14,6,17,15,13,3);
+	wm.edges[15] = WingMesh::HalfEdge(15,2, 2,12,14,3);
+
+	wm.edges[16] = WingMesh::HalfEdge(16,0, 3,17,19,4);
+	wm.edges[17] = WingMesh::HalfEdge(17,2,14,18,16,4);
+	wm.edges[18] = WingMesh::HalfEdge(18,6, 7,19,17,4);
+	wm.edges[19] = WingMesh::HalfEdge(19,4, 8,16,18,4);
+
+	wm.edges[20] = WingMesh::HalfEdge(20,1,10,21,23,5);
+	wm.edges[21] = WingMesh::HalfEdge(21,5, 5,22,20,5);
+	wm.edges[22] = WingMesh::HalfEdge(22,7,12,23,21,5);
+	wm.edges[23] = WingMesh::HalfEdge(23,3, 1,20,22,5);
+	WingMeshInitBackLists(wm);
+	checkit(wm);
 	return wm;
 }
-class dogan{
-public:
-	dogan(){WingMeshCrop(WingMeshCube(float3(0,0,0),float3(1,1,1)),float4(float3(0,0,1),-0.5f));}
-	int x;
-}ddd;
+
 void Polyize(WingMesh &m,float angle=2.0f)
 {
 	unsigned int i=m.edges.size();
@@ -692,13 +687,6 @@ int FaceSideCount(WingMesh &m,int f)
 }
 
 
-
-WingMesh *WingMeshDup(WingMesh *src)
-{
-	WingMesh *m=new WingMesh();
-	*m=*src;
-	return m;
-}
 
 
 
@@ -832,28 +820,28 @@ void WingMeshTess(WingMesh &m,const float4 &slice,std::vector<int> &loop)
 
 }
 
-WingMesh *WingMeshCrop(WingMesh *_m,const float4 &slice)
+WingMesh WingMeshCrop(const WingMesh &_m,const float4 &slice)
 {
 	std::vector<int> coplanar; // edges
 	int s = WingMeshSplitTest(_m,slice);
-	if(s==OVER) return NULL;
-	WingMesh *m=WingMeshDup(_m);
-	if(s==UNDER) return m;
-	WingMeshTess(*m,slice,coplanar);
+	if (s == OVER) return WingMesh(); //  NULL;
+	if(s==UNDER) return _m;
+	WingMesh m = _m;
+	WingMeshTess(m,slice,coplanar);
 	std::vector<int> reverse;
-    for (unsigned int i = 0; i<coplanar.size(); i++) reverse.push_back(m->edges[coplanar[coplanar.size() - 1 - i]].adj);
+    for (unsigned int i = 0; i<coplanar.size(); i++) reverse.push_back(m.edges[coplanar[coplanar.size() - 1 - i]].adj);
 
-    if (coplanar.size()) WingMeshSeparate(*m, reverse);
-	checkit(*m);
-	assert(dot(m->faces[0].xyz(), slice.xyz()) > 0.99f);
-	m->faces[0] = slice;
+    if (coplanar.size()) WingMeshSeparate(m, reverse);
+	checkit(m);
+	assert(dot(m.faces[0].xyz(), slice.xyz()) > 0.99f);
+	m.faces[0] = slice;
 	return m;
 }
 
-int WingMeshSplitTest(const WingMesh *m, const float4 &plane) {
+int WingMeshSplitTest(const WingMesh &m, const float4 &plane) {
 	int flag=0;
-	for (unsigned int i = 0; i<m->verts.size(); i++) {
-		flag |= PlaneTest(plane,m->verts[i]);
+	for (unsigned int i = 0; i<m.verts.size(); i++) {
+		flag |= PlaneTest(plane,m.verts[i]);
 	}
 	return flag;
 }
@@ -876,49 +864,24 @@ void      WingMeshRotate(WingMesh *m,const float4 &rot)
 	}
 }
 
-float WingMeshVolume(WingMesh *m)
-{
-	if(!m) return 0.0f;
-	float volume=0.0f;
-	for(unsigned int i=0;i<m->faces.size();i++)
-	{
-		float4 &p = m->faces[i];
-		int e0 = m->fback[i];
-		int ea = m->edges[e0].next;
-		int eb = m->edges[ea].next;
-		float3 &v0 = m->verts[m->edges[e0].v];
-		while(eb!=e0)
-		{
-			float3 &v1 = m->verts[m->edges[ea].v];
-			float3 &v2 = m->verts[m->edges[eb].v];
-			volume += -p.w * dot(p.xyz(),cross(v1-v0,v2-v1)) / 6.0f;
-			ea=eb;
-			eb=m->edges[eb].next;
-		}
-	}
-	return volume;
-}
 
-
-
-
-std::vector<int3> WingMeshTris(const WingMesh *m)
+std::vector<int3> WingMeshTris(const WingMesh &m)
 {
 	std::vector<int3> tris;
-    int predict = m->edges.size() - m->faces.size() * 2;
+    int predict = m.edges.size() - m.faces.size() * 2;
 	if (predict>0) tris.resize(predict);
 	tris.clear();
-	for(unsigned int i=0;i<m->faces.size();i++)
+	for(unsigned int i=0;i<m.faces.size();i++)
 	{
-		int e0 = m->fback[i];
+		int e0 = m.fback[i];
 		if(e0==-1) continue;
-		int ea = m->edges[e0].next;
-		int eb = m->edges[ea].next;
+		int ea = m.edges[e0].next;
+		int eb = m.edges[ea].next;
 		while(eb!=e0)
 		{
-			tris.push_back(int3(m->edges[e0].v,m->edges[ea].v,m->edges[eb].v));
+			tris.push_back(int3(m.edges[e0].v,m.edges[ea].v,m.edges[eb].v));
 			ea=eb;
-			eb = m->edges[ea].next;
+			eb = m.edges[ea].next;
 		}
 	}
 	return tris;
@@ -937,7 +900,7 @@ int VertFindOrAdd(std::vector<float3> &array, const float3& v,float epsilon=0.00
 }
 
 /*
-WingMesh* WingMeshCreate(std::vector<Face*> &faces)
+WingMesh WingMeshCreate(std::vector<Face*> &faces)
 {
 	int i,j;
 	WingMesh *wmesh = new WingMesh();
@@ -976,10 +939,10 @@ WingMesh* WingMeshCreate(std::vector<Face*> &faces)
 
 //--------- mass properties ----------
 
-float Volume(const WingMesh* mesh)
+float WingMeshVolume(const WingMesh &mesh)
 {
 	auto tris= WingMeshTris(mesh);
-	const float3 *verts = mesh->verts.data();
+	const float3 *verts = mesh.verts.data();
     return Volume(verts, tris.data(), tris.size());
 }
 
@@ -987,7 +950,7 @@ float Volume(const std::vector<WingMesh*> &meshes)
 {
 	float  vol=0;
 	for(auto &m : meshes)
-		vol+=Volume(m);
+		vol += WingMeshVolume(*m);
 	return vol;
 }
 
@@ -997,7 +960,7 @@ float3 CenterOfMass(const std::vector<WingMesh*> &meshes)
 	float  vol=0;
 	for (auto &m : meshes)
 	{
-		auto tris = WingMeshTris(m);
+		auto tris = WingMeshTris(*m);
 		const float3 *verts = m->verts.data();
         float3 cg = CenterOfMass(verts, tris.data(), tris.size());
         float   v = Volume(verts, tris.data(), tris.size());
@@ -1015,7 +978,7 @@ float3x3 Inertia(const std::vector<WingMesh*> &meshes, const float3& com)
 	float3x3 inertia;
 	for (auto &m : meshes)
 	{
-		auto tris = WingMeshTris(m);
+		auto tris = WingMeshTris(*m);
 		const float3 *verts = m->verts.data();
         float v = Volume(verts, tris.data(), tris.size());
         inertia += Inertia(verts, tris.data(), tris.size(), com) * v;
