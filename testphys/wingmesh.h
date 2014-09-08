@@ -37,7 +37,6 @@
 
 
 
-class WingMesh;
 //class Face; // see bsp.h 
 
 
@@ -45,12 +44,10 @@ class Shape;
 
 
 
-class WingMesh
+struct WingMesh
 {
-  public:
-	class HalfEdge
+	struct HalfEdge
 	{
-	  public:
 		short id;
 		short v;
 		short adj;
@@ -65,26 +62,24 @@ class WingMesh
 		HalfEdge *Adj (){assert(adj >=0 && id>=0); return this+(adj -id);}
 	};
 	std::vector<HalfEdge> edges;
-	std::vector<float3> verts;
-	std::vector<float4>  faces;
-	std::vector<short>  vback;
-	std::vector<short>  fback;
+	std::vector<float3>   verts;
+	std::vector<float4>   faces;
+	std::vector<short>    vback;
+	std::vector<short>    fback;
 	int unpacked; // flag indicating if any unused elements within arrays
 	WingMesh():unpacked(0){}
-	//virtual float3		Support(const float3& dir)const { return verts[maxdir(verts.data(), verts.size(), dir)]; }
-	//virtual float3	GetVert(int v)const{return verts[v];}
 };
 
 inline float3    SupportPoint(const WingMesh *m, const float3& dir) { return m->verts[maxdir(m->verts.data(), m->verts.size(), dir)]; }
 
 WingMesh  WingMeshDual(const WingMesh &m,float r=1.0f,const float3 &p=float3(0,0,0));
-WingMesh  WingMeshCreate(float3 *verts,int3 *tris,int n);
-WingMesh  WingMeshCreate(float3 *verts,int3 *tris,int n,int *hidden_edges,int hidden_edges_count);
+WingMesh  WingMeshCreate(const float3 *verts,const int3 *tris,int n);
+WingMesh  WingMeshCreate(const float3 *verts,const int3 *tris,int n,const int *hidden_edges,int hidden_edges_count);
 WingMesh  WingMeshCube(const float3 &bmin,const float3 &bmax);
 WingMesh  WingMeshCrop(const WingMesh &_m,const float4 &slice);
 int       WingMeshSplitTest(const WingMesh &m,const float4 &plane);
-void      WingMeshTranslate(WingMesh *m,const float3 &offset);
-void      WingMeshRotate(WingMesh *m,const float4 &rot);
+WingMesh& WingMeshTranslate(WingMesh &m, const float3 &offset); // tranlates mesh passed in
+WingMesh& WingMeshRotate(WingMesh &m, const float4 &rot);
 float     WingMeshVolume(const WingMesh &m);
 
 std::vector<int3> WingMeshTris(const WingMesh &m);  // generates a list of indexed triangles from the wingmesh's faces

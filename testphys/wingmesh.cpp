@@ -150,7 +150,7 @@ float4 &ComputeNormal(WingMesh &m,int f)
 	return p;
 }
 
-WingMesh WingMeshCreate(float3 *verts,int3 *tris,int n)
+WingMesh WingMeshCreate(const float3 *verts,const int3 *tris,int n)
 {
 	WingMesh m;
 	if (n == 0) return m;
@@ -167,7 +167,7 @@ WingMesh WingMeshCreate(float3 *verts,int3 *tris,int n)
 	}
 	for(int i=0;i<n;i++)
 	{
-		int3 &t=tris[i];
+		const int3 &t=tris[i];
 		WingMesh::HalfEdge e0,e1,e2;
 		e0.face=e1.face=e2.face=i;
 		int k=m.edges.size();
@@ -394,7 +394,7 @@ void RemoveEdge(WingMesh &m,int e,int pack=0)
 	checkit(m);
 }
 
-void RemoveEdges(WingMesh &m,int *cull,int cull_count)
+void RemoveEdges(WingMesh &m,const int *cull,int cull_count)
 {
 	m.vback.clear();
 	m.fback.clear();
@@ -471,7 +471,7 @@ void WingMeshSort(WingMesh &m)
 
 
 
-WingMesh WingMeshCreate(float3 *verts,int3 *tris,int n,int *hidden_edges,int hidden_edges_count)
+WingMesh WingMeshCreate(const float3 *verts, const int3 *tris, int n, const int *hidden_edges, int hidden_edges_count)
 {
 	WingMesh m=WingMeshCreate(verts,tris,n);
 	RemoveEdges(m,hidden_edges,hidden_edges_count);
@@ -485,7 +485,7 @@ WingMesh WingMeshDual(const WingMesh &m, float r, const float3 &p)
     d.fback.resize(m.vback.size());
 	for(unsigned int i=0;i<m.verts.size();i++)
 	{
-		d.faces[i] = float4(normalize(m.verts[i]),r*r/magnitude(m.verts[i]));
+		d.faces[i] = float4(normalize(m.verts[i]),-r*r/magnitude(m.verts[i]));
 		d.fback[i] = m.vback[i];
 	}
     d.verts.resize(m.faces.size());
@@ -504,6 +504,8 @@ WingMesh WingMeshDual(const WingMesh &m, float r, const float3 &p)
 		d.edges[i].next = m.edges[m.edges[i].prev].adj ;
 		d.edges[i].prev = m.edges[m.edges[i].adj ].next;
 	}
+	for (int f = 0; f < (int)d.faces.size(); f++)
+		ComputeNormal(d, f);    // this shouldn't change the plane equation by a significant amount
 	checkit(d);
 	return d;
 }
@@ -840,28 +842,25 @@ WingMesh WingMeshCrop(const WingMesh &_m,const float4 &slice)
 
 int WingMeshSplitTest(const WingMesh &m, const float4 &plane) {
 	int flag=0;
-	for (unsigned int i = 0; i<m.verts.size(); i++) {
-		flag |= PlaneTest(plane,m.verts[i]);
-	}
+	for (auto &v:  m.verts) 
+		flag |= PlaneTest(plane,v);
 	return flag;
 }
-void WingMeshTranslate(WingMesh *m,const float3 &offset){
-	for(unsigned int i=0;i<m->verts.size();i++) {
-		m->verts[i] = m->verts[i]+offset;
-	}
-	for(unsigned int i=0;i<m->faces.size();i++) {
-		m->faces[i].w = m->faces[i].w - dot(m->faces[i].xyz(),offset);
-	}
+WingMesh& WingMeshTranslate(WingMesh &m, const float3 &offset){
+	for (auto &v : m.verts)
+		v += offset;  
+	for(auto &p : m.faces)
+		p.w -= dot(p.xyz(),offset);
+	return m;
 }
 
-void      WingMeshRotate(WingMesh *m,const float4 &rot)
+WingMesh& WingMeshRotate(WingMesh &m, const float4 &rot)
 {
-	for(unsigned int i=0;i<m->verts.size();i++) {
-		m->verts[i] = qrot(rot , m->verts[i]);
-	}
-	for(unsigned int i=0;i<m->faces.size();i++) {
-		m->faces[i].xyz() = qrot(rot, m->faces[i].xyz());
-	}
+	for (auto &v : m.verts)
+		v = qrot(rot, v);
+	for (auto &p : m.faces)
+		p.xyz() = qrot(rot, p.xyz());
+	return m;
 }
 
 
@@ -870,10 +869,9 @@ std::vector<int3> WingMeshTris(const WingMesh &m)
 	std::vector<int3> tris;
     int predict = m.edges.size() - m.faces.size() * 2;
 	if (predict>0) tris.resize(predict);
-	tris.clear();
-	for(unsigned int i=0;i<m.faces.size();i++)
+	for(int e0 : m.fback) // for each face, e0 is first halfedge 
 	{
-		int e0 = m.fback[i];
+		// int e0 = m.fback[i];
 		if(e0==-1) continue;
 		int ea = m.edges[e0].next;
 		int eb = m.edges[ea].next;

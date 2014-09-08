@@ -413,7 +413,7 @@ void BSPTranslate(BSPNode *n,const float3 &_offset)
 		return;
 	}
 	n->w = n->w - dot(n->xyz(), offset);
-	WingMeshTranslate(&n->convex,_offset);
+	WingMeshTranslate(n->convex,_offset);
 	for(auto & f : n->brep) {
 		FaceTranslate(f,_offset);
 	}
@@ -428,7 +428,7 @@ void BSPRotate(BSPNode *n,const float4 &r)
 		return;
 	}
 	n->xyz() = qrot(r, n->xyz());
-	WingMeshRotate(&n->convex,r);
+	WingMeshRotate(n->convex,r);
 	for (auto & f : n->brep) {
 		FaceRotate(f, r);
 	}

@@ -27,7 +27,6 @@
 //#define PAPERWIDTH (0.0001f)
 
 class Face;
-class WingMesh;
 class Collidable;
 
 
@@ -37,8 +36,8 @@ class BSPNode :public float4
 	BSPNode *		under;
 	BSPNode *		over;
 	int				isleaf;
-	int				flag;  // using this for GC
-	WingMesh 		convex;
+	int				flag;      // using this for GC
+	WingMesh 		convex;    // the volume of space occupied by this node
 	std::vector<Face *>	brep;
 	explicit		BSPNode(const float4 &p);
 	explicit		BSPNode(const float3 &n=float3(0,0,0),float d=0);
@@ -56,19 +55,6 @@ class Face : public float4
 	float3			ot;
 	Face() {matid=0;}
 };
-
-
-
-
-class BBox
-{
-public:
-	float3 bmin;
-	float3 bmax;
-};
-
-
-#define CREASE_ANGLE_DEFAULT (30)
 
 
 inline std::pair<float3, float3> Extents(const Face &face){ return Extents(face.vertex); }

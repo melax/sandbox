@@ -379,8 +379,7 @@ RigidBody::RigidBody(std::vector<WingMesh> meshes,const float3 &_position) : ori
 	position += com;
 	position_start=position_old=position_next=position;
 	for(auto & s : shapemeshes)
-		WingMeshTranslate(s,-com);
-	//BSPTranslate(bsp,-com);
+		WingMeshTranslate(*s,-com);
 
 	float3x3 tensor = Inertia(shapemeshes);
 	massinv = 1.0f / mass;
