@@ -89,17 +89,6 @@ void ReorderFaceArray(std::vector<Face *> &face){
 
 static int count[4];
 
-//int PlaneTest(float3 normal,float dist,float3 v,float epsilon) {
-//	float a  = dot(v,normal)+dist;
-//	int   flag = (a>epsilon)?OVER:((a<-epsilon)?UNDER:COPLANAR);
-//	return flag;
-//}
-//
-//int PlaneTest(const float4 &p, const float3 &v,float epsilon) {
-//	float a  = dot(v,p.xyz())+p.w;
-//	int   flag = (a>epsilon)?OVER:((a<-epsilon)?UNDER:COPLANAR);
-//	return flag;
-//}
 
 float sumbboxdim(const WingMesh convex)
 {

@@ -866,12 +866,10 @@ WingMesh& WingMeshRotate(WingMesh &m, const float4 &rot)
 
 std::vector<int3> WingMeshTris(const WingMesh &m)
 {
-	std::vector<int3> tris;
-    int predict = m.edges.size() - m.faces.size() * 2;
-	if (predict>0) tris.resize(predict);
-	for(int e0 : m.fback) // for each face, e0 is first halfedge 
+	std::vector<int3> tris;  // predicted start size
+	tris.reserve(m.edges.size() - m.faces.size() * 2); // predicted size
+	for(int e0 : m.fback) // for each face, e0 is first halfedge  // int e0 = m.fback[i]; 
 	{
-		// int e0 = m.fback[i];
 		if(e0==-1) continue;
 		int ea = m.edges[e0].next;
 		int eb = m.edges[ea].next;

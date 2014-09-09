@@ -44,23 +44,6 @@ std::vector<Face*> WingMeshToFaces(const WingMesh &m)
 	return faces;
 }
 
-
-void gldraw(std::vector<float3> &verts, std::vector<int3> &tris)
-{
-	glBegin(GL_TRIANGLES);
-	glColor4f(1, 1, 1, 0.25f);
-	for (auto t : tris)
-	{
-		glNormal3fv(TriNormal(verts[t[0]], verts[t[1]], verts[t[2]]));
-		for (int j = 0; j < 3; j++)
-			glVertex3fv(verts[t[j]]);
-	}
-	glEnd();
-}
-
-
-
-
 void gldraw(const std::vector<float3> &verts, const std::vector<int3> &tris)
 {
 	glBegin(GL_TRIANGLES);
@@ -110,16 +93,19 @@ LPSTR lpszCmdLine, int nCmdShow)
 	bool drawcells = 0;  // drawing mode: draw bsp cells or draw brep
 
 	// create a couple boxes and subtract one from the other
-	auto ac   = WingMeshCube({ -1, -1, -1 }, { 1, 1, 1 });
-	auto bc   = WingMeshCube({ -0.5f, -0.5f, 0 }, { 0.5f, 0.5f, 2 });
+	auto ac   = WingMeshCube({ -1, -1, -1 }, { 1, 1, 1 });  // 2x2 cube
+	auto bc   = WingMeshCube({ -0.5f, -0.5f, -0.5f }, { 0.5f, 0.5f, 2 });  // smaller box placed overlapping into top face
+	auto co   = WingMeshTranslate(WingMeshDual(WingMeshCube({ -1, -1, -1 }, { 1, 1, 1 }),0.85f),float3(0.8f,0,0.45f));  // octahedron offset a bit to the right
 	auto af   = WingMeshToFaces(ac);
 	auto bf   = WingMeshToFaces(bc);
+	auto cf   = WingMeshToFaces(co);
 	auto absp = BSPCompile(af, WingMeshCube({ -10.0f, -10.0f, -10.0f }, { 10.0f, 10.0f, 10.0f }));
 	auto bbsp = BSPCompile(bf, WingMeshCube({ -10.0f, -10.0f, -10.0f }, { 10.0f, 10.0f, 10.0f }));
+	auto cbsp = BSPCompile(cf, WingMeshCube({ -10.0f, -10.0f, -10.0f }, { 10.0f, 10.0f, 10.0f }));
 	NegateTree(bbsp);  // turn it inside-out, so later  an intersection will be a subtraction
-
+	NegateTree(cbsp);
 	// note that there are quantization rules that the operands should follow to avoid numerical issues
-	auto bsp = BSPIntersect(bbsp, absp); // after this point, dont use absp or bbsp anymore
+	auto bsp = BSPIntersect(cbsp,BSPIntersect(bbsp, absp)); // after this point, dont use absp or bbsp or cbsp anymore
 
 	// just regenerate the brep, ensures no T-intersections
 	std::vector<Face*> faces;
@@ -167,6 +153,8 @@ LPSTR lpszCmdLine, int nCmdShow)
 		wmwire(ac);  
 		glColor3f(0, 0.5f, 1);
 		wmwire(bc);
+		glColor3f(0.5f, 0, 1);
+		wmwire(co);
 		glColor3f(1, 1, 1);
 
 		glEnable(GL_LIGHTING);

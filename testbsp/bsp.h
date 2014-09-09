@@ -26,8 +26,17 @@
 //#define SPLIT      (OVER|UNDER)
 //#define PAPERWIDTH (0.0001f)
 
-class Face;
-class Collidable;
+
+class Face : public float4 
+{
+  public:
+	int				matid;
+	std::vector<float3>	vertex;
+	float3			gu;
+	float3			gv;
+	float3			ot;
+	Face() {matid=0;}
+};
 
 
 class BSPNode :public float4  
@@ -42,18 +51,6 @@ class BSPNode :public float4
 	explicit		BSPNode(const float4 &p);
 	explicit		BSPNode(const float3 &n=float3(0,0,0),float d=0);
 					~BSPNode();
-};
-
-
-class Face : public float4 
-{
-  public:
-	int				matid;
-	std::vector<float3>	vertex;
-	float3			gu;
-	float3			gv;
-	float3			ot;
-	Face() {matid=0;}
 };
 
 
