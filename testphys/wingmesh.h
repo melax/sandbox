@@ -36,14 +36,6 @@
 #include "geometric.h"
 
 
-
-//class Face; // see bsp.h 
-
-
-class Shape;
-
-
-
 struct WingMesh
 {
 	struct HalfEdge
@@ -57,9 +49,9 @@ struct WingMesh
 		HalfEdge(){id=v=adj=next=prev=face=-1;}
 		HalfEdge(short _id,short _v,short _adj,short _next,short _prev,short _face):id(_id),v(_v),adj(_adj),next(_next),prev(_prev),face(_face){}
 
-		HalfEdge *Next(){assert(next>=0 && id>=0); return this+(next-id);}  // convenience for getting next halfedge 
-		HalfEdge *Prev(){assert(prev>=0 && id>=0); return this+(prev-id);}
-		HalfEdge *Adj (){assert(adj >=0 && id>=0); return this+(adj -id);}
+		HalfEdge &Next(){assert(next>=0 && id>=0); return this[next-id];}  // convenience for getting next halfedge 
+		HalfEdge &Prev(){assert(prev>=0 && id>=0); return this[prev-id];}
+		HalfEdge &Adj (){assert(adj >=0 && id>=0); return this[adj -id];}
 	};
 	std::vector<HalfEdge> edges;
 	std::vector<float3>   verts;
@@ -78,8 +70,8 @@ WingMesh  WingMeshCreate(const float3 *verts,const int3 *tris,int n,const int *h
 WingMesh  WingMeshCube(const float3 &bmin,const float3 &bmax);
 WingMesh  WingMeshCrop(const WingMesh &_m,const float4 &slice);
 int       WingMeshSplitTest(const WingMesh &m,const float4 &plane);
-WingMesh& WingMeshTranslate(WingMesh &m, const float3 &offset); // tranlates mesh passed in
-WingMesh& WingMeshRotate(WingMesh &m, const float4 &rot);
+WingMesh& WingMeshTranslate(WingMesh &m, const float3 &offset);     // non-const tranlates mesh passed in
+WingMesh& WingMeshRotate(WingMesh &m, const float4 &rot);           // non-const rotates mesh passed in
 float     WingMeshVolume(const WingMesh &m);
 
 std::vector<int3> WingMeshTris(const WingMesh &m);  // generates a list of indexed triangles from the wingmesh's faces

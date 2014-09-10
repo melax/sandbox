@@ -82,12 +82,12 @@ void wmdraw(const WingMesh &m)
 	gldraw(m.verts, tris);
 }
 
-void rbdraw(const RigidBody *rb,int wireframe)
+void rbdraw(const RigidBody *rb)
 {
 	glPushMatrix();
 	glMultMatrix(MatrixFromRotationTranslation(rb->orientation, rb->position));
-	for (const auto &s :rb->shapes)
-		((wireframe)?wmwire:wmdraw)(s->local_geometry);
+	for (const auto &s : rb->shapes)
+		gldraw(s->verts, s->tris);
 	glPopMatrix();
 }
 
@@ -158,12 +158,12 @@ int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst,LPSTR lpszC
 
 		if (g_simulate)
 		{
-			extern void PhysicsUpdate(const std::vector<WingMesh*> &wgeom);
+			extern void PhysicsUpdate(const std::vector<std::vector<float3> *> &wgeom);
 			extern void createangularlimits(RigidBody *rb0, RigidBody *rb1, const float4 &_jointframe, const float3& _jointlimitmin, const float3& _jointlimitmax);
 			extern void createnail(RigidBody *rb0, const float3 &p0, RigidBody *rb1, const float3 &p1);
 			createnail(NULL, seesaw->position_start, seesaw, { 0, 0, 0 });
 			createangularlimits(NULL, seesaw, { 0, 0, 0, 1 }, { 0, -20, 0 }, { 0, 20, 0 });
-			PhysicsUpdate(world_geometry);
+			PhysicsUpdate({ &world_slab.verts });
 		}
 
 
@@ -185,14 +185,6 @@ int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst,LPSTR lpszC
 		glRotatef(g_pitch, 1, 0, 0);
 		glRotatef(g_yaw, 0, 0, 1);
 
-		// wireframe pass:
-		glColor3f(0, 1, 0.5f);
-		rbdraw(rba,1);
-		glColor3f(0, 0.5f, 1.0f);
-		rbdraw(rbb, 1);  // wireframe
-		glColor3f(0, 0.5f, 0.5f);
-		for (unsigned int i = 2; i < g_rigidbodies.size(); i++)
-			rbdraw(g_rigidbodies[i], 1);  // wireframe
 
 		for (auto &wm : world_geometry)
 			wmdraw(*wm);
@@ -204,7 +196,7 @@ int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst,LPSTR lpszC
 		glEnable(GL_TEXTURE_2D);
 		glColor3f(0.5f, 0.5f, 0.5f);
 		for (auto &rb : g_rigidbodies)
-			rbdraw(rb, 0);
+			rbdraw(rb);
 
 		// Restore state
 		glPopMatrix();  //should be currently in modelview mode

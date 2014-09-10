@@ -415,7 +415,7 @@ void RemoveEdges(WingMesh &m,const int *cull,int cull_count)
 	{
 		WingMesh::HalfEdge &E = m.edges[i];
 		if(E.v==-1) continue; // dead edge
-		if(E.face==E.Next()->face) continue; // 
+		if(E.face==E.Next().face) continue; // 
 		for(int e=E.next; e!=i ; e=m.edges[e].next)
 		{
 			m.edges[e].face = E.face;
@@ -434,7 +434,7 @@ int RemoveD2(WingMesh &m)
 	while(i--)
 	{
         if (i >= m.edges.size()) continue;
-		if(m.edges[i].prev == m.edges[i].Adj()->Next()->adj)
+		if(m.edges[i].prev == m.edges[i].Adj().Next().adj)
 		{
 			WingMeshCollapseEdge(m,i,1);
 			k++;
@@ -580,11 +580,11 @@ void Polyize(WingMesh &m,float angle=2.0f)
 		{
 			RemoveEdge(m,Ea.adj,1);
 		}
-		else if(Ea.prev==Eb.Next()->adj)
+		else if(Ea.prev==Eb.Next().adj)
 		{
 			WingMeshCollapseEdge(m,Ea.id,1);
 		}
-		else if(Eb.prev==Ea.Next()->adj)
+		else if(Eb.prev==Ea.Next().adj)
 		{
 			WingMeshCollapseEdge(m,Eb.id,1);
 		}
@@ -622,7 +622,7 @@ void WingMeshSeparate(WingMesh &m,const std::vector<int> &edgeloop)
 		{
 			assert(m.edges[e].v == m.edges[en].v);
 			m.edges[e].v=-1;
-			e = m.edges[e].Adj()->next;
+			e = m.edges[e].Adj().next;
 		}
 		m.vback[m.edges[en].v]=en; // ensure vertex points to edge that wont be deleted.
 		m.fback[m.edges[en].face] = -1;  // delete all faces 
@@ -638,21 +638,21 @@ void WingMeshSeparate(WingMesh &m,const std::vector<int> &edgeloop)
 		WingMesh::HalfEdge &E = m.edges[ec];
 		if(E.next != en)
 		{
-			WingMesh::HalfEdge *K = E.Next();
-			if(K->id>=0) killstack.push_back(E.next);
-			K->id=-1;
-			assert(K->v==-1);
-			assert(K->prev==E.id);
-			K->prev=-1;
+			WingMesh::HalfEdge &K = E.Next();
+			if(K.id>=0) killstack.push_back(E.next);
+			K.id=-1;
+			assert(K.v==-1);
+			assert(K.prev==E.id);
+			K.prev=-1;
 			E.next=en;
 		}
 		if(E.prev != ep)
 		{
-			WingMesh::HalfEdge *K = E.Prev();
-			if(K->id>=0) killstack.push_back(E.prev);
-			K->id=-1;
-			assert(K->next==E.id);
-			K->next=-1;
+			WingMesh::HalfEdge &K = E.Prev();
+			if(K.id>=0) killstack.push_back(E.prev);
+			K.id=-1;
+			assert(K.next==E.id);
+			K.next=-1;
 			E.prev=ep;
 		}
 	}
@@ -771,15 +771,15 @@ int findcoplanaredge(WingMesh &m,int v,const float4 &slice)
 	// tesselates the mesh if required.
 	int e=m.vback[v];
 	int es=e;
-	while(PlaneTest(slice,m.verts[m.edges[e].Adj()->v])!=UNDER)
+	while(PlaneTest(slice,m.verts[m.edges[e].Adj().v])!=UNDER)
 	{
-		e = m.edges[e].Prev()->Adj()->id;
+		e = m.edges[e].Prev().Adj().id;
 		assert(e!=es); // if(e==es) return -1; // all edges point over!
 	}
 	es=e;
-	while(PlaneTest(slice,m.verts[m.edges[e].Adj()->v])==UNDER)
+	while(PlaneTest(slice,m.verts[m.edges[e].Adj().v])==UNDER)
 	{
-		e = m.edges[e].Adj()->Next()->id;
+		e = m.edges[e].Adj().Next().id;
 		assert(e!=es); // if(e==es) return -1; // all edges point UNDER!
 	}
 	int ec=m.edges[e].next;
@@ -815,7 +815,7 @@ void WingMeshTess(WingMesh &m,const float4 &slice,std::vector<int> &loop)
 	int v=v0;
 	do{
 		int e=findcoplanaredge(m,v,slice);
-		v = m.edges[e].Adj()->v;
+		v = m.edges[e].Adj().v;
 		loop.push_back(e);
 	} while (v!=v0);
 

@@ -69,6 +69,7 @@ class RigidBody : public State
 	float			gravscale;
 	float			friction;  // friction multiplier
 					RigidBody(std::vector<WingMesh> wmeshes,const float3 &_position);
+					RigidBody(std::vector<Shape> shapes, const float3 &_position){};
 					~RigidBody();
 	float			hittime;
 	int				rest;
@@ -89,25 +90,69 @@ class Shape
   public:
 	// idea is for rigidbody to have an array of these.
 	// all meshes are stored in the coord system of the rigidbody, no additional shape transform.
+	std::vector<float3> verts;
+	std::vector<int3> tris;
 	RigidBody *rb;
 	const float3 &Position() const {return rb->position;}
 	const float4 &Orientation() const {return rb->orientation;}
 	const Pose& pose() const {return rb->pose();}
-	WingMesh local_geometry;
-	Shape(RigidBody *rb, WingMesh local_geometry) :rb(rb), local_geometry(local_geometry) {}
+	Shape(std::vector<float3> verts, std::vector<int3> tris, RigidBody *rb = NULL) : verts(verts), tris(tris), rb(rb){}
+	Shape(RigidBody *rb, WingMesh local_geometry) :rb(rb), verts(local_geometry.verts), tris(WingMeshTris(local_geometry)) {}
 	~Shape(){};
 };
-inline float3    SupportPoint(const Shape *s, const float3& dir) { return s->pose() * SupportPoint(&s->local_geometry, qrot(qconj(s->Orientation()),dir)); }
+// inline float3    SupportPoint(const Shape *s, const float3& dir) { return s->pose() * SupportPoint(&s->verts, qrot(qconj(s->Orientation()),dir)); }
 
 inline gjk_implementation::Contact Separated(const Shape *a, const Shape *b)
 {
-	return Separated(a->local_geometry.verts, a->Position(), a->Orientation(), b->local_geometry.verts, b->Position(), b->Orientation());
+	return Separated(a->verts, a->Position(), a->Orientation(), b->verts, b->Position(), b->Orientation());
 }
-inline gjk_implementation::Contact Separated(const Shape *a, const WingMesh *b)
+inline gjk_implementation::Contact Separated(const Shape *a, const std::vector<float3> *b)
 {
-	return Separated(SupportFunc(a->local_geometry.verts, a->Position(), a->Orientation()), SupportFunc(b->verts), 1);
+	return Separated(SupportFunc(a->verts, a->Position(), a->Orientation()), SupportFunc(*b), 1);
 }
 
+
+inline float Volume(const std::vector<Shape*> &meshes)
+{
+	float  vol = 0;
+	for (auto &m : meshes)
+		vol += Volume(m->verts.data(),m->tris.data(),(int)m->tris.size());
+	return vol;
+}
+
+inline float3 CenterOfMass(const std::vector<Shape*> &meshes)
+{
+	float3 com(0, 0, 0);
+	float  vol = 0;
+	for (auto &m : meshes)
+	{
+		const auto &tris = m->tris;
+		const float3 *verts = m->verts.data();
+		float3 cg = CenterOfMass(verts, tris.data(), tris.size());
+		float   v = Volume(verts, tris.data(), tris.size());
+		vol += v;
+		com += cg*v;
+	}
+	com /= vol;
+	return com;
+}
+
+
+inline float3x3 Inertia(const std::vector<Shape*> &meshes, const float3& com)
+{
+	float  vol = 0;
+	float3x3 inertia;
+	for (auto &m : meshes)
+	{
+		const auto &tris = m->tris;
+		const float3 *verts = m->verts.data();
+		float v = Volume(verts, tris.data(), tris.size());
+		inertia += Inertia(verts, tris.data(), tris.size(), com) * v;
+		vol += v;
+	}
+	inertia *= 1.0f / vol;
+	return inertia;
+}
 
 
  

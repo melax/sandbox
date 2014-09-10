@@ -370,23 +370,23 @@ RigidBody::RigidBody(std::vector<WingMesh> meshes,const float3 &_position) : ori
 	damping = 0.0f;  // rigidbody::damping   currently i just take the max of this and the global damping
 	friction = physics_coloumb;
 
-	std::vector<WingMesh*> shapemeshes;
     for (auto &m : meshes)
-		shapemeshes.push_back(& (shapes.push_back(new Shape(this,std::move(m))),shapes.back())->local_geometry);
+		shapes.push_back(new Shape(this,std::move(m)));
 
 
-	com = CenterOfMass(shapemeshes);
+	com = CenterOfMass(shapes);
 	position += com;
 	position_start=position_old=position_next=position;
-	for(auto & s : shapemeshes)
-		WingMeshTranslate(*s,-com);
+	for(auto & s : shapes)
+		for(auto &v: s->verts)
+			v -= com;
 
-	float3x3 tensor = Inertia(shapemeshes);
+	float3x3 tensor = Inertia(shapes, { 0, 0, 0 });
 	massinv = 1.0f / mass;
 	Iinv = (tensorinv_massless = inverse(tensor))  * massinv;
 
 	std::vector<float3> allverts;
-	for (auto &m : shapemeshes)
+	for (auto &m : shapes)
 		allverts.insert(allverts.end(), m->verts.begin(), m->verts.end());
 	radius = magnitude(*std::max_element(allverts.begin(), allverts.end(), [](const float3 &a, const float3 &b){return dot(a, a) < dot(b, b); }));
 	std::tie(bmin, bmax) = Extents(allverts);
@@ -628,7 +628,7 @@ Patch ContactPatch(Shape *s0,const COLLIDABLE *_s1)
 	return hitinfo;
 }
 
-void FindShapeWorldContacts(std::vector<gjk_implementation::Contact> &contacts_out, const std::vector<RigidBody*>& rigidbodies, const std::vector<WingMesh*>& cells)
+void FindShapeWorldContacts(std::vector<gjk_implementation::Contact> &contacts_out, const std::vector<RigidBody*>& rigidbodies, const std::vector<std::vector<float3> *> & cells)
 {
 	//foreach(rigidbodies,[&contacts_out](RigidBody* rb){ foreach(rb->shapes,[&contacts_out](Shape *s){FindShapeWorldContacts(s,contacts_out);});});  // compiler failed to make this work
 	//foreach(rigidbodies,[&contacts_out](RigidBody* rb){std::vector<Contact> &c2=contacts_out ;foreach(rb->shapes,[&](Shape *s){FindShapeWorldContacts(s,c2);});}); // works
@@ -640,9 +640,8 @@ void FindShapeWorldContacts(std::vector<gjk_implementation::Contact> &contacts_o
 		Shape *shape = rigidbodies[i]->shapes[j];
 		if(!(shape->rb->collide&1)) continue;
 		//auto cells=ProximityCells(shape,area_bsps[i],physics_driftmax);
-		for (auto & cell : cells) //  int i = 0; i < cells.size(); i++)
+		for (auto  cell : cells) //  int i = 0; i < cells.size(); i++)
 		{
-			if(!cell) continue; // it was null, so dont collide. /// This is probably a bug!!
 			Patch hitinfo = ContactPatch(shape,cell);
 			for(int i=0;i<hitinfo.count;i++)
 			{
@@ -739,7 +738,7 @@ EXPORTVAR(physics_ccd);
 int physics_enable=1;
 EXPORTVAR(physics_enable);
 
-void PhysicsUpdate(std::vector<RigidBody*> &rigidbodies, std::vector<LimitLinear> &Linears, std::vector<LimitAngular> &Angulars, const std::vector<WingMesh*> &wgeom) 
+void PhysicsUpdate(std::vector<RigidBody*> &rigidbodies, std::vector<LimitLinear> &Linears, std::vector<LimitAngular> &Angulars, const std::vector<std::vector<float3> *> &wgeom)
 {
 	if(!physics_enable) return;
 
@@ -834,7 +833,8 @@ void createconelimit(RigidBody* rb0,const float3 &n0,RigidBody* rb1,const float3
 {
 	Angulars.push_back(ConeLimit(rb0,n0,rb1,n1,limitangle_degrees));
 }
-void PhysicsUpdate(const std::vector<WingMesh*> &wgeom)
+
+void PhysicsUpdate(const std::vector<std::vector<float3> *> &wgeom)
 {
 	//GetEnvBSPs(area_bsps);
 	PhysicsUpdate(g_rigidbodies,Linears,Angulars,wgeom);
