@@ -376,25 +376,19 @@ static void FaceEdgeSplicer(Face *face,int vi0,BSPNode *n)
 	
 }
 
-int FaceSplitifyEdges(BSPNode *root)
+
+int FaceSplitifyEdges(BSPNode *root)  // tests (possibly splits) all brep edges O(n lg(n))-ish 
 {
 	edgesplitcount=0;
-	std::vector<BSPNode*>stack;
-	stack.push_back(root);
-	while(stack.size())
+	for (auto n : treetraverse(root))
 	{
-		BSPNode *n = stack.back(); stack.pop_back();
-		if(!n) continue;
-		stack.push_back(n->over);
-		stack.push_back(n->under);
-		for(unsigned int i=0;i<n->brep.size();i++)
+		if(!n) 
+			continue; // shouldn't happen
+		for (auto &face: n->brep)
 		{
-			Face *face = n->brep[i];
-			int j=face->vertex.size();
-			while(j--)
-			{
-				FaceEdgeSplicer(face,j,root);
-			}
+			int j=face->vertex.size();      // in reverse order since we may end up inserting into this array
+			while(j--)                         // for every edge of every brep face...
+				FaceEdgeSplicer(face,j,root);  // starting at root, pass the edge down the (relevant nodes of) tree 
 		}
 	}
 	return edgesplitcount;

@@ -53,6 +53,20 @@ class BSPNode :public float4
 					~BSPNode();
 };
 
+struct treetraverse
+{
+	BSPNode *root;
+	treetraverse(BSPNode *root) :root(root){}
+	struct iterator
+	{
+		std::vector<BSPNode *> stack;
+		BSPNode * operator *() const { return stack.size() ? stack.back() : NULL; }
+		iterator & operator++(){ assert(stack.size()); BSPNode *n = **this; stack.pop_back(); if (n && n->under) stack.push_back(n->under); if (n&&n->over) stack.push_back(n->over);  return *this; }
+		bool operator !=(const iterator &b){ return stack != b.stack; }
+	};
+	iterator begin() { iterator b; if (root)b.stack.push_back(root); return b; }
+	iterator end()   { iterator e; return e; }
+};
 
 inline std::pair<float3, float3> Extents(const Face &face){ return Extents(face.vertex); }
 inline std::pair<float3, float3> Extents(const std::vector<Face*> &faces)

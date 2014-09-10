@@ -465,38 +465,31 @@ void NegateFace(Face *f)
 	}
 }
 
-void NegateTreePlanes(BSPNode *n) 
+void NegateTreePlanes(BSPNode *root) 
 {
-	if(!n) {
-		return;
-	}
-	for(unsigned int i=0;i<n->brep.size();i++)
+	for (auto n : treetraverse(root))
 	{
-		NegateFace(n->brep[i]);
+		if (!n)
+			continue;  // shouldn't happen
+		for (auto &f : n->brep)
+			NegateFace(f);
+		n->isleaf = (3 - n->isleaf) % 3; //	if(n->isleaf) n->isleaf = (n->isleaf==UNDER)?OVER:UNDER;
+		n->xyz() = -n->xyz();
+		n->w     = -n->w;
+		std::swap(n->under, n->over);
 	}
-	if(n->isleaf) {
-		n->isleaf = (n->isleaf==UNDER)?OVER:UNDER;
-		return;
-	}
-	n->xyz() = -n->xyz();
-	n->w   = -n->w;
-	NegateTreePlanes(n->under);
-	NegateTreePlanes(n->over);
-	BSPNode *tmp = n->over;
-	n->over  = n->under;
-	n->under = tmp;
 }
+
 
 
 void NegateTree(BSPNode *root) 
 {
-	std::vector<Face*> faces;
+	extern void FaceEmbed(BSPNode *node,Face *face);
 	NegateTreePlanes(root);
-	BSPRipBrep(root,faces);
-	for(unsigned int i=0;i<faces.size();i++) {
-		extern void FaceEmbed(BSPNode *node,Face *face);
-		FaceEmbed(root,faces[i]);
-	}
+	std::vector<Face*> faces;
+	BSPRipBrep(root, faces);
+	for (auto &f : faces)   
+		FaceEmbed(root, f); 
 }
 
 BSPNode *BSPDup(BSPNode *n) 

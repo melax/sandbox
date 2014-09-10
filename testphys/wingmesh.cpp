@@ -45,8 +45,7 @@ class WingMesh
 static int linkmesh(WingMesh &m)
 {
 	// Computes adjacency information for edges.
-	// Assumes prev/next pointers are assigned for each edge.
-	// Assumes edges have vertices assigned to them.
+	// Assumes all edges have valid prev,next, and vertex.
 	unsigned int i;
     std::vector<short> edgesv;
     edgesv.reserve(m.edges.size());  // edges indexes sorted into ascending edge's vertex index order
@@ -84,12 +83,9 @@ static int linkmesh(WingMesh &m)
 
 static void WingMeshInitBackLists(WingMesh &m)
 {
-	unsigned int i;
-    m.vback.resize(m.verts.size());
-	for(i=0;i<m.vback.size();i++) m.vback[i]=-1;
-    m.fback.resize(m.faces.size());
-	for(i=0;i<m.fback.size();i++) m.fback[i]=-1;
-	i=m.edges.size();
+    m.vback.assign(m.verts.size(),-1);
+	m.fback.assign(m.faces.size(),-1);
+	unsigned int i = m.edges.size();
 	while(i--)  // going backward so back pointers will point to the first applicable edge
 	{
 		if(m.unpacked && m.edges[i].v==-1) continue;
@@ -98,11 +94,10 @@ static void WingMeshInitBackLists(WingMesh &m)
 	}
 }
 
-void checkit(WingMesh &wmesh)
+void checkit(const WingMesh &wmesh)
 {
-	std::vector<WingMesh::HalfEdge> &edges = wmesh.edges;
-	unsigned int e,i;
-	for(e=0;e<edges.size();e++)
+	const std::vector<WingMesh::HalfEdge> &edges = wmesh.edges;
+	for(unsigned int e=0;e<edges.size();e++)
 	{
 		if(wmesh.unpacked && edges[e].v==-1)
 		{
@@ -121,8 +116,8 @@ void checkit(WingMesh &wmesh)
 		assert(edges[e].v == edges[edges[edges[e].adj].next].v);
 		assert(edges[e].v != edges[edges[e].adj].v);
 	}
-	for(i=0;i<wmesh.vback.size();i++) assert((wmesh.unpacked && wmesh.vback[i]==-1) || edges[wmesh.vback[i]].v   ==i);
-	for(i=0;i<wmesh.fback.size();i++) assert((wmesh.unpacked && wmesh.fback[i]==-1) || edges[wmesh.fback[i]].face==i);
+	for(unsigned int i=0;i<wmesh.vback.size();i++) assert((wmesh.unpacked && wmesh.vback[i]==-1) || edges[wmesh.vback[i]].v   ==i);
+	for(unsigned int i=0;i<wmesh.fback.size();i++) assert((wmesh.unpacked && wmesh.fback[i]==-1) || edges[wmesh.fback[i]].face==i);
 }
 
 float4 &ComputeNormal(WingMesh &m,int f)
@@ -192,11 +187,15 @@ WingMesh WingMeshCreate(const float3 *verts,const int3 *tris,int n)
 	WingMeshInitBackLists(m);
 	return m;
 }
-static void SwapSlots(WingMesh &m,int a,int b)
+static void WingMeshEdgeSwap(WingMesh &m,int a,int b)  
 {
 	std::swap(m.edges[a], m.edges[b]);
 	m.edges[m.edges[a].prev].next=m.edges[m.edges[a].next].prev=m.edges[a].id=a;
 	m.edges[m.edges[b].prev].next=m.edges[m.edges[b].next].prev=m.edges[b].id=b;
+	if (m.vback[m.edges[a].v   ] == b) m.vback[m.edges[a].v   ] = a;
+	if (m.vback[m.edges[b].v   ] == a) m.vback[m.edges[b].v   ] = b;
+	if (m.fback[m.edges[a].face] == b) m.fback[m.edges[a].face] = a;
+	if (m.fback[m.edges[b].face] == a) m.fback[m.edges[b].face] = b;
 }
 
 
@@ -272,7 +271,7 @@ static void SwapFaces(WingMesh &m,int a,int b)
 		do{assert( m.edges[e].face==a); m.edges[e].face=b;e=m.edges[e].next;} while (e!=m.fback[b]);
 	}
 }
-static void PackFaces(WingMesh &m)
+static void PackFaces(WingMesh &m)  // removes faces with no edges using them
 {
     assert(m.fback.size() == m.faces.size());
 	unsigned int s=0;
@@ -306,7 +305,7 @@ void WingMeshCompress(WingMesh &m)
 
 
 
-int WingMeshIsDegTwo(const WingMesh &m,int v)
+bool WingMeshIsDegTwo(const WingMesh &m,int v)
 {
     assert(m.vback.size());
 	int e = m.vback[v];
@@ -315,7 +314,7 @@ int WingMeshIsDegTwo(const WingMesh &m,int v)
 
 static void BackPointElsewhere(WingMesh &m,int e)
 {
-	// ensure vback and fback reference someone other than e
+	// ensure vback and fback reference someone other than e, i.e. just pick another edge to point to
 	WingMesh::HalfEdge &E = m.edges[e];
 	assert(E.id==e);
 	assert(E.prev!=e);
