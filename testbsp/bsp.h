@@ -30,6 +30,8 @@
 class Face : public float4 
 {
   public:
+	float4&         plane() {return *this;}  
+	const float4&   plane() const { return *this; }  // hmmmm is-a vs has-a
 	int				matid;
 	std::vector<float3>	vertex;
 	float3			gu;
@@ -42,6 +44,8 @@ class Face : public float4
 class BSPNode :public float4  
 {
   public:
+	float4&         plane() {return *this;}  // hmmmm is-a vs has-a
+	const float4&   plane() const { return *this; }  
 	BSPNode *		under;
 	BSPNode *		over;
 	int				isleaf;
@@ -85,7 +89,7 @@ Face *   FaceDup(Face *face);
 Face *   FaceClip(Face *face,const float4 &clip);
 float    FaceArea(Face *face);
 float3   FaceCenter(Face *face);
-int	     FaceSplitTest(Face *face,float3 splitnormal,float splitdist,float epsilon=PAPERWIDTH);
+int	     FaceSplitTest(const Face *face,const float4 &splitplane,float epsilon=PAPERWIDTH);
 void     FaceSliceEdge(Face *face,int edge,BSPNode *n);
 void     FaceEmbed(BSPNode *node,Face *face);
 void     FaceExtractMatVals(Face *face,const float3 &v0,const float3 &v1,const float3 &v2,const float2 &t0,const float2 &t1,const float2 &t2);
@@ -106,20 +110,17 @@ void     AssignTex(Face* face);
 
 
 BSPNode *BSPCompile(std::vector<Face *> &inputfaces,WingMesh convex_space,int side=0); 
-void     BSPMakeBrep(BSPNode *r,std::vector<Face*> &faces);
-void     BSPDeriveConvex(BSPNode *node,WingMesh *convex);
+void     BSPDeriveConvex(BSPNode *node, WingMesh *convex);
+void     BSPMakeBrep(BSPNode *r, std::vector<Face*> &faces);  // only uses faces to sample for texture and material
+std::vector<Face*> BSPRipBrep(BSPNode *r);
+std::vector<Face*> BSPGetBrep(BSPNode *r);
 BSPNode* BSPDup(BSPNode *n);
 void     BSPTranslate(BSPNode *n,const float3 &offset);
 void     BSPRotate(BSPNode *n, const float4 &r);
 void     BSPScale(BSPNode *n,float s);
-void     BSPFreeBrep(BSPNode *);
-void     BSPRipBrep(BSPNode *r,std::vector<Face*> &faces);
-void     BSPGetBrep(BSPNode *r,std::vector<Face*> &faces);
-inline   std::vector<Face*> BSPGetBrep(BSPNode *n) {std::vector<Face*> faces;BSPGetBrep(n,faces);return faces;}
-void     BSPMakeBrep(BSPNode *);
-BSPNode *BSPUnion(BSPNode *a,BSPNode *b);
-BSPNode *BSPIntersect(BSPNode *a,BSPNode *b);
 void     NegateTree(BSPNode *n);
+BSPNode *BSPUnion(BSPNode *a, BSPNode *b);
+BSPNode *BSPIntersect(BSPNode *a,BSPNode *b);
 int      HitCheck(BSPNode *node,int solid,float3 v0,float3 v1,float3 *impact);
 int      HitCheckSolidReEnter(BSPNode *node,float3 v0,float3 v1,float3 *impact); // wont just return v0 if you happen to start in solid
 int      HitCheckCylinder(float r,float h,BSPNode *node,int solid,float3 v0,float3 v1,float3 *impact,const float3 &nv0); 

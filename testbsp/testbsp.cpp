@@ -107,11 +107,12 @@ LPSTR lpszCmdLine, int nCmdShow)
 	// note that there are quantization rules that the operands should follow to avoid numerical issues
 	auto bsp = BSPIntersect(cbsp,BSPIntersect(bbsp, absp)); // after this point, dont use absp or bbsp or cbsp anymore
 
-	// just regenerate the brep, ensures no T-intersections
-	std::vector<Face*> faces;
-	BSPRipBrep(bsp, faces);
-	BSPMakeBrep(bsp,faces);    
-	BSPRipBrep(bsp, faces);  // brep moved into faces array
+	BSPMakeBrep(bsp, BSPRipBrep(bsp));           // just regenerate the brep, ensures no T-intersections
+	std::vector<Face*> faces = BSPRipBrep(bsp);  // brep moved into faces array
+
+	// some extra tests if you are in the mood
+	//	delete bsp;  // lets completely start over
+	//	bsp = BSPCompile(faces, WingMeshCube({ -10.0f, -10.0f, -10.0f }, { 10.0f, 10.0f, 10.0f }));
 
 	GLWin glwin("TestBSP compile and intersect sample");
 	glwin.keyboardfunc = [&drawcells](unsigned char key, int , int )

@@ -235,7 +235,7 @@ void FaceCutting(BSPNode *n,std::vector<Face*> &faces)
 	{
 		Face *f;
 		f= Pop(faces);
-		int s = FaceSplitTest(f, n->xyz(), n->w);
+		int s = FaceSplitTest(f, n->plane());
 		if(s==COPLANAR)
 			faces_coplanar.push_back(f);
 		else if(s==UNDER)

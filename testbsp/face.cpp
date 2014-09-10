@@ -278,7 +278,7 @@ void FaceSlice(Face *face,const float4 &clip) {
 	}
 }
 Face *FaceClip(Face *face,const float4 &clip) {
-	int flag = FaceSplitTest(face, clip.xyz(), clip.w);
+	int flag = FaceSplitTest(face, clip);
 	if(flag == UNDER || flag==COPLANAR) {
 		return face;
 	}
@@ -301,12 +301,11 @@ Face *FaceClip(Face *face,const float4 &clip) {
 	return face;
 }
 
-int FaceSplitTest(Face *face,float3 splitnormal,float splitdist,float epsilon)
+int FaceSplitTest(const Face *face, const float4 &splitplane,float epsilon)
 {
-	int flag=COPLANAR;
-	for (unsigned int i = 0; i<face->vertex.size(); i++) {
-		flag |= PlaneTest(float4(splitnormal,splitdist),face->vertex[i],epsilon);
-	}
+	int flag=COPLANAR;  // 0
+	for (const auto &v : face->vertex) 
+		flag |= PlaneTest(splitplane, v, epsilon);
 	return flag;
 }
 
@@ -413,7 +412,7 @@ void FaceEmbed(BSPNode *node,Face *face) {
 		node->brep.push_back(face);
 		return;
 	}
-	int flag = FaceSplitTest(face, node->xyz(), node->w);
+	int flag = FaceSplitTest(face, node->plane());
 	if(flag==UNDER) {
 		FaceEmbed(node->under,face);
 		return;
@@ -440,7 +439,6 @@ void FaceEmbed(BSPNode *node,Face *face) {
 
 
 
-static BSPNode *root=NULL;
 /*static void GenerateFaces(BSPNode *n) {
 	assert(root);
 	assert(n);
@@ -463,8 +461,9 @@ static BSPNode *root=NULL;
 */
 
 
-void GenerateFacesReverse(const WingMesh &m,std::vector<Face*> &flist) 
+std::vector<Face*> GenerateFacesReverse(const WingMesh &m)
 {
+	std::vector<Face*> flist;
 	for(unsigned int i=0;i<m.faces.size();i++)
 	{
 		Face *f = new Face();
@@ -481,10 +480,12 @@ void GenerateFacesReverse(const WingMesh &m,std::vector<Face*> &flist)
 		AssignTex(f);
 		flist.push_back(f);
 	}
+	return flist;
 }
 
-void GenerateFaces(const WingMesh &m,std::vector<Face*> &flist) 
+std::vector<Face*> GenerateFaces(const WingMesh &m)
 {
+	std::vector<Face*> flist;
 	for(unsigned int i=0;i<m.faces.size();i++)
 	{
 		Face *f = new Face();
@@ -501,27 +502,16 @@ void GenerateFaces(const WingMesh &m,std::vector<Face*> &flist)
 		AssignTex(f);
 		flist.push_back(f);
 	}
+	return flist;
 }
 
-static void GenerateFaces(BSPNode *n) 
+static void GenerateFaces(BSPNode *root) 
 {
 	assert(root);
-	assert(n);
-	if(n->isleaf==UNDER) {
-		return;
-	}
-	if(n->isleaf==OVER) {
-		if(n->convex.verts.size()==0) { return; }
-		std::vector<Face *>flist;
-		GenerateFacesReverse(n->convex,flist);
-		for(unsigned int i=0;i<flist.size();i++) {
-			FaceEmbed(root,flist[i]);
-		}
-		return;
-	}
-	GenerateFaces(n->under);
-	GenerateFaces(n->over);
-
+	for (auto n : treetraverse(root))
+		if(n->isleaf==OVER) 
+			for (auto &f : GenerateFacesReverse(n->convex))
+				FaceEmbed(root,f);
 }
 
 
@@ -586,12 +576,12 @@ int HitCheckPoly(const float3 *verts, const int n, const float3 &v0, const float
 }
 
 
-static void ExtractMat(Face *face,Face *src) 
+static void ExtractMat(Face *face,const Face *src) 
 {
 	if (dot(face->xyz(), src->xyz())<0.95f) {
 		return;
 	}
-	if (FaceSplitTest(face, src->xyz(), src->w, PAPERWIDTH) != COPLANAR) {
+	if (FaceSplitTest(face, src->plane(), PAPERWIDTH) != COPLANAR) {
 		return;
 	}
 	float3 interior;
@@ -609,14 +599,14 @@ static void ExtractMat(Face *face,Face *src)
 	face->ot    = src->ot;
 }
 
-static void ExtractMat(BSPNode *n,Face *poly) {
+static void ExtractMat(BSPNode *n,const Face *poly) {
 	for(unsigned int i=0;i<n->brep.size();i++) {
 		ExtractMat(n->brep[i],poly);		
 	}
 	if(n->isleaf) {
 		return;
 	}
-	int flag = FaceSplitTest(poly, n->xyz(), n->w);
+	int flag = FaceSplitTest(poly, n->plane());
 	if(flag==COPLANAR) {
 		ExtractMat((dot(n->xyz(), poly->xyz())>0) ? n->under : n->over, poly);
 		return;
@@ -630,36 +620,24 @@ static void ExtractMat(BSPNode *n,Face *poly) {
 }
 
 
-void BSPFreeBrep(BSPNode *r)
+std::vector<Face*> BSPRipBrep(BSPNode *root)
 {
-	if(!r) return;
-	while(r->brep.size()){delete Pop(r->brep);}
-	BSPFreeBrep(r->over);
-	BSPFreeBrep(r->under);
+	std::vector<Face*> faces;
+	for (auto n : treetraverse(root))
+		while(n->brep.size())
+			faces.push_back(Pop(n->brep));
+	return faces;
 }
 
-void BSPRipBrep(BSPNode *r,std::vector<Face*> &faces)
+std::vector<Face*> BSPGetBrep(BSPNode *root)
 {
-	if(!r) return;
-	while(r->brep.size()){faces.push_back(Pop(r->brep));}
-	BSPRipBrep(r->over,faces);
-	BSPRipBrep(r->under,faces);
-}
-void BSPGetBrep(BSPNode *r,std::vector<Face*> &faces)
-{
-	if(!r) return;
-	for(unsigned int i=0;i<r->brep.size();i++){faces.push_back(r->brep[i]);}
-	BSPGetBrep(r->over,faces);
-	BSPGetBrep(r->under,faces);
+	std::vector<Face*> faces;
+	for (auto n : treetraverse(root))
+		for (auto f : n->brep)
+			faces.push_back(f);
+	return faces;
 }
 
-void BSPMakeBrep(BSPNode *r)
-{
-	assert(!root);
-	root=r;
-	GenerateFaces(r);
-	root=NULL;
-}
 
 
 Face* NeighboringEdgeFace;
@@ -716,14 +694,10 @@ Face *NeighboringEdge(BSPNode *root,Face *face,int eid)
 
 void BSPMakeBrep(BSPNode *r,std::vector<Face*> &faces)
 {
-	assert(!root);
-	root=r;
 	GenerateFaces(r);
 	FaceSplitifyEdges(r);
-	root=NULL;
-	for(auto &f : faces) {
+	for(auto &f : faces) 
 		ExtractMat(r,f);
-	}
 }
 
 static void BSPClipFace(BSPNode *n,Face* face,const float3 &position,std::vector<Face*> &under,std::vector<Face*> &over,std::vector<Face*> &created)
@@ -739,7 +713,7 @@ static void BSPClipFace(BSPNode *n,Face* face,const float3 &position,std::vector
 		return;
 	}
 	float4 plane(n->xyz(), n->w + dot(position, n->xyz()));
-	int flag = FaceSplitTest(face, plane.xyz(), plane.w);
+	int flag = FaceSplitTest(face, plane);
 	if(flag == UNDER) {
 		return BSPClipFace(n->under,face,position,under,over,created);
 	}

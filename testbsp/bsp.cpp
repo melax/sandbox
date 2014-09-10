@@ -90,21 +90,21 @@ void ReorderFaceArray(std::vector<Face *> &face){
 static int count[4];
 
 
-float sumbboxdim(const WingMesh convex)
+float sumbboxdim(const WingMesh &convex)
 {
 	float3 bmin,bmax;
 	std::tie(bmin, bmax) = Extents<float,3>(convex.verts); // (convex->verts.data(), convex->verts.size(), bmin, bmax);
 	return dot(float3(1,1,1),bmax-bmin);
 }
 
-float PlaneCost(std::vector<Face *> &inputfaces,const float4 &split,const WingMesh &space,int onbrep)
+float PlaneCost(const std::vector<Face *> &inputfaces,const float4 &split,const WingMesh &space,int onbrep)
 {
 	count[COPLANAR] = 0;
 	count[UNDER]    = 0;
 	count[OVER]     = 0;
 	count[SPLIT]    = 0;
 	for(unsigned int i=0;i<inputfaces.size();i++) {
-		count[FaceSplitTest(inputfaces[i],split.xyz(),split.w,FUZZYWIDTH)]++;
+		count[FaceSplitTest(inputfaces[i],split,FUZZYWIDTH)]++;
 	}
     if (space.verts.size() == 0) {
 		// The following formula isn't that great.
@@ -147,7 +147,7 @@ void DividePolys(const float4 &splitplane,std::vector<Face *> &inputfaces,
 				 std::vector<Face *> &under,std::vector<Face *> &over,std::vector<Face *> &coplanar){
 	int i=inputfaces.size();
 	while(i--) {
-		int flag = FaceSplitTest(inputfaces[i],splitplane.xyz(),splitplane.w,FUZZYWIDTH);
+		int flag = FaceSplitTest(inputfaces[i],splitplane,FUZZYWIDTH);
 
 		if(flag == OVER) {
 			over.push_back(inputfaces[i]);
@@ -292,59 +292,39 @@ BSPNode * BSPCompile(std::vector<Face *> &inputfaces,WingMesh space,int side)
 	return node;
 }
 
-/*
-void DeriveCells(BSPNode *node,Polyhedron *cell) {
-	assert(node);
-	node->cell = cell;
-	cell->volume = Volume(cell);
-	if(node->isleaf) {
-		return;
-	}
-	// Under SubTree
-	Polyhedron *under = PolyhedronDup(cell);
-	Poly *sf = under->Crop(Plane(node->normal,node->dist));
-	assert(node->under); 
-	DeriveCells(node->under,under);
-	// Over  SubTree
-	Polyhedron *over  = PolyhedronDup(cell);
-	over->Crop(Plane(-node->normal,-node->dist));
-	assert(node->over );
-	DeriveCells(node->over ,over );
 
-}
-*/
 
-void BSPDeriveConvex(BSPNode *node,WingMesh convex) 
+void BSPDeriveConvex(BSPNode *node,WingMesh cnvx) 
 {
 	assert(node);
-    if ( convex.edges.size() && convex.verts.size())
+	if (cnvx.edges.size() && cnvx.verts.size())
 	{
-		assert(convex.verts.size());
-		assert(convex.edges.size());
-		assert(convex.faces.size());
+		assert(cnvx.verts.size());
+		assert(cnvx.edges.size());
+		assert(cnvx.faces.size());
 	}
-	node->convex = convex;
+	node->convex = std::move(cnvx);
 	if(node->isleaf) {
 		return;
 	}
 	// if we are "editing" a bsp then the current plane may become coplanar to one of its parents (boundary of convex) or outside of the current volume (outside the convex)
 	WingMesh cu;
 	WingMesh co;
-	if(convex.verts.size())  // non empty
+	if(node->convex.verts.size())  // non empty
 	{
-		int f=WingMeshSplitTest(convex,*node);
+		int f = WingMeshSplitTest(node->convex, *node);
 		if(f==SPLIT)
 		{
-			cu = WingMeshCrop(convex,*node);
-			co = WingMeshCrop(convex, float4(-node->xyz(), -node->w));
+			cu = WingMeshCrop(node->convex, *node);
+			co = WingMeshCrop(node->convex, float4(-node->xyz(), -node->w));
 		}
 		else if(f==OVER)
 		{
-			co = convex;
+			co = node->convex;
 		}
 		else if(f==UNDER)
 		{
-			cu = convex;
+			cu = node->convex;
 		}
 		else
 		{
@@ -360,54 +340,30 @@ void BSPDeriveConvex(BSPNode *node,WingMesh convex)
 	BSPDeriveConvex(node->over ,co);
 }
 
-
-std::vector<WingMesh*> BSPGetSolids(BSPNode *bsp)
+ 
+std::vector<WingMesh*> BSPGetSolids(BSPNode *root)
 {
 	std::vector<WingMesh*> meshes;
-	std::vector<BSPNode *> stack;
-	stack.push_back(bsp);
-    while (stack.size())
-	{
-		BSPNode *n = stack.back(); stack.pop_back();
-		if(!n) continue;
-		stack.push_back(n->under);
-		stack.push_back(n->over);
+	for (auto n : treetraverse(root))
 		if(n->isleaf == UNDER)
-		{
 			meshes.push_back(&n->convex);
-		}
-	}
 	return meshes;
 }
 
- 
-void BSPGetSolidsr(BSPNode *n,std::vector<WingMesh*> &meshes)
+
+
+void BSPTranslate(BSPNode *n,const float3 &offset)
 {
-		if(!n) return;
-		if(n->isleaf == UNDER)
-		{
-			meshes.push_back(&n->convex);
-		}
-		BSPGetSolidsr(n->under,meshes);
-		BSPGetSolidsr(n->over,meshes);
-	
-}
-
-
-
-void BSPTranslate(BSPNode *n,const float3 &_offset)
-{
-	float3 offset(_offset);
 	if(!n ) {
 		return;
 	}
 	n->w = n->w - dot(n->xyz(), offset);
-	WingMeshTranslate(n->convex,_offset);
+	WingMeshTranslate(n->convex,offset);
 	for(auto & f : n->brep) {
-		FaceTranslate(f,_offset);
+		FaceTranslate(f,offset);
 	}
-	BSPTranslate(n->under,_offset);
-	BSPTranslate(n->over,_offset);
+	BSPTranslate(n->under,offset);
+	BSPTranslate(n->over,offset);
 }
 
 
@@ -484,11 +440,8 @@ void NegateTreePlanes(BSPNode *root)
 
 void NegateTree(BSPNode *root) 
 {
-	extern void FaceEmbed(BSPNode *node,Face *face);
-	NegateTreePlanes(root);
-	std::vector<Face*> faces;
-	BSPRipBrep(root, faces);
-	for (auto &f : faces)   
+	NegateTreePlanes(root);  // this flips the faces too
+	for (auto &f : BSPRipBrep(root))
 		FaceEmbed(root, f); 
 }
 
