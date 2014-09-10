@@ -11,7 +11,6 @@
 
 
 #include "vecmatquat.h"
-#include "wingmesh.h" 
 #include "gjk.h"
 
 class Shape;
@@ -68,8 +67,7 @@ class RigidBody : public State
 	float           damping;
 	float			gravscale;
 	float			friction;  // friction multiplier
-					RigidBody(std::vector<WingMesh> wmeshes,const float3 &_position);
-					RigidBody(std::vector<Shape> shapes, const float3 &_position){};
+					RigidBody(std::vector<Shape> shapes, const float3 &_position);
 					~RigidBody();
 	float			hittime;
 	int				rest;
@@ -80,7 +78,7 @@ class RigidBody : public State
 	float3          com; // computed in constructor, but geometry gets translated initially 
 	float3          PositionUser() {return pose()* -com; }  // based on original origin
 	std::vector<Spring*>	springs;
-	std::vector<Shape*>   shapes;
+	std::vector<Shape>      shapes;
 	std::vector<RigidBody*> ignore; // things to ignore during collision checks
 };
 
@@ -97,7 +95,6 @@ class Shape
 	const float4 &Orientation() const {return rb->orientation;}
 	const Pose& pose() const {return rb->pose();}
 	Shape(std::vector<float3> verts, std::vector<int3> tris, RigidBody *rb = NULL) : verts(verts), tris(tris), rb(rb){}
-	Shape(RigidBody *rb, WingMesh local_geometry) :rb(rb), verts(local_geometry.verts), tris(WingMeshTris(local_geometry)) {}
 	~Shape(){};
 };
 // inline float3    SupportPoint(const Shape *s, const float3& dir) { return s->pose() * SupportPoint(&s->verts, qrot(qconj(s->Orientation()),dir)); }
@@ -112,22 +109,22 @@ inline gjk_implementation::Contact Separated(const Shape *a, const std::vector<f
 }
 
 
-inline float Volume(const std::vector<Shape*> &meshes)
+inline float Volume(const std::vector<Shape> &meshes)
 {
 	float  vol = 0;
 	for (auto &m : meshes)
-		vol += Volume(m->verts.data(),m->tris.data(),(int)m->tris.size());
+		vol += Volume(m.verts.data(),m.tris.data(),(int)m.tris.size());
 	return vol;
 }
 
-inline float3 CenterOfMass(const std::vector<Shape*> &meshes)
+inline float3 CenterOfMass(const std::vector<Shape> &meshes)
 {
 	float3 com(0, 0, 0);
 	float  vol = 0;
 	for (auto &m : meshes)
 	{
-		const auto &tris = m->tris;
-		const float3 *verts = m->verts.data();
+		const auto &tris = m.tris;
+		const float3 *verts = m.verts.data();
 		float3 cg = CenterOfMass(verts, tris.data(), tris.size());
 		float   v = Volume(verts, tris.data(), tris.size());
 		vol += v;
@@ -138,14 +135,14 @@ inline float3 CenterOfMass(const std::vector<Shape*> &meshes)
 }
 
 
-inline float3x3 Inertia(const std::vector<Shape*> &meshes, const float3& com)
+inline float3x3 Inertia(const std::vector<Shape> &meshes, const float3& com)
 {
 	float  vol = 0;
 	float3x3 inertia;
 	for (auto &m : meshes)
 	{
-		const auto &tris = m->tris;
-		const float3 *verts = m->verts.data();
+		const auto &tris = m.tris;
+		const float3 *verts = m.verts.data();
 		float v = Volume(verts, tris.data(), tris.size());
 		inertia += Inertia(verts, tris.data(), tris.size(), com) * v;
 		vol += v;

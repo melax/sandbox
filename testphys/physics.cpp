@@ -25,7 +25,6 @@
 #include <stdio.h>
 #include <float.h>
 #include "physics.h"
-#include "wingmesh.h"
 #include "gjk.h"
 
 #define EXPORTVAR(V)
@@ -356,29 +355,28 @@ LimitAngular ConeLimit(RigidBody* rb0,const float3 &n0,RigidBody* rb1,const floa
 
 
 
-RigidBody::RigidBody(std::vector<WingMesh> meshes,const float3 &_position) : orientation_next(0,0,0,1), orientation_old(0,0,0,1), orientation_start(0,0,0,1)
+RigidBody::RigidBody(std::vector<Shape> shapes_, const float3 &_position) : shapes(shapes_), orientation_next(0, 0, 0, 1), orientation_old(0, 0, 0, 1), orientation_start(0, 0, 0, 1)
 {
-	position_start=position_old=position_next=position=_position;
-	rest=0;   
-	hittime=0.0f;
+	position_start = position_old = position_next = position = _position;
+	rest = 0;
+	hittime = 0.0f;
 	g_rigidbodies.push_back(this);
-	collide=(meshes.size())?3:0;
-	resolve=(meshes.size())?1:0;
+	collide = (shapes.size()) ? 3 : 0;
+	resolve = (shapes.size()) ? 1 : 0;
 	usesound = 0;
-	mass=1;
-	gravscale=1.0f;
+	mass = 1;
+	gravscale = 1.0f;
 	damping = 0.0f;  // rigidbody::damping   currently i just take the max of this and the global damping
 	friction = physics_coloumb;
 
-    for (auto &m : meshes)
-		shapes.push_back(new Shape(this,std::move(m)));
-
+	for (auto &s : shapes)
+		s.rb = this;
 
 	com = CenterOfMass(shapes);
 	position += com;
-	position_start=position_old=position_next=position;
-	for(auto & s : shapes)
-		for(auto &v: s->verts)
+	position_start = position_old = position_next = position;
+	for (auto & s : shapes)
+		for (auto &v : s.verts)
 			v -= com;
 
 	float3x3 tensor = Inertia(shapes, { 0, 0, 0 });
@@ -387,11 +385,10 @@ RigidBody::RigidBody(std::vector<WingMesh> meshes,const float3 &_position) : ori
 
 	std::vector<float3> allverts;
 	for (auto &m : shapes)
-		allverts.insert(allverts.end(), m->verts.begin(), m->verts.end());
+		allverts.insert(allverts.end(), m.verts.begin(), m.verts.end());
 	radius = magnitude(*std::max_element(allverts.begin(), allverts.end(), [](const float3 &a, const float3 &b){return dot(a, a) < dot(b, b); }));
 	std::tie(bmin, bmax) = Extents(allverts);
 }
-
 
 RigidBody::~RigidBody()
 {
@@ -401,11 +398,6 @@ RigidBody::~RigidBody()
 //		DeleteSpring(springs[springs.size()-1]);
 //	}
 	g_rigidbodies.erase(std::find(g_rigidbodies.begin(), g_rigidbodies.end(), this));  // 	Remove(g_rigidbodies, this);
-	for(unsigned int i=0;i<shapes.size();i++)
-	{
-		delete shapes[i];
-	}
-	shapes.clear();
 }
 
 
@@ -637,7 +629,7 @@ void FindShapeWorldContacts(std::vector<gjk_implementation::Contact> &contacts_o
 	for(unsigned int i=0;i<rigidbodies.size();i++)
 	 for(unsigned int j=0 ; j<rigidbodies[i]->shapes.size() ; j++)  // foreach rigidbody shape
 	{
-		Shape *shape = rigidbodies[i]->shapes[j];
+		Shape *shape = &rigidbodies[i]->shapes[j];
 		if(!(shape->rb->collide&1)) continue;
 		//auto cells=ProximityCells(shape,area_bsps[i],physics_driftmax);
 		for (auto  cell : cells) //  int i = 0; i < cells.size(); i++)
@@ -671,8 +663,8 @@ void FindShapeShapeContacts(std::vector<gjk_implementation::Contact> &contacts_o
 		for(unsigned int i_s=0 ; i_s<rb0->shapes.size() ; i_s++)
 		 for(unsigned int j_s=0 ; j_s<rb1->shapes.size() ; j_s++)
 		{
-			Shape *s0=rb0->shapes[i_s];
-			Shape *s1=rb1->shapes[j_s];
+			Shape *s0=&rb0->shapes[i_s];
+			Shape *s1=&rb1->shapes[j_s];
 			assert(s0->rb!=s1->rb);
 			Patch hitinfo = ContactPatch(s0,s1);
 			for(int i=0;i<hitinfo.count;i++)

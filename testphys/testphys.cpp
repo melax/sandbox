@@ -87,11 +87,11 @@ void rbdraw(const RigidBody *rb)
 	glPushMatrix();
 	glMultMatrix(MatrixFromRotationTranslation(rb->orientation, rb->position));
 	for (const auto &s : rb->shapes)
-		gldraw(s->verts, s->tris);
+		gldraw(s.verts, s.tris);
 	glPopMatrix();
 }
 
-
+Shape AsShape(const WingMesh &m) { return Shape(m.verts, WingMeshTris(m)); }
 
 int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst,LPSTR lpszCmdLine, int nCmdShow) // int main(int argc, char *argv[])
 {
@@ -100,20 +100,18 @@ int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst,LPSTR lpszC
 	extern std::vector<RigidBody*> g_rigidbodies;
 	auto wma = WingMeshCube({ -1, -1, -1 }, { 1, 1, 1 });
 	auto wmb = WingMeshCube({ -1, -1, -1 }, { 1, 1, 1 });
-	auto rba = new RigidBody({ wma }, { 1.5f, 0.0f, 1.5f });
-	auto rbb = new RigidBody({ wmb }, { -1.5f, 0.0f, 1.5f });
+	auto rba = new RigidBody({ AsShape(wma) }, { 1.5f, 0.0f, 1.5f });
+	auto rbb = new RigidBody({ AsShape(wmb) }, { -1.5f, 0.0f, 1.5f });
 	rbb->orientation = normalize(float4(0.1f, 0.01f, 0.3f, 1.0f));
-	auto seesaw = new RigidBody({ WingMeshCube({ -3, -0.5f, -0.1f }, { 3, 0.5f, 0.1f }) }, { 0, -2.5, 0.25f });
-	new RigidBody({ WingMeshCube({ -0.25f, -0.25f, -0.25f }, { 0.25f, 0.25f, 0.25f }) }, seesaw->position_start + float3( 2.5f, 0, 0.4f));
-	rbscalemass(new RigidBody({ WingMeshCube({ -0.5f, -0.5f, -0.5f }, { 0.5f, 0.5f, 0.5f }) }, seesaw->position_start + float3(-2.5f, 0, 5.0f)),4.0f);
+	auto seesaw = new RigidBody({ AsShape(WingMeshCube({ -3, -0.5f, -0.1f }, { 3, 0.5f, 0.1f })) }, { 0, -2.5, 0.25f });
+	new RigidBody({ AsShape(WingMeshCube({ -0.25f, -0.25f, -0.25f }, { 0.25f, 0.25f, 0.25f })) }, seesaw->position_start + float3(2.5f, 0, 0.4f));
+	rbscalemass(new RigidBody({ AsShape(WingMeshCube({ -0.5f, -0.5f, -0.5f }, { 0.5f, 0.5f, 0.5f })) }, seesaw->position_start + float3(-2.5f, 0, 5.0f)), 4.0f);
 	for (float z = 5.5f; z < 14.0f; z += 3.0f)
-		new RigidBody({ WingMeshCube({ -0.5f, -0.5f, -0.5f }, { 0.5f, 0.5f, 0.5f }) }, { 0.0f, 0.0f, z });
+		new RigidBody({ AsShape(WingMeshCube({ -0.5f, -0.5f, -0.5f }, { 0.5f, 0.5f, 0.5f })) }, { 0.0f, 0.0f, z });
 	for (float z = 15.0f; z < 20.0f; z += 3.0f)
-		new RigidBody({ WingMeshDual(WingMeshCube({ -0.5f, -0.5f, -0.5f }, { 0.5f, 0.5f, 0.5f }), 0.65f) }, { 2.0f, -1.0f, z });
+		new RigidBody({ AsShape(WingMeshDual(WingMeshCube({ -0.5f, -0.5f, -0.5f }, { 0.5f, 0.5f, 0.5f }), 0.65f)) }, { 2.0f, -1.0f, z });
 
-	std::vector<WingMesh*> world_geometry;
-	WingMesh world_slab = WingMeshCube({ -10, -10, -5 }, { 10, 10, -2 });
-	world_geometry.push_back(&world_slab);
+	WingMesh world_slab = WingMeshCube({ -10, -10, -5 }, { 10, 10, -2 }); // world_geometry
 
 
 
@@ -185,9 +183,7 @@ int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst,LPSTR lpszC
 		glRotatef(g_pitch, 1, 0, 0);
 		glRotatef(g_yaw, 0, 0, 1);
 
-
-		for (auto &wm : world_geometry)
-			wmdraw(*wm);
+		wmdraw(world_slab);  // world_geometry
 
 		glEnable(GL_POLYGON_OFFSET_FILL);
 		glPolygonOffset(1., 1. / (float)0x10000);
