@@ -92,24 +92,24 @@ void rbdraw(const RigidBody *rb,int wireframe)
 }
 
 
-template<class T> std::vector<T> ArrayOfOne(T t){ std::vector<T> a; a.push_back(t); return a; }
 
-// int main(int argc, char *argv[])
-int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst,
-LPSTR lpszCmdLine, int nCmdShow)
+int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst,LPSTR lpszCmdLine, int nCmdShow) // int main(int argc, char *argv[])
 {
 	std::cout << "Test Physics\n";
 
 	extern std::vector<RigidBody*> g_rigidbodies;
 	auto wma = WingMeshCube({ -1, -1, -1 }, { 1, 1, 1 });
 	auto wmb = WingMeshCube({ -1, -1, -1 }, { 1, 1, 1 });
-	auto rba = new RigidBody(ArrayOfOne(wma), {  1.5f, 0.0f, 1.5f });
-	auto rbb = new RigidBody(ArrayOfOne(wmb), { -1.5f, 0.0f, 1.5f });
+	auto rba = new RigidBody({ wma }, { 1.5f, 0.0f, 1.5f });
+	auto rbb = new RigidBody({ wmb }, { -1.5f, 0.0f, 1.5f });
 	rbb->orientation = normalize(float4(0.1f, 0.01f, 0.3f, 1.0f));
+	auto seesaw = new RigidBody({ WingMeshCube({ -3, -0.5f, -0.1f }, { 3, 0.5f, 0.1f }) }, { 0, -2.5, 0.25f });
+	new RigidBody({ WingMeshCube({ -0.25f, -0.25f, -0.25f }, { 0.25f, 0.25f, 0.25f }) }, seesaw->position_start + float3( 2.5f, 0, 0.4f));
+	rbscalemass(new RigidBody({ WingMeshCube({ -0.5f, -0.5f, -0.5f }, { 0.5f, 0.5f, 0.5f }) }, seesaw->position_start + float3(-2.5f, 0, 5.0f)),4.0f);
 	for (float z = 5.5f; z < 14.0f; z += 3.0f)
-		new RigidBody(ArrayOfOne(WingMeshCube({ -0.5f, -0.5f, -0.5f }, { 0.5f, 0.5f, 0.5f })), { 0.0f, 0.0f, z });
+		new RigidBody({ WingMeshCube({ -0.5f, -0.5f, -0.5f }, { 0.5f, 0.5f, 0.5f }) }, { 0.0f, 0.0f, z });
 	for (float z = 15.0f; z < 20.0f; z += 3.0f)
-		new RigidBody(ArrayOfOne(WingMeshDual( WingMeshCube({ -0.5f, -0.5f, -0.5f }, { 0.5f, 0.5f, 0.5f }),0.65f)), { 2.0f, -1.0f,  z }) ;
+		new RigidBody({ WingMeshDual(WingMeshCube({ -0.5f, -0.5f, -0.5f }, { 0.5f, 0.5f, 0.5f }), 0.65f) }, { 2.0f, -1.0f, z });
 
 	std::vector<WingMesh*> world_geometry;
 	WingMesh world_slab = WingMeshCube({ -10, -10, -5 }, { 10, 10, -2 });
@@ -136,6 +136,7 @@ LPSTR lpszCmdLine, int nCmdShow)
 					rb->momentum = float3(0, 0, 0);
 					rb->rotation = float3(0, 0, 0);
 				}
+				seesaw->orientation = { 0, 0, 0, 1 };
 				break;
 			default:
 				std::cout << "unassigned key (" << (int)key << "): '" << key << "'\n";
@@ -155,9 +156,15 @@ LPSTR lpszCmdLine, int nCmdShow)
 		g_mouseX = glwin.MouseX;
 		g_mouseY = glwin.MouseY;
 
-		extern void PhysicsUpdate(const std::vector<WingMesh*> &wgeom);
-		if(g_simulate)
+		if (g_simulate)
+		{
+			extern void PhysicsUpdate(const std::vector<WingMesh*> &wgeom);
+			extern void createangularlimits(RigidBody *rb0, RigidBody *rb1, const float4 &_jointframe, const float3& _jointlimitmin, const float3& _jointlimitmax);
+			extern void createnail(RigidBody *rb0, const float3 &p0, RigidBody *rb1, const float3 &p1);
+			createnail(NULL, seesaw->position_start, seesaw, { 0, 0, 0 });
+			createangularlimits(NULL, seesaw, { 0, 0, 0, 1 }, { 0, -20, 0 }, { 0, 20, 0 });
 			PhysicsUpdate(world_geometry);
+		}
 
 
 		glPushAttrib(GL_ALL_ATTRIB_BITS);
