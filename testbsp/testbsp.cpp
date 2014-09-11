@@ -14,8 +14,7 @@
 // in project properties, add "../include" to the vc++ directories include path
 #include "vecmatquat.h"   
 #include "glwin.h"  // minimal opengl for windows setup wrapper
-#include "../testphys/wingmesh.h"    // fixme
-#include "../testphys/wingmesh.cpp"  // double fixme
+#include "wingmesh.h"    // fixme
 #include "bsp.h"
 
 void glNormal3fv(const float3 &v) { glNormal3fv(&v.x); }
@@ -33,13 +32,10 @@ std::vector<Face*> WingMeshToFaces(const WingMesh &m)
 	{
 		Face *face = new Face();
 		faces.push_back(face);
-		face->xyz() = m.faces[i].xyz();
-		face->w     = m.faces[i].w;
+		face->plane() = m.faces[i];
 		//extern void texplanar(Face *face);
 		//texplanar(face);
-		int e0 = m.fback[i];
-		int e=e0;
-		do{ face->vertex.push_back(m.verts[m.edges[e].v]);  e = m.edges[e].next;} while (e!=e0);
+		face->vertex = WingMeshFaceVerts(m, i); //int e0 = m.fback[i],e=e0; do{ face->vertex.push_back(m.verts[m.edges[e].v]);  e = m.edges[e].next;} while (e!=e0);
 	}
 	return faces;
 }
@@ -108,11 +104,12 @@ LPSTR lpszCmdLine, int nCmdShow)
 	auto bsp = BSPIntersect(cbsp,BSPIntersect(bbsp, absp)); // after this point, dont use absp or bbsp or cbsp anymore
 
 	BSPMakeBrep(bsp, BSPRipBrep(bsp));           // just regenerate the brep, ensures no T-intersections
+	// BSPMakeBrep(bsp, BSPRipBrep(bsp));        // uncomment this line to test the ability to extract mat settings from the previous faces
 	std::vector<Face*> faces = BSPRipBrep(bsp);  // brep moved into faces array
 
 	// some extra tests if you are in the mood
 	//	delete bsp;  // lets completely start over
-	//	bsp = BSPCompile(faces, WingMeshCube({ -10.0f, -10.0f, -10.0f }, { 10.0f, 10.0f, 10.0f }));
+	//	bsp = BSPCompile(faces, WingMeshCube({ -10.0f, -10.0f, -10.0f }, { 10.0f, 10.0f, 10.0f }));  // compiles from a single mesh that has more complexity
 
 	GLWin glwin("TestBSP compile and intersect sample");
 	glwin.keyboardfunc = [&drawcells](unsigned char key, int , int )

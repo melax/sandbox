@@ -17,10 +17,10 @@
 
 
 #include "geometric.h"
-#include "../testphys/wingmesh.h"  // fixme
+#include "wingmesh.h"  
 #include <functional>
 
-//#define COPLANAR   (0)
+//#define COPLANAR   (0)   <= these found in geometric.h
 //#define UNDER      (1)
 //#define OVER       (2)
 //#define SPLIT      (OVER|UNDER)

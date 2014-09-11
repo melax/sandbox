@@ -84,7 +84,6 @@
   <ItemGroup>
     <ClCompile Include="physics.cpp" />
     <ClCompile Include="testphys.cpp" />
-    <ClCompile Include="wingmesh.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\include\geometric.h" />

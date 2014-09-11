@@ -516,64 +516,6 @@ static void GenerateFaces(BSPNode *root)
 
 
 
-float3 PolyNormal(const float3 *verts, const int n)
-{
-	float3 nrml(0, 0, 0);  // normal of polygon
-	for (int i = 0; i<n; i++)
-	{
-		int i1 = (i + 1) % n;
-		int i2 = (i + 2) % n;
-		nrml = nrml + cross(verts[i1] - verts[0], verts[i2] - verts[0]); // triangle summation using first vert as reference point 
-	}
-	float m = magnitude(nrml);
-	if (m == 0.0)  // throw, return 0, or return some usable unit length value.
-	{
-		return float3(0, 0, 0);  // we could actually try to find a line and return a orth/normal of that.
-	}
-	nrml = nrml * (1.0f / m);
-	return nrml;
-}
-int countpolyhit = 0;
-int HitCheckPoly(const float3 *verts, const int n, const float3 &v0, const float3 &v1, float3 *impact, float3 *normal)
-{
-	countpolyhit++;
-	float3 nrml = PolyNormal(verts, n);  // normal of polygon
-	if (nrml == float3(0, 0, 0))
-	{
-		return 0;
-	}
-	float dist = -dot(nrml, verts[0]);
-	float d0, d1;
-	if ((d0 = dot(v0, nrml) + dist) <0 || (d1 = dot(v1, nrml) + dist) >0)
-	{
-		return 0;
-	}
-
-	static float3 the_point;
-	// By using the cached plane distances d0 and d1
-	// we can optimize the following:
-	//     the_point = planelineintersection(nrml,dist,v0,v1);
-	float a = d0 / (d0 - d1);
-	the_point = v0*(1 - a) + v1*a;
-
-
-	int inside = 1;
-	for (int j = 0; inside && j<n; j++)
-	{
-		// let inside = 0 if outside
-		float3 pp1, pp2, side;
-		pp1 = verts[j];
-		pp2 = verts[(j + 1) % n];
-		side = cross((pp2 - pp1), (the_point - pp1));
-		inside = (dot(nrml, side) >= 0.0);
-	}
-	if (inside)
-	{
-		if (normal){ *normal = nrml; }
-		if (impact){ *impact = the_point; }
-	}
-	return inside;
-}
 
 
 static void ExtractMat(Face *face,const Face *src) 
@@ -584,12 +526,11 @@ static void ExtractMat(Face *face,const Face *src)
 	if (FaceSplitTest(face, src->plane(), PAPERWIDTH) != COPLANAR) {
 		return;
 	}
-	float3 interior;
-	for(unsigned int i=0;i<face->vertex.size();i++) {
-		interior += face->vertex[i];
-	}
-	interior = interior * (1.0f/face->vertex.size());
-	if (!HitCheckPoly(src->vertex.data(), src->vertex.size(), interior + face->xyz(), interior - face->xyz(), NULL, NULL)){
+	float3 interior(0,0,0);
+	for(auto &v : face->vertex) 
+		interior += v * (1.0f/face->vertex.size());
+
+	if (!PolyHitCheck(src->vertex, interior + face->xyz(), interior - face->xyz())){
 		return;
 	}
 	// src and face coincident

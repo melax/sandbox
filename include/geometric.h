@@ -92,10 +92,36 @@ inline float3 TriNormal(const float3 &v0, const float3 &v1, const float3 &v2)  /
 {
 	float3 cp = cross(v1 - v0, v2 - v1);
 	float m = magnitude(cp);
-	if (m == 0) return float3(1, 0, 0);
+	if (m == 0) return float3(0, 0, 1);
 	return cp*(1.0f / m);
 }
+inline float4 PolyPlane(const std::vector<float3>& verts)
+{
+	float4 p(0, 0, 0, 0);
+	float3 c(0, 0, 0);
+	for (const auto &v : verts)
+		c += v*(1.0f / verts.size());
+	for (unsigned int i = 0; i < verts.size(); i++)
+		p.xyz() += cross(verts[i] - c, verts[(i + 1) % verts.size()] - c);
+	if (p == float4(0, 0, 0, 0)) 
+		return p;
+	p.xyz() = normalize(p.xyz());
+	p.w = -dot(c, p.xyz());
+	return p;
+}
+struct HitInfo { bool hit; float3 impact; float3 normal; operator bool(){ return hit; }; HitInfo(bool hit):hit(hit){} };
 
+inline HitInfo PolyHitCheck(const std::vector<float3>& verts, const float4 &plane, const float3 &v0, const float3 &v1)
+{
+	float d0, d1;
+	HitInfo hitinfo((d0 = dot(float4(v0, 1), plane)) >0 && (d1 = dot(float4(v1, 1), plane)) <0);  // if segment crosses into plane
+	hitinfo.normal = plane.xyz();
+	hitinfo.impact = v0 + (v1 - v0)* d0 / (d0 - d1);  //  if both points on plane this will be 0/0, if parallel you might get infinity
+	for (unsigned int i = 0; hitinfo&& i < verts.size(); i++)
+		hitinfo.hit = hitinfo && (determinant(float3x3(verts[(i + 1) % verts.size()] - v0, verts[i] - v0, v1 - v0)) >= 0);  // use v0,v1 winding instead of impact to prevent mesh edge tunneling
+	return hitinfo;  
+}
+inline HitInfo PolyHitCheck(const std::vector<float3>& verts, const float3 &v0, const float3 &v1) { return PolyHitCheck(verts, PolyPlane(verts), v0, v1); }
 
 inline int argmax(const float a[], int count)  // returns index
 {
