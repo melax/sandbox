@@ -137,6 +137,18 @@ struct WingMesh
 
 	float4& ComputeFaceNormal(int f) { return (faces[f] = PolyPlane(GenerateFaceVerts(f))); }
 
+
+	void EdgeSwap(int a, int b)  // untested, using packslotedge typically
+	{
+		std::swap(edges[a], edges[b]);
+		edges[edges[a].prev].next = edges[edges[a].next].prev = edges[a].id = a;
+		edges[edges[b].prev].next = edges[edges[b].next].prev = edges[b].id = b;
+		if (vback[edges[a].v] == b) vback[edges[a].v] = a;
+		if (vback[edges[b].v] == a) vback[edges[b].v] = b;
+		if (fback[edges[a].face] == b) fback[edges[a].face] = a;
+		if (fback[edges[b].face] == a) fback[edges[b].face] = b;
+	}
+
 	void LinkMesh()
 	{
 		// Computes adjacency information for edges.
@@ -185,10 +197,9 @@ struct WingMesh
 			fback[edges[i].face] = i;
 		}
 	}
-	int BuildEdge(int ea, int eb)
+	int BuildEdge(int ea, int eb)  // puts an edge from ea.v to eb.v  and splits a face into two
 	{
-		// puts an edge from ea.v to eb.v  
-		assert(edges[ea].next != eb);  // make sure they aren't too close
+		assert(edges[ea].next != eb);  // make sure they aren't already beside each other
 		assert(edges[eb].next != ea);
 		assert(edges[eb].face == edges[ea].face);
 		int e = ea;
@@ -255,7 +266,7 @@ struct WingMesh
 		}
 	}
 
-	int findcoplanaredge(int v, const float4 &slice)
+	int findcoplanaredge(int v, const float4 &slice)  // v should be coplanar
 	{
 		// assumes the mesh straddles the plane slice.
 		// adds edge if required.  edges should have been split already
@@ -263,13 +274,13 @@ struct WingMesh
 		int es = e;
 		while (PlaneTest(slice, verts[edges[e].Adj().v]) != UNDER)
 		{
-			e = edges[e].Prev().Adj().id;
+			e = edges[e].Prev().Adj().id;  // next edge coming out of v going ccw
 			assert(e != es); // if(e==es) return -1; // all edges point over!
 		}
 		es = e;
 		while (PlaneTest(slice, verts[edges[e].Adj().v]) == UNDER)
 		{
-			e = edges[e].Adj().Next().id;
+			e = edges[e].Adj().Next().id;  // next cw edge coming out of v
 			assert(e != es); // if(e==es) return -1; // all edges point UNDER!
 		}
 		int ec = edges[e].next;
@@ -278,7 +289,7 @@ struct WingMesh
 			ec = edges[ec].next;
 			assert(ec != e);
 		}
-		if (ec == edges[e].next) { return e; }
+		if (ec == edges[e].next) { return e; }  // a coplanar edge already exists 
 		assert(ec != edges[e].prev);
 		return BuildEdge(e, ec);
 
@@ -438,6 +449,79 @@ struct WingMesh
 	}
 
 
+	void Crop(const std::vector<int> &edgeloop)  // removes everything above/adjacent to the loop
+	{
+		std::vector<int> killstack;
+		for (unsigned int i = 0; i<edgeloop.size(); i++)
+		{
+			// dont want to delete vertices along the loop.
+			// detach vertices along loop from to-be-deleted edges  
+			int ec = edgeloop[i];
+			int en = edgeloop[(i + 1) % edgeloop.size()];
+			int e = edges[ec].next;
+			while (e != en)
+			{
+				assert(edges[e].v == edges[en].v);
+				edges[e].v = -1;
+				e = edges[e].Adj().next;
+			}
+			vback[edges[en].v] = en; // ensure vertex points to edge that wont be deleted.
+			fback[edges[en].face] = -1;  // delete all faces 
+			edges[en].face = edges[edgeloop[0]].face; // assign all loop faces to same which we ressurrect later
+		}
+		for (unsigned int i = 0; i<edgeloop.size(); i++)
+		{
+			// detatch tobedeleted edges from loop edges.
+			// and fix loop's next/prev links.
+			int ec = edgeloop[i];
+			int en = edgeloop[(i + 1) % edgeloop.size()];
+			int ep = edgeloop[(i) ? i - 1 : edgeloop.size() - 1];
+			WingMesh::HalfEdge &E = edges[ec];
+			if (E.next != en)
+			{
+				WingMesh::HalfEdge &K = E.Next();
+				if (K.id >= 0) killstack.push_back(E.next);
+				K.id = -1;
+				assert(K.v == -1);
+				assert(K.prev == E.id);
+				K.prev = -1;
+				E.next = en;
+			}
+			if (E.prev != ep)
+			{
+				WingMesh::HalfEdge &K = E.Prev();
+				if (K.id >= 0) killstack.push_back(E.prev);
+				K.id = -1;
+				assert(K.next == E.id);
+				K.next = -1;
+				E.prev = ep;
+			}
+		}
+		while (killstack.size())
+		{
+			// delete (make "-1") all unwanted edges faces and verts
+			int k = killstack.back(); killstack.pop_back(); //  Pop(killstack);
+			assert(k >= 0);
+			WingMesh::HalfEdge &K = edges[k];
+			assert(K.id == -1);
+			if (K.next != -1 && edges[K.next].id != -1) { killstack.push_back(K.next); edges[K.next].id = -1; }
+			if (K.prev != -1 && edges[K.prev].id != -1) { killstack.push_back(K.prev); edges[K.prev].id = -1; }
+			if (K.adj  != -1 && edges[K.adj].id  != -1) { killstack.push_back(K.adj ); edges[K.adj].id  = -1; }
+			if (K.v != -1) vback[K.v] = -1;
+			if (K.face != -1) fback[K.face] = -1;
+			K.next = K.prev = K.adj = K.v = K.face = -1;
+		}
+		assert(fback[edges[edgeloop[0]].face] == -1);
+		fback[edges[edgeloop[0]].face] = edgeloop[0];
+		ComputeFaceNormal(edges[edgeloop[0]].face);
+		SwapFaces(edges[edgeloop[0]].face, 0);
+		unpacked = 1;
+		SanityCheck();
+		Compress();
+		SanityCheck();
+	}
+
+
 	std::vector<int3> GenerateTris() const  // generates a list of indexed triangles from the wingmesh's faces
 	{
 		std::vector<int3> tris;
@@ -459,8 +543,6 @@ struct WingMesh
 };
 
 
-
-// fixme, make the non-const casting not necessary
 
 inline float3    SupportPoint(const WingMesh *m, const float3& dir) { return m->verts[maxdir(m->verts.data(), m->verts.size(), dir)]; }
 
@@ -484,17 +566,6 @@ inline float   WingMeshVolume(const WingMesh &m) { return m.CalcVolume(); }
 
 
 
-
-inline void WingMeshEdgeSwap(WingMesh &m,int a,int b)  // untested, using packslotedge typically
-{
-	std::swap(m.edges[a], m.edges[b]);
-	m.edges[m.edges[a].prev].next=m.edges[m.edges[a].next].prev=m.edges[a].id=a;
-	m.edges[m.edges[b].prev].next=m.edges[m.edges[b].next].prev=m.edges[b].id=b;
-	if (m.vback[m.edges[a].v   ] == b) m.vback[m.edges[a].v   ] = a;
-	if (m.vback[m.edges[b].v   ] == a) m.vback[m.edges[b].v   ] = b;
-	if (m.fback[m.edges[a].face] == b) m.fback[m.edges[a].face] = a;
-	if (m.fback[m.edges[b].face] == a) m.fback[m.edges[b].face] = b;
-}
 
 
 
@@ -554,7 +625,7 @@ inline void WingMeshCollapseEdge(WingMesh &m,int ea,int pack=0)
 
 
 
-inline void WingMeshSort(WingMesh &m)
+inline WingMesh & WingMeshSort(WingMesh &m) // not sure if this routine works now
 {
 	if(m.unpacked) m.Compress();
     std::vector<WingMesh::HalfEdge> s;
@@ -570,10 +641,13 @@ inline void WingMeshSort(WingMesh &m)
 		s[i].id=i;
 		s[i].next = m.edges[s[i].next].id;
 		s[i].prev = m.edges[s[i].prev].id;
+		s[i].adj  = m.edges[s[i].adj ].id;
 	}
     s.swap(m.edges);
+	m.InitBackLists();
 	m.SanityCheck();
 	for(unsigned int i=0;i<m.edges.size();i++) {assert(m.edges[i].next<=(int)i+1);}
+	return m;
 }
 
 
@@ -583,93 +657,21 @@ inline void WingMeshSort(WingMesh &m)
 
 
 
-inline void WingMeshSeparate(WingMesh &m,const std::vector<int> &edgeloop)
+
+
+
+inline WingMesh WingMeshCrop(const WingMesh &src,const float4 &slice)
 {
-	std::vector<int> killstack;
-	for(unsigned int i=0;i<edgeloop.size();i++)
-	{
-		// dont want to delete vertices along the loop.
-		// detach vertices along loop from to-be-deleted edges  
-		int ec = edgeloop[i];
-        int en = edgeloop[(i + 1) % edgeloop.size()];
-		int e  = m.edges[ec].next;
-		while(e!=en)
-		{
-			assert(m.edges[e].v == m.edges[en].v);
-			m.edges[e].v=-1;
-			e = m.edges[e].Adj().next;
-		}
-		m.vback[m.edges[en].v]=en; // ensure vertex points to edge that wont be deleted.
-		m.fback[m.edges[en].face] = -1;  // delete all faces 
-		m.edges[en].face = m.edges[edgeloop[0]].face; // assign all loop faces to same which we ressurrect later
-	}
-	for(unsigned int i=0;i<edgeloop.size();i++)
-	{
-		// detatch tobedeleted edges from loop edges.
-		// and fix loop's next/prev links.
-		int ec = edgeloop[i];
-        int en = edgeloop[(i + 1) % edgeloop.size()];
-        int ep = edgeloop[(i) ? i - 1 : edgeloop.size() - 1];
-		WingMesh::HalfEdge &E = m.edges[ec];
-		if(E.next != en)
-		{
-			WingMesh::HalfEdge &K = E.Next();
-			if(K.id>=0) killstack.push_back(E.next);
-			K.id=-1;
-			assert(K.v==-1);
-			assert(K.prev==E.id);
-			K.prev=-1;
-			E.next=en;
-		}
-		if(E.prev != ep)
-		{
-			WingMesh::HalfEdge &K = E.Prev();
-			if(K.id>=0) killstack.push_back(E.prev);
-			K.id=-1;
-			assert(K.next==E.id);
-			K.next=-1;
-			E.prev=ep;
-		}
-	}
-    while (killstack.size())
-	{
-		// delete (make "-1") all unwanted edges faces and verts
-		int k = killstack.back(); killstack.pop_back(); //  Pop(killstack);
-		assert(k>=0);
-		WingMesh::HalfEdge &K = m.edges[k];
-		assert(K.id==-1);
-		if(K.next!=-1 && m.edges[K.next].id!=-1) {killstack.push_back(K.next);m.edges[K.next].id=-1;}
-		if(K.prev!=-1 && m.edges[K.prev].id!=-1) {killstack.push_back(K.prev);m.edges[K.prev].id=-1;}
-		if(K.adj !=-1 && m.edges[K.adj ].id!=-1) {killstack.push_back(K.adj );m.edges[K.adj ].id=-1;}
-		if(K.v   !=-1) m.vback[K.v   ]=-1;
-		if(K.face!=-1) m.fback[K.face]=-1;
-		K.next=K.prev=K.adj=K.v=K.face = -1;
-	}
-	assert(m.fback[m.edges[edgeloop[0]].face]==-1);
-	m.fback[m.edges[edgeloop[0]].face]=edgeloop[0];
-	m.ComputeFaceNormal(m.edges[edgeloop[0]].face);
-	m.SwapFaces(m.edges[edgeloop[0]].face,0);
-	m.unpacked=1;
-	m.SanityCheck();
-	m.Compress();
-	m.SanityCheck();
-}
-
-
-
-
-
-inline WingMesh WingMeshCrop(const WingMesh &_m,const float4 &slice)
-{
-	int s = _m.SplitTest(slice);
+	int s = src.SplitTest(slice);
 	if (s == OVER) return WingMesh(); //  NULL;
-	if(s==UNDER) return _m;
-	WingMesh m = _m;
-	auto coplanar = m.SliceMesh( slice);   // 	std::vector<int> coplanar; // edges
-	std::vector<int> reverse;
+	if(s==UNDER) return src;          // returning this will make a copy
+	WingMesh m = src;
+	auto coplanar = m.SliceMesh( slice);   // 	std::vector<int>  the coplanar edges (i believe these are the above ones)
+	std::vector<int> reverse;              // the coplanar edges below (todo verify)  reverse is probably the wrong name
     for (unsigned int i = 0; i<coplanar.size(); i++) reverse.push_back(m.edges[coplanar[coplanar.size() - 1 - i]].adj);
 
-    if (coplanar.size()) WingMeshSeparate(m, reverse);
+    if (coplanar.size()) 
+		m.Crop(reverse);
 	m.SanityCheck();
 	assert(dot(m.faces[0].xyz(), slice.xyz()) > 0.99f);
 	m.faces[0] = slice;
