@@ -312,7 +312,7 @@ void BSPDeriveConvex(BSPNode *node,WingMesh cnvx)
 	WingMesh co;
 	if(node->convex.verts.size())  // non empty
 	{
-		int f = WingMeshSplitTest(node->convex, *node);
+		int f = node->convex.SplitTest(*node);
 		if(f==SPLIT)
 		{
 			cu = WingMeshCrop(node->convex, *node);

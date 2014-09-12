@@ -35,7 +35,7 @@ std::vector<Face*> WingMeshToFaces(const WingMesh &m)
 		face->plane() = m.faces[i];
 		//extern void texplanar(Face *face);
 		//texplanar(face);
-		face->vertex = WingMeshFaceVerts(m, i); //int e0 = m.fback[i],e=e0; do{ face->vertex.push_back(m.verts[m.edges[e].v]);  e = m.edges[e].next;} while (e!=e0);
+		face->vertex = m.GenerateFaceVerts(i); //int e0 = m.fback[i],e=e0; do{ face->vertex.push_back(m.verts[m.edges[e].v]);  e = m.edges[e].next;} while (e!=e0);
 	}
 	return faces;
 }
@@ -77,7 +77,7 @@ void wmwire(const WingMesh &m)
 }
 void wmdraw(const WingMesh &m)
 {
-	gldraw(m.verts, WingMeshTris(m));  // admittedly this generates tri list each time
+	gldraw(m.verts, m.GenerateTris());  // admittedly this generates tri list each time
 }
 
 

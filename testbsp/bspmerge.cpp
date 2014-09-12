@@ -69,7 +69,7 @@ void BSPPartition(BSPNode *n, const float4 &p, BSPNode * &nodeunder, BSPNode * &
 	int flag;
 	//flag = SplitTest(n->cell,p);
 	//assert(flag==SplitTest(*n->convex,p));
-	flag=WingMeshSplitTest(n->convex,p);
+	flag = n->convex.SplitTest(p);
 	if(flag == UNDER) {
 		nodeunder = n;
 		return;
@@ -320,7 +320,7 @@ BSPNode *BSPIntersect(BSPNode *a,BSPNode *b)
 		return a;
 	}
 	// I'm not sure about the following bit - it only works if booleaning bsp's cells cover entire area volume too
-	if(bspmergeallowswap)if( SPLIT != (swapflag = WingMeshSplitTest(b->convex,*a))) {
+	if(bspmergeallowswap)if( SPLIT != (swapflag = b->convex.SplitTest( *a))) {
 		if(swapflag == OVER) {
 			a->over = BSPIntersect(a->over,b);
 			return a;

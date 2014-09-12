@@ -90,8 +90,8 @@
     <ClInclude Include="..\include\gjk.h" />
     <ClInclude Include="..\include\glwin.h" />
     <ClInclude Include="..\include\hull.h" />
+    <ClInclude Include="..\include\wingmesh.h" />
     <ClInclude Include="physics.h" />
-    <ClInclude Include="wingmesh.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

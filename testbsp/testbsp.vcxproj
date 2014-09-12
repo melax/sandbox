@@ -89,6 +89,7 @@
     <ClCompile Include="testbsp.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\include\wingmesh.h" />
     <ClInclude Include="bsp.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -78,8 +78,7 @@ void wmwire(const WingMesh &m)
 }
 void wmdraw(const WingMesh &m)
 {
-	auto tris = WingMeshTris(m);
-	gldraw(m.verts, tris);
+	gldraw(m.verts, m.GenerateTris());
 }
 
 void rbdraw(const RigidBody *rb)
@@ -91,7 +90,7 @@ void rbdraw(const RigidBody *rb)
 	glPopMatrix();
 }
 
-Shape AsShape(const WingMesh &m) { return Shape(m.verts, WingMeshTris(m)); }
+Shape AsShape(const WingMesh &m) { return Shape(m.verts, m.GenerateTris()); }
 
 int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst,LPSTR lpszCmdLine, int nCmdShow) // int main(int argc, char *argv[])
 {
