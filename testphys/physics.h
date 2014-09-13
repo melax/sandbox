@@ -105,7 +105,7 @@ inline gjk_implementation::Contact Separated(const Shape *a, const Shape *b)
 }
 inline gjk_implementation::Contact Separated(const Shape *a, const std::vector<float3> *b)
 {
-	return Separated(SupportFunc(a->verts, a->Position(), a->Orientation()), SupportFunc(*b), 1);
+	return Separated(SupportFuncTrans(SupportFunc(a->verts), a->Position(), a->Orientation()), SupportFunc(*b), 1);
 }
 
 

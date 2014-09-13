@@ -656,13 +656,30 @@ inline gjk_implementation::Contact Separated(const std::vector<float3> &a, const
 	return gjk_implementation::Separated(SupportFunc(a), SupportFunc(b), findclosest);
 }
 
-inline std::function<float3(const float3&)> SupportFunc(const std::vector<float3> &points,const float3& position,const float4 &orientation)   // example supportfunc for posed meshes 
+template<class SF>
+inline std::function<float3(const float3&)> SupportFuncTrans(SF sf, const float3& position, const float4 &orientation)   // example supportfunc for posed meshes 
 {
-	return[&points,&position,&orientation](const float3 &dir){ return position + qrot(orientation,points[maxdir(points.data(), points.size(), qrot(qconj(orientation),dir))]); };
+	return [sf, position, orientation](const float3 &dir) {return position + qrot(orientation, sf(qrot(qconj(orientation), dir))); };
+	//auto rf = [sf, position, orientation](const float3 &dir)->float3
+	//{
+	//	float3 dir_local = qrot(qconj(orientation), dir);
+	//	float3 sup_local = sf(dir_local);
+	//	float3 sup_world = position + qrot(orientation, sup_local);
+	//	return sup_world;
+	//	// return position + qrot(orientation, sf(qrot(qconj(orientation),dir))); 
+	//};
+	//return rf;
 }
+
+//template<>
+//inline std::function<float3(const float3&)> SupportFunc<const std::vector<float3>&>(const std::vector<float3> &points, const float3& position, const float4 &orientation)   // example supportfunc for posed meshes 
+//{
+//	return[&points, &position, &orientation](const float3 &dir){ return position + qrot(orientation, points[maxdir(points.data(), points.size(), qrot(qconj(orientation), dir))]); };
+//}
+
 inline gjk_implementation::Contact Separated(const std::vector<float3> &a,const float3 &ap,const float4 &aq, const std::vector<float3> &b,const float3 &bp,const float4 &bq, int findclosest=1)
 {
-	return gjk_implementation::Separated(SupportFunc(a,ap,aq), SupportFunc(b,bp,bq), findclosest);
+	return gjk_implementation::Separated(SupportFuncTrans(SupportFunc(a), ap, aq), SupportFuncTrans(SupportFunc(b), bp, bq), findclosest);
 }
 
 
