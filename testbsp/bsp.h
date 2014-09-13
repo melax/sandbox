@@ -57,7 +57,7 @@ class BSPNode :public float4
 					~BSPNode();
 };
 
-struct treetraverse
+struct treetraverse  // preorder
 {
 	BSPNode *root;
 	treetraverse(BSPNode *root) :root(root){}
@@ -70,6 +70,24 @@ struct treetraverse
 	};
 	iterator begin() { iterator b; if (root)b.stack.push_back(root); return b; }
 	iterator end()   { iterator e; return e; }
+};
+
+struct treebacktofront
+{
+	BSPNode *root;
+	float3 p;
+	treebacktofront(BSPNode *root, const float3 &p) :root(root), p(p) {}
+	struct iterator
+	{
+		std::vector<BSPNode *> stack;
+		float3 p;
+		void toleaf(BSPNode *n) { while (n) { stack.push_back(n); n = (dot(float4(p, 1), n->plane()) > 0) ? n->under : n->over; } }
+		BSPNode * operator *() const { return stack.size() ? stack.back() : NULL; }
+		iterator & operator++(){ assert(stack.size()); BSPNode *n = **this; stack.pop_back(); assert(n); toleaf((dot(float4(p, 1), n->plane()) > 0) ? n->over : n->under);  return *this; }
+		bool operator !=(const iterator &b){ return stack != b.stack; }
+	};
+	iterator begin() { iterator b; b.p = p;  b.toleaf(root); return b; }
+	iterator end()   { iterator e; e.p = p;  return e; }
 };
 
 inline std::pair<float3, float3> Extents(const Face &face){ return Extents(face.vertex); }

@@ -28,7 +28,7 @@ void InitTex()  // create a checkerboard texture
 	const int imagedim = 16;
 	ubyte4 checker_image[imagedim * imagedim];
 	for (int y = 0; y < imagedim; y++) for (int x = 0; x < imagedim; x++)
-		checker_image[y * imagedim + x] = ((x / 4 + y / 4) % 2) ? ubyte4(191, 255, 255,255) : ubyte4(127, 191, 191,255);
+		checker_image[y * imagedim + x] = ((x / 4 + y / 4) % 2) ? ubyte4(255, 255, 255,255) : ubyte4(191, 191, 191,255);
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 	glEnable(GL_TEXTURE_2D); glBindTexture(GL_TEXTURE_2D, 0);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
@@ -74,7 +74,7 @@ void gldraw(const std::vector<float3> &verts, const std::vector<int3> &tris)
 }
 void fdraw(const Face &f)
 {
-	glBegin(GL_TRIANGLE_FAN);
+	glBegin(GL_POLYGON);
 	glNormal3fv(f.xyz());
 	for (auto &v : f.vertex)
 		glVertex3fv(v);
@@ -89,31 +89,32 @@ void wmwire(const WingMesh &m)
 		glVertex3fv(m.verts[e.v]), glVertex3fv(m.verts[m.edges[e.next].v]);  // note the comma
 	glEnd();
 }
-void wmdraw(const WingMesh &m)
-{
-	gldraw(m.verts, m.GenerateTris());  // admittedly this generates tri list each time
-}
 
-void glDraw(BSPNode *n,const float3 &p)
+
+
+void glDraw(BSPNode *root, const float3 &camera_position)
 {
-	if (n->isleaf)
-		return;
-	bool above = dot(float4(p, 1), n->plane()) > 0;
-	glDraw((above) ? n->under : n->over , p);   // draw back to front
-	WingMesh &wm = n->under->convex;
-	int fid = std::find_if(wm.faces.begin(), wm.faces.end(), [&n](const float4 &p){return n->plane() == p || n->plane() == -p; }) - wm.faces.begin();
-	assert(fid < (int) wm.faces.size());
-	auto q = RotationArc(wm.faces[fid].xyz(),float3(0, 0, 1));
-	glBegin(GL_POLYGON);
-	glColor4f(1, 1, 1, 0.25f);
-	glNormal3fv(wm.faces[fid].xyz());
-	for (auto &v : wm.GenerateFaceVerts(fid))
+	const float3 rainbow[] = { { 1, 0, 0 }, { 1, 1, 0 }, { 0, 1, 0 }, { 0, 1, 1 }, { 0, 0, 1 }, { 1, 0, 1 } };
+	for (auto n : treebacktofront(root, camera_position))
 	{
-		glTexCoord2fv(qrot(q, v).xy()*1.0f);
-		glVertex3fv(v);
+		if (n->isleaf)
+			continue;
+		WingMesh &wm = n->under->convex;
+		int fid = std::find_if(wm.faces.begin(), wm.faces.end(), [&n](const float4 &p){return n->plane() == p || n->plane() == -p; }) - wm.faces.begin();
+		assert(fid < (int)wm.faces.size());
+		auto q = RotationArc(wm.faces[fid].xyz(), float3(0, 0, 1));
+		glBegin(GL_POLYGON);
+		float3 both[2] = { n->xyz(), -n->xyz() };
+		float3 c = float3(0.5f, 0.5f, 0.5f) + rainbow[argmax(&both[0][0],6)] * 0.5f;
+		glColor4f(c.x,c.y,c.z, 0.35f);  
+		glNormal3fv(wm.faces[fid].xyz());  // should test to see which side camera_position is on 
+		for (auto &v : wm.GenerateFaceVerts(fid))
+		{
+			glTexCoord2fv(qrot(q, v).xy()*1.0f);
+			glVertex3fv(v);
+		}
+		glEnd();
 	}
-	glEnd();
-	glDraw((above) ? n->over : n->under, p);  // draw back to front
 }
 
 // int main(int argc, char *argv[])
@@ -144,7 +145,7 @@ LPSTR lpszCmdLine, int nCmdShow)
 
 	// some extra tests if you are in the mood
 	//	delete bsp;  // lets completely start over
-	//	bsp = BSPCompile(faces, WingMeshCube({ -10.0f, -10.0f, -10.0f }, { 10.0f, 10.0f, 10.0f }));  // compiles from a single mesh that has more complexity
+	//	bsp = BSPCompile(faces, WingMeshCube({ -2.0f, -2.0f, -2.0f }, { 2.0f, 2.0f, 2.0f }));  // compiles from a single mesh that has more complexity
 
 	GLWin glwin("TestBSP compile and intersect sample");
 	InitTex();
@@ -195,22 +196,11 @@ LPSTR lpszCmdLine, int nCmdShow)
 
 		glEnable(GL_LIGHTING);
 		glEnable(GL_LIGHT0);
-		if (!drawmode)  // draw the brep
+		if (drawmode==0)  // draw the brep
 		{
 			fdraw(faces);
 		}
-		else if (drawmode == 2)
-		{
-			//InitTex();
-			glEnable(GL_TEXTURE_2D);
-			glDisable(GL_LIGHTING);
-			glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-			glColor4f(1, 1, 1, 0.5f);
-			glEnable(GL_BLEND);
-			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-			glDraw(bsp,camerapos);
-		}
-		else // draw the cells
+		else if (drawmode == 1) // draw the cells
 		{
 			std::vector<BSPNode*> stack = { bsp };  // for non-recursive tree traversal
 			while (stack.size())
@@ -224,13 +214,27 @@ LPSTR lpszCmdLine, int nCmdShow)
 					for (auto &v : n->convex.verts)
 						c += v * (1.0f/n->convex.verts.size());  // approx center for convex cell
 					glPushMatrix();
-					glTranslatef(c.x*0.1f, c.y*0.1f, c.z*0.1f);  // expand outward to slightly separate the cells
-					wmdraw(n->convex);
+					//glTranslatef(c.x*0.1f, c.y*0.1f, c.z*0.1f);  // expand outward to slightly separate the cells
+					glTranslatef(c.x, c.y, c.z);
+					glScalef(0.95f, 0.95f, 0.95f);                 // shrink slightly about each cell center
+					glTranslatef(-c.x, -c.y, -c.z);
+					gldraw(n->convex.verts,n->convex.GenerateTris());
 					glPopMatrix();
 				}
 				stack.push_back(n->under);
 				stack.push_back(n->over);
 			}
+		}
+		else if (drawmode == 2)  // draw the tree planes
+		{
+			//InitTex();
+			glEnable(GL_TEXTURE_2D);
+			glDisable(GL_LIGHTING);
+			glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+			glColor4f(1, 1, 1, 0.5f);
+			glEnable(GL_BLEND);
+			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+			glDraw(bsp, camerapos);
 		}
 
 		// Restore state

@@ -39,11 +39,6 @@ inline float3 operator*(const float3x3 &m, const float3& v) { return mul(m, v); 
 float   physics_deltaT=(1.0f/60.0f);
 
 
-
-extern float3 HitCheckImpactNormal;
-
-
-
 float  physics_restitution=0.4f;  // coefficient of restitution
 float3 gravity(0,0,-10.0f);
 float  physics_coloumb=0.6f; // used as default friction value and for static geometry    
