@@ -82,7 +82,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="physics.cpp" />
     <ClCompile Include="testphys.cpp" />
   </ItemGroup>
   <ItemGroup>

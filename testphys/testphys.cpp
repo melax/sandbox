@@ -90,11 +90,11 @@ void rbdraw(const RigidBody *rb)
 	glPopMatrix();
 }
 
-Shape AsShape(const WingMesh &m) { return Shape(m.verts, m.GenerateTris()); }
-
 
 inline WingMesh WingMeshCube(const float  r) { return WingMeshBox({ -r, -r, -r }, { r, r, r }); } // r (radius) is half-extent of box
 inline WingMesh WingMeshBox(const float3 &r) { return WingMeshBox(-r, r); }
+
+Shape AsShape(const WingMesh &m) { return Shape(m.verts, m.GenerateTris()); }
 
 
 int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst,LPSTR lpszCmdLine, int nCmdShow) // int main(int argc, char *argv[])
@@ -102,16 +102,15 @@ int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst,LPSTR lpszC
 	std::cout << "Test Physics\n";
 
 	std::vector<RigidBody*> rigidbodies;
-	auto wma = WingMeshCube(1);
-	auto wmb = WingMeshCube(1);
-	rigidbodies.push_back(new RigidBody({ AsShape(wma) }, { 1.5f, 0.0f, 1.5f }));
-	rigidbodies.push_back(new RigidBody({ AsShape(wmb) }, { -1.5f, 0.0f, 1.5f }));
+	rigidbodies.push_back(new RigidBody({ AsShape(WingMeshCube(1)) }, { 1.5f, 0.0f, 1.5f }));
+	rigidbodies.push_back(new RigidBody({ AsShape(WingMeshCube(1)) }, { -1.5f, 0.0f, 1.5f }));
 	rigidbodies.back()->orientation = normalize(float4(0.1f, 0.01f, 0.3f, 1.0f));
 	auto seesaw = new RigidBody({ AsShape(WingMeshBox( { 3, 0.5f, 0.1f })) }, { 0, -2.5, 0.25f });
 	rigidbodies.push_back(seesaw);
 	rigidbodies.push_back( new RigidBody({ AsShape(WingMeshCube(0.25f)) }, seesaw->position_start + float3( 2.5f, 0, 0.4f)));
 	rigidbodies.push_back( new RigidBody({ AsShape(WingMeshCube(0.50f)) }, seesaw->position_start + float3(-2.5f, 0, 5.0f)));
 	rbscalemass(rigidbodies.back(), 4.0f);
+	rigidbodies.push_back(new RigidBody({ AsShape(WingMeshBox({1,0.2f,0.2f})),AsShape(WingMeshBox({0.2f,1,0.2f})),AsShape(WingMeshBox({0.2f,0.2f,1})) }, { -1.5f, 0.5f, 7.5f }));
 	for (float z = 5.5f; z < 14.0f; z += 3.0f)
 		rigidbodies.push_back(new RigidBody({ AsShape(WingMeshCube(0.5f)) }, { 0.0f, 0.0f, z }));
 	for (float z = 15.0f; z < 20.0f; z += 3.0f)
@@ -138,8 +137,8 @@ int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst,LPSTR lpszC
 				{
 					rb->position = rb->position_start;
 					//rb->orientation = rb->orientation_start;  // when commented out this provides some variation
-					rb->momentum = float3(0, 0, 0);
-					rb->rotation = float3(0, 0, 0);
+					rb->linear_momentum  = float3(0, 0, 0);
+					rb->angular_momentum = float3(0, 0, 0);
 				}
 				seesaw->orientation = { 0, 0, 0, 1 };
 				break;
@@ -163,11 +162,11 @@ int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst,LPSTR lpszC
 
 		if (g_simulate)
 		{
-			std::vector<LimitAngular> Angulars;
-			std::vector<LimitLinear> Linears;
-			createnail(Linears,NULL, seesaw->position_start, seesaw, { 0, 0, 0 });
-			createangularlimits(Angulars,NULL, seesaw, { 0, 0, 0, 1 }, { 0, -20, 0 }, { 0, 20, 0 });
-			PhysicsUpdate(rigidbodies,Linears,Angulars,{ &world_slab.verts });
+			std::vector<LimitAngular> angulars;
+			std::vector<LimitLinear>  linears;
+			Append(linears , ConstrainPositionNailed(NULL, seesaw->position_start, seesaw, { 0, 0, 0 }));
+			Append(angulars, ConstrainAngularRange(NULL, seesaw, { 0, 0, 0, 1 }, { 0, -20, 0 }, { 0, 20, 0 }));
+			PhysicsUpdate(rigidbodies, linears, angulars, { &world_slab.verts });
 		}
 
 
