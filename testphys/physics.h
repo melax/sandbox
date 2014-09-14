@@ -13,7 +13,6 @@
 #include "vecmatquat.h"
 #include "gjk.h"
 
-class Shape;
 class RigidBody;
 class Spring;
 
@@ -30,6 +29,14 @@ struct Pose // Value type representing a rigid transformation consisting of a tr
 
 	float3      operator * (const float3 & point) const     { return position + qrot(orientation, point); }
 	Pose        operator * (const Pose & pose) const        { return{ *this * pose.position, qmul(orientation, pose.orientation) }; }
+};
+
+
+struct Shape // rigidbody has an array of shapes.  all meshes are stored in the coord system of the rigidbody, no additional shape transform.
+{
+	std::vector<float3> verts;
+	std::vector<int3> tris;
+	Shape(std::vector<float3> verts, std::vector<int3> tris) : verts(verts), tris(tris){}
 };
 
 class State : public Pose
@@ -83,34 +90,6 @@ class RigidBody : public State
 };
 
 
-class Shape 
-{
-  public:
-	// idea is for rigidbody to have an array of these.
-	// all meshes are stored in the coord system of the rigidbody, no additional shape transform.
-	std::vector<float3> verts;
-	std::vector<int3> tris;
-	RigidBody *rb;
-	const float3 &Position() const {return rb->position;}
-	const float4 &Orientation() const {return rb->orientation;}
-	const Pose& pose() const {return rb->pose();}
-	Shape(std::vector<float3> verts, std::vector<int3> tris, RigidBody *rb = NULL) : verts(verts), tris(tris), rb(rb){}
-	~Shape(){};
-};
-
-inline  std::function<float3(const float3&)> SupportFunc(const Shape* shape) { return SupportFuncTrans(SupportFunc(shape->verts), shape->Position(), shape->Orientation()); }
-
-// inline float3    SupportPoint(const Shape *s, const float3& dir) { return s->pose() * SupportPoint(&s->verts, qrot(qconj(s->Orientation()),dir)); }
-
-//inline gjk_implementation::Contact Separated(const Shape *a, const Shape *b)
-//{
-//	return Separated(a->verts, a->Position(), a->Orientation(), b->verts, b->Position(), b->Orientation());
-//}
-//inline gjk_implementation::Contact Separated(const Shape *a, const std::vector<float3> *b)
-//{
-//	return Separated(SupportFuncTrans(SupportFunc(a->verts), a->Position(), a->Orientation()), SupportFunc(*b), 1);
-//}
-//
 
 inline float Volume(const std::vector<Shape> &meshes)
 {
@@ -154,7 +133,14 @@ inline float3x3 Inertia(const std::vector<Shape> &meshes, const float3& com)
 	return inertia;
 }
 
-
+inline void rbscalemass(RigidBody *rb,float s)  // scales the mass and all relevant inertial properties by multiplier s
+{
+	rb->mass *= s;
+	rb->momentum *= s;
+	rb->massinv *= 1.0f / s;
+	rb->rotation *= s;
+	rb->Iinv *= 1.0f / s;
+}
  
 class Spring 
 {
@@ -166,7 +152,8 @@ class Spring
 	float			k; // spring constant
 };
 
-void rbscalemass(RigidBody *rb,float s);  // scales the mass and all relevant inertial properties by multiplier s
+
+
 //Spring *   CreateSpring(RigidBody *a,float3 av,RigidBody *b,float3 bv,float k);
 //void       DeleteSpring(Spring *s);
 

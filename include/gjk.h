@@ -22,8 +22,6 @@
 #include "geometric.h"           // a collection of useful utilities such as intersection and projection
 
 
-class Shape; // yuck
-
 namespace gjk_implementation
 {
 
@@ -31,14 +29,12 @@ namespace gjk_implementation
 	class Contact
 	{
 	public:
-		//Shape*		C[2];
 		int				type; //  v[t] on c[0] for t<type on c[1] for t>=type so 2 is edge-edge collision
 		float3			v[4];
 		float3			normal; // worldspace  points from C[1] to C[0]
 		float			dist;  // plane
 		float3			impact;
 		float			separation;
-		//float3 p0, p1;
 		float3 p0w, p1w;
 		float time;
 		Contact() :normal(0, 0, 0), impact(0, 0, 0) { type = -1; separation = FLT_MAX; }

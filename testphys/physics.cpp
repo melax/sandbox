@@ -86,27 +86,13 @@ inline float4 rkupdateq(const float4 &s, const float3x3 &tensorinv, const float3
 
 
 
-void ApplyImpulse(RigidBody *rb,float3 r,float3 n,float impulse) 
+inline void ApplyImpulse(RigidBody *rb,const float3 &r, const float3& impulse)  // r is impact point positionally relative to rb's origin but in 'world' orientation
 {
-	rb->momentum = rb->momentum + (n*(impulse));
-	float3 drot = cross(r,(n*impulse));
-	rb->rotation = rb->rotation + drot ;
-
+	rb->momentum +=  impulse;
+	rb->rotation += cross(r, impulse);
 	rb->spin = rb->Iinv * rb->rotation; // recompute auxilary variable spin
 	//assert(magnitude(rb->spin) <10000);
 }
-
-void ApplyImpulseIm(RigidBody *rb,float3 r,float3 n,float impulse) 
-{
-	float3 drot = cross(r,(n*impulse));
-	rb->orientation = normalize(rb->orientation + DiffQ(rb->orientation,rb->tensorinv_massless * rb->massinv ,drot)*physics_deltaT);
-	//rb->Iinv = transpose(qgetmatrix(rb->orientation)) * rb->tensorinv * (qgetmatrix(rb->orientation)); // recompute Iinv
-	rb->Iinv = mul(qgetmatrix(rb->orientation), rb->tensorinv_massless * rb->massinv, transpose(qgetmatrix(rb->orientation)));
-	rb->spin = rb->Iinv * rb->rotation; // recompute auxilary variable spin
-	rb->position +=(n*(impulse)) * rb->massinv * physics_deltaT;
-	//assert(magnitude(rb->spin) <10000);
-}
-
 
 /*
 Spring *CreateSpring(RigidBody *a,float3 av,RigidBody *b,float3 bv,float k) {
@@ -137,51 +123,45 @@ public:
 	RigidBody *rb0;
 	RigidBody *rb1;
 	Limit(RigidBody *_rb0,RigidBody *_rb1):rb0(_rb0),rb1(_rb1){}
-	virtual ~Limit(){}
-	virtual void Finalize(){}
 };
 
 
 class LimitAngular : public Limit
 {
 public:
-	float  limitangle;
 	float3 axis;  // world-space
 	float  torque;  // rotational impulse
 	float  targetspin;
 	float  mintorque;
 	float  maxtorque;
 	LimitAngular():Limit(NULL,NULL){}
-	LimitAngular(RigidBody *_rb0,RigidBody *_rb1=NULL,const float3 &_axis=float3(0,0,1),float _targetspin=0.0f,float _mintorque=-FLT_MAX,float _maxtorque=FLT_MAX);
-	void Iter();
-	void PostIter(){targetspin=(mintorque<0)?0:std::min(targetspin,0.0f);}  // not zero since its ok to let it fall to the limit;
+	LimitAngular(RigidBody *rb0, RigidBody *rb1, const float3 &axis, float targetspin=0, float mintorque=-FLT_MAX, float maxtorque=FLT_MAX) 
+		:Limit(rb0, rb1), axis(axis), targetspin(targetspin), mintorque(mintorque), maxtorque(maxtorque), torque(0) {}	
+	void RemoveBias(){ targetspin = (mintorque<0) ? 0 : std::min(targetspin, 0.0f); }  // not zero since its ok to let one-sided constraints fall to their bound;
+	void Iter()
+	{
+		if (targetspin == -FLT_MAX) return;
+		float currentspin = ((rb1) ? dot(rb1->spin, axis) : 0.0f) - ((rb0) ? dot(rb0->spin, axis) : 0.0f);  // how we are rotating about the axis 'normal' we are dealing with
+		float dspin = targetspin - currentspin;  // the amount of spin we have to add to satisfy the limit.
+		float spintotorque = 1.0f / (((rb0) ? dot(axis, mul(rb0->Iinv, axis)) : 0.0f) + ((rb1) ? dot(axis, mul(rb1->Iinv, axis)) : 0.0f));
+		float dtorque = dspin * spintotorque;  // how we have to change the angular impulse
+		dtorque = std::min(dtorque, maxtorque*physics_deltaT - torque); // total torque cannot exceed maxtorque
+		dtorque = std::max(dtorque, mintorque*physics_deltaT - torque); // total torque cannot fall below -maxtorque
+		if (rb0)
+		{
+			rb0->rotation += axis*-dtorque;  // apply impulse
+			rb0->spin = rb0->Iinv * rb0->rotation; // recompute auxilary variable spin
+		}
+		if (rb1)
+		{
+			rb1->rotation += axis*dtorque;  // apply impulse
+			rb1->spin = rb1->Iinv * rb1->rotation; // recompute auxilary variable spin
+		}
+		torque += dtorque;
+	}
 };
 
-LimitAngular::LimitAngular(RigidBody *_rb0,RigidBody *_rb1,const float3 &_axis,float _targetspin,float _mintorque,float _maxtorque):Limit(_rb0,_rb1),axis(_axis),targetspin(_targetspin),mintorque(_mintorque),maxtorque(_maxtorque)
-{
-	torque=0.0f;
-}
-void LimitAngular::Iter()
-{
-	if(targetspin==-FLT_MAX) return;
-	float currentspin = ((rb1)?dot(rb1->spin,axis):0.0f) - ((rb0)?dot(rb0->spin,axis):0.0f) ;  // how we are rotating about the axis 'normal' we are dealing with
-	float dspin = targetspin - currentspin;  // the amount of spin we have to add to satisfy the limit.
-	float spintotorque = 1.0f / (  ((rb0)?dot(axis,mul(rb0->Iinv,axis)):0.0f) + ((rb1)?dot(axis,mul(rb1->Iinv,axis)):0.0f)  );
-	float dtorque = dspin * spintotorque ;  // how we have to change the angular impulse
-	dtorque = std::min(dtorque,maxtorque*physics_deltaT-torque); // total torque cannot exceed maxtorque
-	dtorque = std::max(dtorque,mintorque*physics_deltaT-torque); // total torque cannot fall below -maxtorque
-	if(rb0)
-	{
-		rb0->rotation += axis*-dtorque;  // apply impulse
-		rb0->spin = rb0->Iinv * rb0->rotation; // recompute auxilary variable spin
-	}
-	if(rb1)
-	{
-		rb1->rotation += axis*dtorque;  // apply impulse
-		rb1->spin = rb1->Iinv * rb1->rotation; // recompute auxilary variable spin
-	}
-	torque += dtorque;
-}
+
 
 class LimitLinear : public Limit
 {
@@ -194,69 +174,34 @@ class LimitLinear : public Limit
 	float  minforce;
 	float  maxforce;
 	int    friction_master;   // true if a friction limit
-	LimitLinear *master;
 	float  impulsesum;
-	void Iter();
-	void PostIter();
-	virtual void Finalize();
-	LimitLinear():Limit(NULL,NULL){}
-	LimitLinear(RigidBody *_rb0,RigidBody *_rb1,const float3 &_position0,const float3 &_position1,
-	            const float3 &_normal=float3(0,0,1),float _targetspeed=0.0f,float _targetspeednobias=0.0f,float _maxforce=FLT_MAX,float _minforce=-FLT_MAX);
-};
-
-LimitLinear::LimitLinear(RigidBody *_rb0,RigidBody *_rb1,const float3 &_position0,const float3 &_position1,const float3 &_normal,float _targetspeed,float _targetspeednobias,float _maxforce,float _minforce):
-		Limit(_rb0,_rb1),
-		position0(_position0),
-		position1(_position1),
-		normal(_normal),
-		targetspeed(_targetspeed),
-		targetspeednobias(_targetspeednobias),
-		maxforce(_maxforce),
-		minforce(_minforce),
-		friction_master(0),
-		master(NULL)
-{
-	assert(maxforce>minforce);
-	impulsesum=0.0f;
-	impulsesum=0;
-}
-float showimpulse=0.0f;
-EXPORTVAR(showimpulse);
-void LimitLinear::PostIter()
-{
-	if(showimpulse>0.0f)
+	LimitLinear() :Limit(NULL, NULL){}
+	LimitLinear(RigidBody *rb0,RigidBody *rb1,const float3 &position0,const float3 &position1,
+		const float3 &normal = float3(0, 0, 1), float _targetspeed = 0.0f, float _targetspeednobias = 0.0f, const float2 forcerange = { -FLT_MAX, FLT_MAX })
+		:Limit(rb0, rb1), position0(position0), position1(position1), normal(normal), targetspeed(_targetspeed), targetspeednobias(_targetspeednobias), 
+		 minforce(std::min(forcerange.x, forcerange.y)), maxforce(std::max(forcerange.x, forcerange.y)), friction_master(0), impulsesum(0)
+	{}
+	void RemoveBias() { targetspeed = std::min(targetspeed, targetspeednobias); }
+	void Iter()
 	{
-		Pose p = (this->rb0) ? this->rb0->pose() : Pose() ;
-		Line(p*this->position0-this->normal*impulsesum * showimpulse,p*position0+this->normal* impulsesum * showimpulse, float3(1,0.25f,0));
+		if(friction_master)
+			minforce = -(  maxforce = std::max( ((rb0)?rb0->friction:0),((rb1)?rb1->friction:0) ) * ((this)+friction_master)->impulsesum / physics_deltaT   );
+		float3 r0  = (rb0) ? qrot(rb0->orientation , position0) :  position0;
+		float3 r1  = (rb1) ? qrot(rb1->orientation , position1) :  position1;
+		float3 v0  = (rb0) ? cross(rb0->spin,r0) + rb0->momentum*rb0->massinv : float3(0,0,0); // instantaneioius linear velocity at point of constraint
+		float3 v1  = (rb1) ? cross(rb1->spin,r1) + rb1->momentum*rb1->massinv : float3(0,0,0); 
+		float  vn  = dot(v1-v0,normal);  // velocity of rb1 wrt rb0
+		float impulsen = -targetspeed - vn;
+		float impulsed =  ((rb0)? rb0->massinv + dot( cross((rb0->Iinv*cross(r0,normal)),r0),normal):0) 
+						+ ((rb1)? rb1->massinv + dot( cross((rb1->Iinv*cross(r1,normal)),r1),normal):0) ;
+		float impulse = impulsen/impulsed;
+		impulse = std::min( maxforce*physics_deltaT-impulsesum,impulse);
+		impulse = std::max( minforce*physics_deltaT-impulsesum,impulse);
+		if(rb0) ApplyImpulse(rb0,r0,normal *-impulse ); 
+		if(rb1) ApplyImpulse(rb1,r1,normal * impulse ); 
+		impulsesum += impulse;
 	}
-	targetspeed=std::min(targetspeed,targetspeednobias); 
-}
-
-void LimitLinear::Finalize()
-{
-}
-void LimitLinear::Iter()  
-{
-// Want to consolidate what is currently in different structures to make a consistent low level api.  
-// Immediate mode style works nicely for higher level joint objects such as limit cone.  
-// With an immediate mode api there needs to be a mechanism for optional feedback to higher level for warmstarting and what forces being applied eg sound effects or reading teeter's weight
-	if(friction_master)
-		minforce = -(  maxforce = std::max( ((rb0)?rb0->friction:0),((rb1)?rb1->friction:0) ) * ((this)+friction_master)->impulsesum / physics_deltaT   );
-	float3 r0  = (rb0) ? qrot(rb0->orientation , position0) :  position0;
-	float3 r1  = (rb1) ? qrot(rb1->orientation , position1) :  position1;
-	float3 v0  = (rb0) ? cross(rb0->spin,r0) + rb0->momentum*rb0->massinv : float3(0,0,0); // instantaneioius linear velocity at point of constraint
-	float3 v1  = (rb1) ? cross(rb1->spin,r1) + rb1->momentum*rb1->massinv : float3(0,0,0); 
-	float  vn  = dot(v1-v0,normal);  // velocity of rb1 wrt rb0
-	float impulsen = -targetspeed - vn;
-	float impulsed =  ((rb0)? rb0->massinv + dot( cross((rb0->Iinv*cross(r0,normal)),r0),normal):0) 
-	                + ((rb1)? rb1->massinv + dot( cross((rb1->Iinv*cross(r1,normal)),r1),normal):0) ;
-	float impulse = impulsen/impulsed;
-	impulse = std::min( maxforce*physics_deltaT-impulsesum,impulse);
-	impulse = std::max( minforce*physics_deltaT-impulsesum,impulse);
-	if(rb0) ApplyImpulse(rb0,r0,normal ,-impulse ); 
-	if(rb1) ApplyImpulse(rb1,r1,normal , impulse ); 
-	impulsesum += impulse;
-}
+};
 
 
 void createdrive(std::vector<LimitAngular> &Angulars_out, RigidBody *rb0,RigidBody *rb1,float4 target,float maxtorque)
@@ -280,7 +225,7 @@ void createdrive(std::vector<LimitAngular> &Angulars_out, RigidBody *rb0,RigidBo
 
 LimitLinear limitlinearaxis(RigidBody *rb0,const float3 &p0,RigidBody *rb1,const float3 &p1,const float3 &axisw,float minforce,float maxforce)
 {
-	return LimitLinear( rb0,rb1,p0,p1,axisw, dot( ((rb1)?rb1->pose()*p1:p1) - ((rb0)?rb0->pose()*p0:p0) ,axisw)/physics_deltaT,0.0f,maxforce,minforce);
+	return LimitLinear( rb0,rb1,p0,p1,axisw, dot( ((rb1)?rb1->pose()*p1:p1) - ((rb0)?rb0->pose()*p0:p0) ,axisw)/physics_deltaT,0.0f,{minforce,maxforce});
 }
 void createnail(std::vector<LimitLinear> &Linears_out,RigidBody *rb0,const float3 &p0,RigidBody *rb1,const float3 &p1)
 {
@@ -333,7 +278,7 @@ void createangularlimits(std::vector<LimitAngular> &Angulars_out, RigidBody *rb0
 }
 
 
-LimitAngular ConeLimit(RigidBody* rb0,const float3 &n0,RigidBody* rb1,const float3 &n1,float limitangle_degrees)  // a hinge is a cone with 0 limitangle
+LimitAngular conelimit(RigidBody* rb0,const float3 &n0,RigidBody* rb1,const float3 &n1,float limitangle_degrees)  // a hinge is a cone with 0 limitangle
 {
 	// note only limiting 1dof, so if limitangle is close to 0 then there is not anything constraining it on 2nd free axis.  
 	assert(rb1);
@@ -364,9 +309,6 @@ RigidBody::RigidBody(std::vector<Shape> shapes_, const float3 &_position) : shap
 	damping = 0.0f;  // rigidbody::damping   currently i just take the max of this and the global damping
 	friction = physics_coloumb;
 
-	for (auto &s : shapes)
-		s.rb = this;
-
 	com = CenterOfMass(shapes);
 	position += com;
 	position_start = position_old = position_next = position;
@@ -387,11 +329,6 @@ RigidBody::RigidBody(std::vector<Shape> shapes_, const float3 &_position) : shap
 
 RigidBody::~RigidBody()
 {
-	// I still have other memory leaks here
-
-//	while(springs.size()) {
-//		DeleteSpring(springs[springs.size()-1]);
-//	}
 	g_rigidbodies.erase(std::find(g_rigidbodies.begin(), g_rigidbodies.end(), this));  // 	Remove(g_rigidbodies, this);
 }
 
@@ -428,41 +365,6 @@ EXPORTVAR(showcontactnormal);
 int suspendpairupdate=0;
 EXPORTVAR(suspendpairupdate);
 
-/*
-int HitCheck(std::vector<BSPNode *> bsps,const float3 &v0,float3 v1,float3 *impact)
-{
-	int hit=0;
-	for(int i=0;i<bsps.size();i++)
-		hit |= HitCheck(bsps[i],1,v0,v1,&v1);
-	if(hit && impact) 
-		*impact=v1;
-	return hit;
-}
-
-
-void CCD(RigidBody *rb,const std::vector<BSPNode*> &area_bsps)
-{
-	if(!rb->resolve)
-		return;
-	float3 hitpoint;
-	for(int i=0;i<area_bsps.size();i++)
-        if(HitCheck(area_bsps,rb->position_old,rb->position_old,&hitpoint)) return; // we were inside a bad spot last frame anyways.
-	int k=0;
-	while(k<4 && HitCheck(area_bsps,rb->position_old,rb->position_next,&hitpoint)) 
-	{
-		k++;
-		extern float3 HitCheckImpactNormal;  // global variable storing the normal of the last hit 
-		rb->position = rb->position_next = PlaneProject(Plane(HitCheckImpactNormal,-dot(hitpoint,HitCheckImpactNormal)-0.001f),rb->position_next);
-		rb->momentum =  float3(0,0,0); //  rb->mass * (rb->position_next-rb->position_old)/physics_deltaT;
-	}
-	if(k==4)
-	{
-		rb->position_next = rb->position = rb->position_old;
-		rb->momentum = float3(0,0,0);
-	}
-}
-
-*/
 
 float showspin=0.0f;
 
@@ -503,14 +405,7 @@ void rbcalcnextpose(RigidBody *rb)
 			rb->orientation_next[i]=0.0f; // dont keep needless precision, somehow this causes serious slowdown on Intel's centrino processors perhaps becuase as extra shifting is required during multiplications
 }
 
-void rbscalemass(RigidBody *rb,float s)
-{
-	rb->mass      *= s;
-	rb->momentum  *= s;
-	rb->massinv   *= 1.0f/s;
-	rb->rotation  *= s;
-	rb->Iinv      *= 1.0f/s;
-}
+
 
 void rbupdatepose(RigidBody *rb) 
 {
@@ -541,85 +436,44 @@ void rbupdatepose(RigidBody *rb)
 
 struct PhysContact : public gjk_implementation::Contact
 {
-	Shape *s0;
-	Shape *s1;
-	float3 p0;
-	float3 p1;
-	PhysContact(Shape *s0, Shape *s1, const gjk_implementation::Contact &c) : s0(s0), s1(s1), gjk_implementation::Contact(c)
+	RigidBody *rb0,*rb1;
+	float3     p0 , p1 ;
+	PhysContact(RigidBody *rb0, RigidBody *rb1, const gjk_implementation::Contact &c) : rb0(rb0), rb1(rb1), gjk_implementation::Contact(c)
 	{
-		p0 = (s0) ? s0->rb->pose().Inverse() * p0w : p0w;
-		p1 = (s1) ? s1->rb->pose().Inverse() * p1w : p1w;
+		p0 = (rb0) ? rb0->pose().Inverse() * p0w : p0w;
+		p1 = (rb1) ? rb1->pose().Inverse() * p1w : p1w;
 	}
 };
 
+inline  std::function<float3(const float3&)> SupportFunc(RigidBody *rb,const Shape& shape) { return SupportFuncTrans(SupportFunc(shape.verts), rb->position, rb->orientation); }
 
-void FindShapeWorldContacts(std::vector<PhysContact> &contacts_out, const std::vector<RigidBody*>& rigidbodies, const std::vector<std::vector<float3> *> & cells)
+inline void FindShapeWorldContacts(std::vector<PhysContact> &contacts_out, const std::vector<RigidBody*>& rigidbodies, const std::vector<std::vector<float3> *> & cells)
 {
-	//foreach(rigidbodies,[&contacts_out](RigidBody* rb){ foreach(rb->shapes,[&contacts_out](Shape *s){FindShapeWorldContacts(s,contacts_out);});});  // compiler failed to make this work
-	//foreach(rigidbodies,[&contacts_out](RigidBody* rb){std::vector<Contact> &c2=contacts_out ;foreach(rb->shapes,[&](Shape *s){FindShapeWorldContacts(s,c2);});}); // works
-	//auto f = [&](Shape *s){FindShapeWorldContacts(s,contacts_out);};
-	//foreach(rigidbodies,[f](RigidBody* rb){ foreach(rb->shapes,f);});
-	for(unsigned int i=0;i<rigidbodies.size();i++)
-	 for(unsigned int j=0 ; j<rigidbodies[i]->shapes.size() ; j++)  // foreach rigidbody shape
+	for (auto rb : rigidbodies) for (auto &shape : rb->shapes)   // foreach rigidbody shape
 	{
-		Shape *shape = &rigidbodies[i]->shapes[j];
-		if(!(shape->rb->collide&1)) continue;
-		//auto cells=ProximityCells(shape,area_bsps[i],physics_driftmax);
-		for (auto  cell : cells) //  int i = 0; i < cells.size(); i++)
-		{
-			Patch hitinfo = ContactPatch(SupportFunc(shape), SupportFunc(*cell), physics_driftmax);
-			for(int i=0;i<hitinfo.count;i++)
-			{
-				//hitinfo[i].C[0] = shape;
-				//hitinfo[i].p0 = shape->rb->pose().Inverse() * hitinfo[i].p0w;
-				//hitinfo[i].C[1] = NULL;
-				//hitinfo[i].p1 = hitinfo[i].p1w;
-				contacts_out.push_back(PhysContact(shape, NULL, hitinfo[i]));  
-			}
-		}
+		if(!(rb->collide&1)) continue;
+		for (auto  cell : cells)
+			for(auto &c : ContactPatch(SupportFunc(rb,shape), SupportFunc(*cell), physics_driftmax) ) 
+				contacts_out.push_back(PhysContact(rb, NULL, c));  
 	}
 }
 
-void FindShapeShapeContacts(std::vector<PhysContact> &contacts_out_append, const std::vector<RigidBody*> & rigidbodies)  // Dynamic-Dynamic contacts
+
+inline void FindShapeShapeContacts(std::vector<PhysContact> &contacts_out_append, const std::vector<RigidBody*> & rigidbodies)  // Dynamic-Dynamic contacts
 {
-	unsigned int i_rb,j_rb;
-	for(i_rb=0;i_rb<rigidbodies.size();i_rb++)
-	  for(j_rb=i_rb+1;j_rb<rigidbodies.size();j_rb++)
+	for (auto rb0 : rigidbodies) for (auto rb1 : rigidbodies) if (rb0<rb1)
 	{
-		RigidBody *rb0 = rigidbodies[i_rb];
-		RigidBody *rb1 = rigidbodies[j_rb];
-		if(!(rb0->collide&2)) continue; 
-		if(!(rb1->collide&2)) continue;
-		if(magnitude(rb1->position - rb0->position) > rb0->radius + rb1->radius) continue;
-		int ignore=0;
-		for(unsigned int ign=0;ign<rb0->ignore.size();ign++)
-		{
-			ignore |= (rb0->ignore[ign]==rb1);
-		}
-		if(ignore)continue;
-		for(unsigned int i_s=0 ; i_s<rb0->shapes.size() ; i_s++)
-		 for(unsigned int j_s=0 ; j_s<rb1->shapes.size() ; j_s++)
-		{
-			Shape *s0=&rb0->shapes[i_s];
-			Shape *s1=&rb1->shapes[j_s];
-			assert(s0->rb!=s1->rb);
-			Patch hitinfo = ContactPatch(SupportFunc(s0), SupportFunc(s1), physics_driftmax);
-			for(int i=0;i<hitinfo.count;i++)
-			{
-				//hitinfo[i].C[0] = s0;
-				//hitinfo[i].p0 = s0->rb->pose().Inverse() * hitinfo[i].p0w;
-				//hitinfo[i].C[1] = s1;
-				//hitinfo[i].p1 = s1->rb->pose().Inverse() * hitinfo[i].p1w;
-				contacts_out_append.push_back(PhysContact(s0,s1,hitinfo[i]));
-			}
-		}
+		if (!(rb0->collide & rb1->collide & 2)) continue;             // 2nd bit means dont collide with other rigidbodies
+		if (magnitude(rb1->position - rb0->position) > rb0->radius + rb1->radius) continue;
+		if (std::find(rb0->ignore.begin(), rb0->ignore.end(), rb1) != rb0->ignore.end()) continue;
+		for (auto &s0 : rb0->shapes) for (auto &s1 : rb1->shapes)
+		for (auto &c : ContactPatch(SupportFunc(rb0,s0), SupportFunc(rb1,s1), physics_driftmax))
+			contacts_out_append.push_back(PhysContact(rb0, rb1, c));
 	}
 }
-
 void ConstrainContact(std::vector<LimitLinear> &Linears_out, const PhysContact &c)
 {
-	RigidBody *rb0 = dynamic_cast<Shape*>(c.s0) ?  dynamic_cast<Shape*>(c.s0)->rb  : NULL;
-	RigidBody *rb1 = dynamic_cast<Shape*>(c.s1) ?  dynamic_cast<Shape*>(c.s1)->rb  : NULL;
+	RigidBody *rb0 = c.rb0 , *rb1 = c.rb1;
 
 	float3  n =c.normal;
 	float3 v,vn,r0,v0,r1,v1;
@@ -645,14 +499,12 @@ void ConstrainContact(std::vector<LimitLinear> &Linears_out, const PhysContact &
 		targvel   = std::max(0.0f,targvel-bouncevel);
 	}
 
-	//solver.AddContact(rb0,rb1,c.p0,c.p1, -c.normal, Bounce(bouncevel, targvel), physics_coloumb);
-				
-				Linears_out.push_back(LimitLinear(rb0,rb1,c.p0,c.p1,   -c.normal,-(targvel+bouncevel),-bouncevel,FLT_MAX,0.0f));
+	Linears_out.push_back(LimitLinear(rb0, rb1, c.p0, c.p1, -c.normal, -(targvel + bouncevel), -bouncevel, { 0, FLT_MAX }));
 				LimitLinear &lim = Linears_out.back();
 				float3 tangent  = Orth(-c.normal);
 				float3 binormal = cross(c.normal,tangent);
-				LimitLinear fb(rb0,rb1,c.p0,c.p1,   binormal,0,0,0); fb.master=&lim; fb.friction_master=-1;
-				LimitLinear ft(rb0,rb1,c.p0,c.p1,   tangent,0,0,0); ft.master=&lim; ft.friction_master=-2;
+				LimitLinear fb(rb0,rb1,c.p0,c.p1,   binormal,0,0,{0,0});  fb.friction_master=-1;
+				LimitLinear ft(rb0,rb1,c.p0,c.p1,   tangent ,0,0,{0,0});  ft.friction_master=-2;
 				Linears_out.push_back(fb);
 				Linears_out.push_back(ft);
 }
@@ -697,28 +549,22 @@ void PhysicsUpdate(std::vector<RigidBody*> &rigidbodies, std::vector<LimitLinear
 		rbcalcnextpose(rb); 
 
 	// The objective of this step is to take away any velocity that was added strictly for purposes of reaching the constraint or contact.
-	// i.e. we added some velocity to a point to pull it away from something that was 
-	// interpenetrating but that velocity shouldn't stick around for the next frame,
-	// otherwise we will have lots of jitter from our contacts and occilations from constraints.
-	// this is accomplished by clearing the targetvelocities to zero and invoking the solver.
+	// i.e. we added some velocity to a point to pull it away from something that was interpenetrating but that velocity shouldn't stick around for the next frame,
+	// otherwise we will have lots of jitter from our contacts and occilations from constraints.   do this by clearing the targetvelocities and reinvoking the solver.
 	for (auto &ln : Linears)
-		ln.PostIter();
+		ln.RemoveBias();
 	for (auto &a : Angulars)
-		a.PostIter();
-	for(int s=0;s<physics_iterations_post;s++)  // iteration steps
+		a.RemoveBias();
+	for(int s=0;s<physics_iterations_post;s++)  
 	{
 		for (auto &ln : Linears)
 			ln.Iter();
 		for (auto &a : Angulars)
 			a.Iter();
 	}
-	for (auto &ln : Linears)
-		ln.Finalize();
-	for (auto &a : Angulars)
-		a.Finalize();
 
 	for(auto rb : rigidbodies)
-		rbupdatepose(rb); 
+		rbupdatepose(rb);   // setting position,orientation based on rbcalcnextpose
 
 
 //	if(physics_ccd) 
@@ -762,7 +608,7 @@ void createangularlimits(RigidBody *rb0,RigidBody *rb1, const float4 &_jointfram
 }
 void createconelimit(RigidBody* rb0,const float3 &n0,RigidBody* rb1,const float3 &n1,float limitangle_degrees)  // a hinge is a cone with 0 limitangle
 {
-	Angulars.push_back(ConeLimit(rb0,n0,rb1,n1,limitangle_degrees));
+	Angulars.push_back(conelimit(rb0, n0, rb1, n1, limitangle_degrees));
 }
 
 void PhysicsUpdate(const std::vector<std::vector<float3> *> &wgeom)
