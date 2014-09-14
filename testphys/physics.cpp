@@ -537,85 +537,23 @@ void rbupdatepose(RigidBody *rb)
 
 
 //----------------  new contact code -------------
-float physics_contactpatchjiggle=2.0f;// rotations in degrees   ideally this should be a shear
-EXPORTVAR(physics_contactpatchjiggle);
 
-struct Patch
+
+struct PhysContact : public gjk_implementation::Contact
 {
-	gjk_implementation::Contact hitinfo[5];
-	gjk_implementation::Contact &operator[](int i){ return hitinfo[i]; }
-	int count;
-	operator bool(){return (count != 0);}
-	Patch():count(0){}
+	Shape *s0;
+	Shape *s1;
+	float3 p0;
+	float3 p1;
+	PhysContact(Shape *s0, Shape *s1, const gjk_implementation::Contact &c) : s0(s0), s1(s1), gjk_implementation::Contact(c)
+	{
+		p0 = (s0) ? s0->rb->pose().Inverse() * p0w : p0w;
+		p1 = (s1) ? s1->rb->pose().Inverse() * p1w : p1w;
+	}
 };
 
 
-template<class COLLIDABLE>
-Patch ContactPatch(Shape *s0,const COLLIDABLE *_s1)
-{
-	// using the separated convention right now   points from s1 to s0   would have prefered point from s0 to s1
-	//
-	Patch hitinfo;
-
-	hitinfo[0] = Separated(s0, _s1);
-
-
-	if (hitinfo[0].separation>physics_driftmax)
-		return hitinfo;  // too far away to care
-
-	//float3 n0 = qrot(qconj(s0->Orientation()) , n);
-	//float3 n1 = qrot(qconj(s1->Orientation()) ,-n);
-	//int f0=best(s0->local_geometry->faces,[&n0](const Plane &p)  {return  dot(n0,p.normal());} );
-	//int f1=best(s1->local_geometry->faces,[&n1](const Plane &p)  {return  dot(n1,p.normal());} );
-	//int p0=best(s0->local_geometry->verts,[&n0](const float3 &v) {return  dot(n0,v); } );
-	//int p1=best(s1->local_geometry->verts,[&n1](const float3 &v) {return  dot(n1,v); } );
-	//std::vector<float3> v0 = WingMeshFaceVerts(s0->local_geometry,f0);
-	//std::vector<float3> v1 = WingMeshFaceVerts(s1->local_geometry,f1);
-	//std::vector<float3> v(2*(v0.size()+v1.size()));
-
-	int &hc=hitinfo.count;
-	hitinfo[hc].C[0]=s0;
-	hitinfo[hc].C[1]=NULL;
-	const float3 &n=hitinfo[hc].normal;  // since this needs to be flipped than what was in my head today
-	hitinfo[hc].p0 = (s0)?qrot(qconj(s0->rb->orientation) , hitinfo[hc].p0w - s0->rb->position) : hitinfo[hc].p0w;
-	hitinfo[hc].p1 =  hitinfo[hc].p1w;
-	hc=1;
-
-	Pose s0_pose_save = s0->rb->pose();
-	s0->rb->position += n*0.1f;  // move s0 away from s1
-	float3 tangent = Orth(n);
-	float3 bitangent = cross(n,tangent); // tangent X bitangent == n
-	float3 rolls[4] = { tangent , bitangent, -tangent , -bitangent };
-	for(int i=0;i<4;i++)
-	{
-		float4 jiggle = normalize(float4( rolls[i]*sinf(3.14f/180.0f*(physics_contactpatchjiggle)),1));
-		s0->rb->orientation =  qmul(jiggle, s0_pose_save.orientation);
-		s0->rb->position    =  hitinfo[0].p0w  +  qrot(jiggle ,  s0_pose_save.position - hitinfo[0].p0w  );
-		//Separated(s0,_s1,hitinfo[hc],1); 
-		hitinfo[hc]=Separated(s0, _s1);
-		hitinfo[hc].normal = n;// all parallel to the initial separating plane;
-		hitinfo[hc].p0 = (s0)?qrot(qconj(s0->rb->orientation) , hitinfo[hc].p0w - s0->rb->position) : hitinfo[hc].p0w;
-		hitinfo[hc].p1 =  hitinfo[hc].p1w;   // dont know if its a 'shape' or not - let caller figure that out.
-		int match=0;
-		for(int j=0;!match && j<hc;j++)
-			match = magnitude(hitinfo[hc].p0w-hitinfo[j].p0w) < 0.05f || magnitude(hitinfo[hc].p1w-hitinfo[j].p1w) < 0.05f ;
-		if(match)
-			continue;
-		hitinfo[hc].p0w = s0_pose_save * hitinfo[hc].p0;
-		hitinfo[hc].C[0]= s0;
-		hitinfo[hc].C[1] = NULL; // currently dont know if its a shape
-		hc++;
-	}
-	s0->rb->pose() = s0_pose_save;
-
-	for(int i=0;i<hc;i++)
-	{
-		Line(hitinfo[i].p0w,hitinfo[i].p1w,float3(0.7f,1.0f,0));
-	}
-	return hitinfo;
-}
-
-void FindShapeWorldContacts(std::vector<gjk_implementation::Contact> &contacts_out, const std::vector<RigidBody*>& rigidbodies, const std::vector<std::vector<float3> *> & cells)
+void FindShapeWorldContacts(std::vector<PhysContact> &contacts_out, const std::vector<RigidBody*>& rigidbodies, const std::vector<std::vector<float3> *> & cells)
 {
 	//foreach(rigidbodies,[&contacts_out](RigidBody* rb){ foreach(rb->shapes,[&contacts_out](Shape *s){FindShapeWorldContacts(s,contacts_out);});});  // compiler failed to make this work
 	//foreach(rigidbodies,[&contacts_out](RigidBody* rb){std::vector<Contact> &c2=contacts_out ;foreach(rb->shapes,[&](Shape *s){FindShapeWorldContacts(s,c2);});}); // works
@@ -629,16 +567,20 @@ void FindShapeWorldContacts(std::vector<gjk_implementation::Contact> &contacts_o
 		//auto cells=ProximityCells(shape,area_bsps[i],physics_driftmax);
 		for (auto  cell : cells) //  int i = 0; i < cells.size(); i++)
 		{
-			Patch hitinfo = ContactPatch(shape,cell);
+			Patch hitinfo = ContactPatch(SupportFunc(shape), SupportFunc(*cell), physics_driftmax);
 			for(int i=0;i<hitinfo.count;i++)
 			{
-				contacts_out.push_back(hitinfo[i]);
+				//hitinfo[i].C[0] = shape;
+				//hitinfo[i].p0 = shape->rb->pose().Inverse() * hitinfo[i].p0w;
+				//hitinfo[i].C[1] = NULL;
+				//hitinfo[i].p1 = hitinfo[i].p1w;
+				contacts_out.push_back(PhysContact(shape, NULL, hitinfo[i]));  
 			}
 		}
 	}
 }
 
-void FindShapeShapeContacts(std::vector<gjk_implementation::Contact> &contacts_out_append, const std::vector<RigidBody*> & rigidbodies)  // Dynamic-Dynamic contacts
+void FindShapeShapeContacts(std::vector<PhysContact> &contacts_out_append, const std::vector<RigidBody*> & rigidbodies)  // Dynamic-Dynamic contacts
 {
 	unsigned int i_rb,j_rb;
 	for(i_rb=0;i_rb<rigidbodies.size();i_rb++)
@@ -661,21 +603,23 @@ void FindShapeShapeContacts(std::vector<gjk_implementation::Contact> &contacts_o
 			Shape *s0=&rb0->shapes[i_s];
 			Shape *s1=&rb1->shapes[j_s];
 			assert(s0->rb!=s1->rb);
-			Patch hitinfo = ContactPatch(s0,s1);
+			Patch hitinfo = ContactPatch(SupportFunc(s0), SupportFunc(s1), physics_driftmax);
 			for(int i=0;i<hitinfo.count;i++)
 			{
-				hitinfo[i].C[1] = s1;
-				hitinfo[i].p1 = s1->rb->pose().Inverse() * hitinfo[i].p1w;
-				contacts_out_append.push_back(hitinfo[i]);
+				//hitinfo[i].C[0] = s0;
+				//hitinfo[i].p0 = s0->rb->pose().Inverse() * hitinfo[i].p0w;
+				//hitinfo[i].C[1] = s1;
+				//hitinfo[i].p1 = s1->rb->pose().Inverse() * hitinfo[i].p1w;
+				contacts_out_append.push_back(PhysContact(s0,s1,hitinfo[i]));
 			}
 		}
 	}
 }
 
-void ConstrainContact(std::vector<LimitLinear> &Linears_out, const gjk_implementation::Contact &c)
+void ConstrainContact(std::vector<LimitLinear> &Linears_out, const PhysContact &c)
 {
-	RigidBody *rb0 = dynamic_cast<Shape*>(c.C[0]) ?  dynamic_cast<Shape*>(c.C[0])->rb  : NULL;
-	RigidBody *rb1 = dynamic_cast<Shape*>(c.C[1]) ?  dynamic_cast<Shape*>(c.C[1])->rb  : NULL;
+	RigidBody *rb0 = dynamic_cast<Shape*>(c.s0) ?  dynamic_cast<Shape*>(c.s0)->rb  : NULL;
+	RigidBody *rb1 = dynamic_cast<Shape*>(c.s1) ?  dynamic_cast<Shape*>(c.s1)->rb  : NULL;
 
 	float3  n =c.normal;
 	float3 v,vn,r0,v0,r1,v1;
@@ -735,7 +679,7 @@ void PhysicsUpdate(std::vector<RigidBody*> &rigidbodies, std::vector<LimitLinear
 		rbinitvelocity(rb); // based on previous and current force/torque
 	}
 
-	std::vector<gjk_implementation::Contact> contacts;
+	std::vector<PhysContact> contacts;
 	FindShapeWorldContacts(contacts, rigidbodies, wgeom);
 	FindShapeShapeContacts(contacts,rigidbodies);
     for (const auto & c : contacts)

@@ -97,17 +97,20 @@ class Shape
 	Shape(std::vector<float3> verts, std::vector<int3> tris, RigidBody *rb = NULL) : verts(verts), tris(tris), rb(rb){}
 	~Shape(){};
 };
+
+inline  std::function<float3(const float3&)> SupportFunc(const Shape* shape) { return SupportFuncTrans(SupportFunc(shape->verts), shape->Position(), shape->Orientation()); }
+
 // inline float3    SupportPoint(const Shape *s, const float3& dir) { return s->pose() * SupportPoint(&s->verts, qrot(qconj(s->Orientation()),dir)); }
 
-inline gjk_implementation::Contact Separated(const Shape *a, const Shape *b)
-{
-	return Separated(a->verts, a->Position(), a->Orientation(), b->verts, b->Position(), b->Orientation());
-}
-inline gjk_implementation::Contact Separated(const Shape *a, const std::vector<float3> *b)
-{
-	return Separated(SupportFuncTrans(SupportFunc(a->verts), a->Position(), a->Orientation()), SupportFunc(*b), 1);
-}
-
+//inline gjk_implementation::Contact Separated(const Shape *a, const Shape *b)
+//{
+//	return Separated(a->verts, a->Position(), a->Orientation(), b->verts, b->Position(), b->Orientation());
+//}
+//inline gjk_implementation::Contact Separated(const Shape *a, const std::vector<float3> *b)
+//{
+//	return Separated(SupportFuncTrans(SupportFunc(a->verts), a->Position(), a->Orientation()), SupportFunc(*b), 1);
+//}
+//
 
 inline float Volume(const std::vector<Shape> &meshes)
 {

@@ -31,14 +31,14 @@ namespace gjk_implementation
 	class Contact
 	{
 	public:
-		Shape*		C[2];
+		//Shape*		C[2];
 		int				type; //  v[t] on c[0] for t<type on c[1] for t>=type so 2 is edge-edge collision
 		float3			v[4];
 		float3			normal; // worldspace  points from C[1] to C[0]
 		float			dist;  // plane
 		float3			impact;
 		float			separation;
-		float3 p0, p1;
+		//float3 p0, p1;
 		float3 p0w, p1w;
 		float time;
 		Contact() :normal(0, 0, 0), impact(0, 0, 0) { type = -1; separation = FLT_MAX; }
@@ -681,6 +681,58 @@ inline gjk_implementation::Contact Separated(const std::vector<float3> &a,const 
 {
 	return gjk_implementation::Separated(SupportFuncTrans(SupportFunc(a), ap, aq), SupportFuncTrans(SupportFunc(b), bp, bq), findclosest);
 }
+
+//------ Contact Patch -----------------
+
+
+
+struct Patch
+{
+	gjk_implementation::Contact hitinfo[5];
+	int count;
+	gjk_implementation::Contact &operator[](int i){ return hitinfo[i]; }
+	gjk_implementation::Contact *begin(){ return hitinfo; }
+	gjk_implementation::Contact *end(){ return hitinfo + count; }
+	operator bool(){ return (count != 0); }
+	Patch() :count(0){}
+};
+
+
+template<class CA, class CB>
+inline Patch ContactPatch(CA s0, CB s1, float max_separation)  // return 0 if s1 and s1 separated more than max_separation
+{
+	// using the gjk's separated convention right now   points from s1 to s0   would have prefered point from s0 to s1
+	Patch hitinfo;
+
+	hitinfo[0] = Separated(s0, s1, 1);
+
+	if (hitinfo[0].separation>max_separation)
+		return hitinfo;  // too far away to care
+
+	const float3 &n = hitinfo[0].normal;  // since this needs to be flipped than what was in my head today
+	int &hc = ++hitinfo.count;   // set count to 1, including initial sample in patch
+	float3 tangent = Orth(n);
+	float3 bitangent = cross(n, tangent); // tangent X bitangent == n
+	float3 rollaxes[4] = { tangent, bitangent, -tangent, -bitangent };
+	for (auto &raxis : rollaxes)
+	{
+		const float contactpatchjiggle = 2.0f;// rotations in degrees   ideally this should be a shear
+		float4 jiggle = normalize(float4(raxis*sinf(3.14f / 180.0f*(contactpatchjiggle)), 1));
+		float3 pivot = hitinfo[0].p0w;
+		Pose ar = Pose(n*0.1f, float4(0, 0, 0, 1))  * Pose(-pivot, float4(0, 0, 0, 1)) * Pose(float3(0, 0, 0), jiggle) * Pose(pivot, float4(0, 0, 0, 1));
+		hitinfo[hc] = Separated(SupportFuncTrans(s0, ar.position, ar.orientation), s1, 1);
+		hitinfo[hc].normal = n;// all parallel to the initial separating plane;
+		hitinfo[hc].p0w = ar.Inverse() * hitinfo[hc].p0w;  // contact back into unadjusted space
+		bool match = false;
+		for (int j = 0; !match && j<hc; j++)
+			match = magnitude(hitinfo[hc].p0w - hitinfo[j].p0w) < 0.05f || magnitude(hitinfo[hc].p1w - hitinfo[j].p1w) < 0.05f;
+		if (match)
+			continue;
+		hc++;
+	}
+	return hitinfo;
+}
+
 
 
 #endif // GJK_H
