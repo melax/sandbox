@@ -115,8 +115,8 @@ inline float3x3 Inertia(const std::vector<Shape> &meshes, const float3& com)
 class State : public Pose
 {
   public:
-	  State(const float3 &p, const float4 &q, const float3 &v, const float3 &r) : Pose(p, q), linear_momentum(v), angular_momentum(r){}
-					State() {};
+					State(const float3 &p, const float4 &q, const float3 &v, const float3 &r) : Pose(p, q), linear_momentum(v), angular_momentum(r){}
+					State():linear_momentum(0,0,0),angular_momentum(0,0,0) {};
 	float3			linear_momentum ;   
 	float3			angular_momentum;
 
@@ -135,7 +135,7 @@ class RigidBody : public State
 	//float3x3		tensor;  // inertia tensor
 	float3x3		tensorinv_massless;  
 	float3x3		Iinv;    // Inverse Inertia Tensor rotated into world space 
-	float3			spin;     // often called Omega in most references
+	float3			spin() { return mul(Iinv, angular_momentum); }     // often called Omega in most references
 	float			radius;
 	float3          bmin,bmax; // in local space
 	float3			position_next;
@@ -149,7 +149,6 @@ class RigidBody : public State
 	float			friction;  // friction multiplier
 	State			old;
 	int				collide;  // collide&1 body to world  collide&2 body to body
-	int				resolve;
 	float3          com; // computed in constructor, but geometry gets translated initially 
 	float3          PositionUser() {return pose()* -com; }  // based on original origin
 	std::vector<Spring*>	springs;
@@ -159,7 +158,6 @@ class RigidBody : public State
 	{
 		position_start = position_old = position_next = position = _position;
 		collide = (shapes.size()) ? 3 : 0;
-		resolve = (shapes.size()) ? 1 : 0;
 		mass = 1;
 		gravscale = 1.0f;
 		damping = 0.0f;  // rigidbody::damping   currently i just take the max of this and the global damping
@@ -233,10 +231,8 @@ inline float4 rkupdateq(const float4 &s, const float3x3 &tensorinv, const float3
 
 inline void ApplyImpulse(RigidBody *rb,const float3 &r, const float3& impulse)  // r is impact point positionally relative to rb's origin but in 'world' orientation
 {
-	rb->linear_momentum +=  impulse;
+	rb->linear_momentum  +=  impulse;
 	rb->angular_momentum += cross(r, impulse);
-	rb->spin = mul(rb->Iinv, rb->angular_momentum); // recompute auxilary variable spin
-	//assert(magnitude(rb->spin) <10000);
 }
 
 
@@ -265,7 +261,7 @@ public:
 	void Iter()
 	{
 		if (targetspin == -FLT_MAX) return;
-		float currentspin = ((rb1) ? dot(rb1->spin, axis) : 0.0f) - ((rb0) ? dot(rb0->spin, axis) : 0.0f);  // how we are rotating about the axis 'normal' we are dealing with
+		float currentspin = ((rb1) ? dot(rb1->spin(), axis) : 0.0f) - ((rb0) ? dot(rb0->spin(), axis) : 0.0f);  // how we are rotating about the axis 'normal' we are dealing with
 		float dspin = targetspin - currentspin;  // the amount of spin we have to add to satisfy the limit.
 		float spintotorque = 1.0f / (((rb0) ? dot(axis, mul(rb0->Iinv, axis)) : 0.0f) + ((rb1) ? dot(axis, mul(rb1->Iinv, axis)) : 0.0f));
 		float dtorque = dspin * spintotorque;  // how we have to change the angular impulse
@@ -274,12 +270,10 @@ public:
 		if (rb0)
 		{
 			rb0->angular_momentum += axis*-dtorque;  // apply impulse
-			rb0->spin = mul(rb0->Iinv, rb0->angular_momentum); // recompute auxilary variable spin
 		}
 		if (rb1)
 		{
 			rb1->angular_momentum += axis*dtorque;  // apply impulse
-			rb1->spin = mul(rb1->Iinv, rb1->angular_momentum); // recompute auxilary variable spin
 		}
 		torque += dtorque;
 	}
@@ -312,8 +306,8 @@ class LimitLinear : public Limit
 			minforce = -(  maxforce = std::max( ((rb0)?rb0->friction:0),((rb1)?rb1->friction:0) ) * ((this)+friction_master)->impulsesum / physics_deltaT   );
 		float3 r0  = (rb0) ? qrot(rb0->orientation , position0) :  position0;
 		float3 r1  = (rb1) ? qrot(rb1->orientation , position1) :  position1;
-		float3 v0  = (rb0) ? cross(rb0->spin,r0) + rb0->linear_momentum*rb0->massinv : float3(0,0,0); // instantaneioius linear velocity at point of constraint
-		float3 v1  = (rb1) ? cross(rb1->spin,r1) + rb1->linear_momentum*rb1->massinv : float3(0,0,0); 
+		float3 v0  = (rb0) ? cross(rb0->spin(),r0) + rb0->linear_momentum*rb0->massinv : float3(0,0,0); // instantaneioius linear velocity at point of constraint
+		float3 v1  = (rb1) ? cross(rb1->spin(),r1) + rb1->linear_momentum*rb1->massinv : float3(0,0,0); 
 		float  vn  = dot(v1-v0,normal);  // velocity of rb1 wrt rb0
 		float impulsen = -targetspeed - vn;
 		float impulsed =  ((rb0)? rb0->massinv + dot( cross(mul(rb0->Iinv,cross(r0,normal)),r0),normal):0) 
@@ -470,9 +464,9 @@ inline std::vector<LimitLinear> ConstrainContacts(const std::vector<PhysContact>
 		float3  n =c.normal;
 		float3 v,vn,r0,v0,r1,v1;
 		r0 = (rb0) ? c.p0w - rb0->position : float3(0,0,0);  
-		v0 = (rb0) ? cross(rb0->spin,r0) + rb0->linear_momentum*rb0->massinv : float3(0,0,0); // instantaneioius linear velocity at point of collision
+		v0 = (rb0) ? cross(rb0->spin(), r0) + rb0->linear_momentum*rb0->massinv : float3(0,0,0); // instantaneioius linear velocity at point of collision
 		r1 = (rb1) ? c.p1w - rb1->position : float3(0,0,0);  
-		v1 = (rb1) ? cross(rb1->spin,r1) + rb1->linear_momentum*rb1->massinv : float3(0,0,0); 
+		v1 = (rb1) ? cross(rb1->spin(), r1) + rb1->linear_momentum*rb1->massinv : float3(0,0,0); 
 		v = v0-v1;  // todo would look cleaner if it was v1-v0.
 		vn = n*dot(v,n);
 		float minsep = physics_driftmax*0.25f;
@@ -515,7 +509,6 @@ inline void rbinitvelocity(RigidBody *rb)
 {
 	// gather weak forces being applied to body at beginning of timestep
 	// forward euler update of the velocity and rotation/spin 
-	if (!rb->resolve) return;
 	rb->old.position = rb->position;
 	rb->old.orientation = rb->orientation;
 	float dampleftover = powf((1.0f - std::max(rb->damping, physics_damping)), physics_deltaT);
@@ -530,16 +523,13 @@ inline void rbinitvelocity(RigidBody *rb)
 
 	rb->linear_momentum += force*physics_deltaT;
 	rb->angular_momentum += torque*physics_deltaT;
-	//rb->Iinv = transpose(qgetmatrix(rb->orientation)) * rb->tensorinv * (qgetmatrix(rb->orientation));
 	rb->Iinv = mul(qgetmatrix(rb->orientation), rb->tensorinv_massless * rb->massinv, transpose(qgetmatrix(rb->orientation)));
-	rb->spin = mul(rb->Iinv, rb->angular_momentum);
 }
 
 
 inline void rbcalcnextpose(RigidBody *rb)
 {
 	const int physics_euler_integration = 0;
-	if (!rb->resolve) return;
 	// after an acceptable velocity and spin are computed, a forward euler update is applied ot the position and orientation.
 	rb->position_next = rb->position + rb->linear_momentum * rb->massinv * physics_deltaT;
 	rb->orientation_next = (physics_euler_integration) ? normalize(rb->orientation + DiffQ(rb->orientation, rb->tensorinv_massless * rb->massinv, rb->angular_momentum)*physics_deltaT) : rkupdateq(rb->orientation, rb->tensorinv_massless * rb->massinv, rb->angular_momentum, physics_deltaT);
@@ -550,14 +540,12 @@ inline void rbcalcnextpose(RigidBody *rb)
 
 inline void rbupdatepose(RigidBody *rb)
 {
-	if (!rb->resolve) return;
 	// after an acceptable velocity and spin are computed, a forward euler update is applied ot the position and orientation.
 	rb->position_old = rb->position;  // should do this at beginning of physics loop in case someone teleports the body.
 	rb->orientation_old = rb->orientation;
 	rb->position = rb->position_next;
 	rb->orientation = rb->orientation_next;
 	rb->Iinv = mul(qgetmatrix(rb->orientation), rb->tensorinv_massless * rb->massinv, transpose(qgetmatrix(rb->orientation)));
-	rb->spin = mul(rb->Iinv, rb->angular_momentum);
 }
 
 inline void PhysicsUpdate(std::vector<RigidBody*> &rigidbodies, std::vector<LimitLinear> Linears, std::vector<LimitAngular> &Angulars, const std::vector<std::vector<float3> *> &wgeom)
@@ -570,7 +558,7 @@ inline void PhysicsUpdate(std::vector<RigidBody*> &rigidbodies, std::vector<Limi
 
 	auto collionconstraints = CollisionConstraints(rigidbodies, wgeom);
 	for (const auto & c : collionconstraints)
-		Linears.push_back(c);  // currently uses aux variables on the rigidbodies (spin, Iinv) to calculate bounce velocity etc.
+		Linears.push_back(c);  // currently uses aux variables on the rigidbodies (orientation,angularmomentum, Iinv) to calculate bounce velocity etc.
 
 	for(int s=0;s<physics_iterations;s++)  // iteration steps
 	{
