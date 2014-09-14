@@ -125,15 +125,15 @@ LPSTR lpszCmdLine, int nCmdShow)
 	int drawmode = 0;  // drawing mode: draw bsp cells or draw brep
 
 	// create a couple boxes and subtract one from the other
-	auto ac   = WingMeshCube({ -1, -1, -1 }, { 1, 1, 1 });  // 2x2 cube
-	auto bc   = WingMeshCube({ -0.5f, -0.5f, -0.5f }, { 0.5f, 0.5f, 1.5f });  // smaller box placed overlapping into top face
-	auto co   = WingMeshTranslate(WingMeshDual(WingMeshCube({ -1, -1, -1 }, { 1, 1, 1 }),0.85f),float3(0.8f,0,0.45f));  // octahedron offset a bit to the right
+	auto ac   = WingMeshBox({ -1, -1, -1 }, { 1, 1, 1 });  // 2x2 cube
+	auto bc   = WingMeshBox({ -0.5f, -0.5f, -0.5f }, { 0.5f, 0.5f, 1.5f });  // smaller box placed overlapping into top face
+	auto co   = WingMeshTranslate(WingMeshDual(WingMeshBox({ -1, -1, -1 }, { 1, 1, 1 }),0.85f),float3(0.8f,0,0.45f));  // octahedron offset a bit to the right
 	auto af   = WingMeshToFaces(ac);
 	auto bf   = WingMeshToFaces(bc);
 	auto cf   = WingMeshToFaces(co);
-	auto absp = BSPCompile(af, WingMeshCube({ -2.0f, -2.0f, -2.0f }, { 2.0f, 2.0f, 2.0f }));
-	auto bbsp = BSPCompile(bf, WingMeshCube({ -2.0f, -2.0f, -2.0f }, { 2.0f, 2.0f, 2.0f }));
-	auto cbsp = BSPCompile(cf, WingMeshCube({ -2.0f, -2.0f, -2.0f }, { 2.0f, 2.0f, 2.0f }));
+	auto absp = BSPCompile(af, WingMeshBox({ -2.0f, -2.0f, -2.0f }, { 2.0f, 2.0f, 2.0f }));
+	auto bbsp = BSPCompile(bf, WingMeshBox({ -2.0f, -2.0f, -2.0f }, { 2.0f, 2.0f, 2.0f }));
+	auto cbsp = BSPCompile(cf, WingMeshBox({ -2.0f, -2.0f, -2.0f }, { 2.0f, 2.0f, 2.0f }));
 	NegateTree(bbsp);  // turn it inside-out, so later  an intersection will be a subtraction
 	NegateTree(cbsp);
 	// note that there are quantization rules that the operands should follow to avoid numerical issues

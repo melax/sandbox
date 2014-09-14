@@ -92,29 +92,37 @@ void rbdraw(const RigidBody *rb)
 
 Shape AsShape(const WingMesh &m) { return Shape(m.verts, m.GenerateTris()); }
 
+
+inline WingMesh WingMeshCube(const float  r) { return WingMeshBox({ -r, -r, -r }, { r, r, r }); } // r (radius) is half-extent of box
+inline WingMesh WingMeshBox(const float3 &r) { return WingMeshBox(-r, r); }
+
+
 int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst,LPSTR lpszCmdLine, int nCmdShow) // int main(int argc, char *argv[])
 {
 	std::cout << "Test Physics\n";
 
-	extern std::vector<RigidBody*> g_rigidbodies;
-	auto wma = WingMeshCube({ -1, -1, -1 }, { 1, 1, 1 });
-	auto wmb = WingMeshCube({ -1, -1, -1 }, { 1, 1, 1 });
-	auto rba = new RigidBody({ AsShape(wma) }, { 1.5f, 0.0f, 1.5f });
-	auto rbb = new RigidBody({ AsShape(wmb) }, { -1.5f, 0.0f, 1.5f });
-	rbb->orientation = normalize(float4(0.1f, 0.01f, 0.3f, 1.0f));
-	auto seesaw = new RigidBody({ AsShape(WingMeshCube({ -3, -0.5f, -0.1f }, { 3, 0.5f, 0.1f })) }, { 0, -2.5, 0.25f });
-	new RigidBody({ AsShape(WingMeshCube({ -0.25f, -0.25f, -0.25f }, { 0.25f, 0.25f, 0.25f })) }, seesaw->position_start + float3(2.5f, 0, 0.4f));
-	rbscalemass(new RigidBody({ AsShape(WingMeshCube({ -0.5f, -0.5f, -0.5f }, { 0.5f, 0.5f, 0.5f })) }, seesaw->position_start + float3(-2.5f, 0, 5.0f)), 4.0f);
+	std::vector<RigidBody*> rigidbodies;
+	auto wma = WingMeshCube(1);
+	auto wmb = WingMeshCube(1);
+	rigidbodies.push_back(new RigidBody({ AsShape(wma) }, { 1.5f, 0.0f, 1.5f }));
+	rigidbodies.push_back(new RigidBody({ AsShape(wmb) }, { -1.5f, 0.0f, 1.5f }));
+	rigidbodies.back()->orientation = normalize(float4(0.1f, 0.01f, 0.3f, 1.0f));
+	auto seesaw = new RigidBody({ AsShape(WingMeshBox( { 3, 0.5f, 0.1f })) }, { 0, -2.5, 0.25f });
+	rigidbodies.push_back(seesaw);
+	rigidbodies.push_back( new RigidBody({ AsShape(WingMeshCube(0.25f)) }, seesaw->position_start + float3( 2.5f, 0, 0.4f)));
+	rigidbodies.push_back( new RigidBody({ AsShape(WingMeshCube(0.50f)) }, seesaw->position_start + float3(-2.5f, 0, 5.0f)));
+	rbscalemass(rigidbodies.back(), 4.0f);
 	for (float z = 5.5f; z < 14.0f; z += 3.0f)
-		new RigidBody({ AsShape(WingMeshCube({ -0.5f, -0.5f, -0.5f }, { 0.5f, 0.5f, 0.5f })) }, { 0.0f, 0.0f, z });
+		rigidbodies.push_back(new RigidBody({ AsShape(WingMeshCube(0.5f)) }, { 0.0f, 0.0f, z }));
 	for (float z = 15.0f; z < 20.0f; z += 3.0f)
-		new RigidBody({ AsShape(WingMeshDual(WingMeshCube({ -0.5f, -0.5f, -0.5f }, { 0.5f, 0.5f, 0.5f }), 0.65f)) }, { 2.0f, -1.0f, z });
+		rigidbodies.push_back(new RigidBody({ AsShape(WingMeshDual(WingMeshCube(0.5f), 0.65f)) }, { 2.0f, -1.0f, z }));
 
-	WingMesh world_slab = WingMeshCube({ -10, -10, -5 }, { 10, 10, -2 }); // world_geometry
+	WingMesh world_slab = WingMeshBox({ -10, -10, -5 }, { 10, 10, -2 }); // world_geometry
 
 
 
 	GLWin glwin("TestPhys sample");
+	glwin.ViewAngle = 60.0f;
 
 	glwin.keyboardfunc = [&](unsigned char key, int x, int y)->void 
 	{
@@ -126,7 +134,7 @@ int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst,LPSTR lpszC
 			case 'q': case 27:   // ESC
 				exit(0); break;  
 			case 'r':
-				for (auto &rb : g_rigidbodies)
+				for (auto &rb : rigidbodies)
 				{
 					rb->position = rb->position_start;
 					//rb->orientation = rb->orientation_start;  // when commented out this provides some variation
@@ -155,12 +163,12 @@ int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst,LPSTR lpszC
 
 		if (g_simulate)
 		{
-			extern void PhysicsUpdate(const std::vector<std::vector<float3> *> &wgeom);
+			extern void PhysicsUpdate(std::vector<RigidBody*> &rigidbodies,const std::vector<std::vector<float3> *> &wgeom);
 			extern void createangularlimits(RigidBody *rb0, RigidBody *rb1, const float4 &_jointframe, const float3& _jointlimitmin, const float3& _jointlimitmax);
 			extern void createnail(RigidBody *rb0, const float3 &p0, RigidBody *rb1, const float3 &p1);
 			createnail(NULL, seesaw->position_start, seesaw, { 0, 0, 0 });
 			createangularlimits(NULL, seesaw, { 0, 0, 0, 1 }, { 0, -20, 0 }, { 0, 20, 0 });
-			PhysicsUpdate({ &world_slab.verts });
+			PhysicsUpdate(rigidbodies,{ &world_slab.verts });
 		}
 
 
@@ -171,13 +179,10 @@ int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst,LPSTR lpszC
 		glEnable(GL_DEPTH_TEST);
 
 		// Set up matrices
-		glMatrixMode(GL_PROJECTION);
-		glPushMatrix();
-		glLoadIdentity();
-		gluPerspective(60, (double)glwin.Width/ glwin.Height, 0.01, 50);
+		glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity();
+		gluPerspective(glwin.ViewAngle, (double)glwin.Width/ glwin.Height, 0.01, 50);
 
-		glMatrixMode(GL_MODELVIEW);
-		glPushMatrix();
+		glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity();
 		gluLookAt(0, -8, 5, 0, 0, 0, 0, 0, 1);
 		glRotatef(g_pitch, 1, 0, 0);
 		glRotatef(g_yaw, 0, 0, 1);
@@ -190,15 +195,13 @@ int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst,LPSTR lpszC
 		glEnable(GL_LIGHT0);
 		glEnable(GL_TEXTURE_2D);
 		glColor3f(0.5f, 0.5f, 0.5f);
-		for (auto &rb : g_rigidbodies)
+		for (auto &rb : rigidbodies)
 			rbdraw(rb);
 
-		// Restore state
-		glPopMatrix();  //should be currently in modelview mode
-		glMatrixMode(GL_PROJECTION);
-		glPopMatrix();
-		glPopAttrib();
-		glMatrixMode(GL_MODELVIEW);  
+		
+		glPopAttrib();   // Restore state
+		glMatrixMode(GL_PROJECTION); glPopMatrix();
+		glMatrixMode(GL_MODELVIEW);  glPopMatrix();  
 
 		glwin.PrintString("ESC/q quits. SPACE to simulate. r to restart", 5, 0);
 		char buf[256];

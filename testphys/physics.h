@@ -1,8 +1,21 @@
 //
-// Rigidbody Physics
-// (c) Stan Melax 1998-2008   bsd licence
+// Rigidbody Physics Stuff
+// Sequential Iterative Impulse approach
+// (c) Stan Melax 1998-2008   bsd licence 
+// with some recent minor code cleanups 2011
+// packing the tech into a single header file 2014
 //
-// See physics.cpp for more info
+// Feel free to use and/or learn from the following code.  Code provided as is.
+// Author assumes no obligation for correctness of support.
+//
+// What's here is typical of a small basic 3D physics engine.  But without the retained-mode design.
+// This module maintains a number of rigidbodies and implements the update solver.
+// Primary references include Baraff&Witkin's notes and many threads on Erwin's bullet website.
+// 
+// I've been working on this sort of tech for a while often just implementing what I need at the time thus enabling experimentation.  
+// For example, i use a runge-kutta integrator for the position updates so i can preserve angular momentum instead of keeping angular spin constant.  
+// I try to keep code minimal yet have some degree of generality (without "overdesign").  not claiming perfection. 
+// For example, there's no broadphase - i was only doing small demos exploring other concepts at this point.
 //
 
 
@@ -75,7 +88,6 @@ class RigidBody : public State
 	float			gravscale;
 	float			friction;  // friction multiplier
 					RigidBody(std::vector<Shape> shapes, const float3 &_position);
-					~RigidBody();
 	float			hittime;
 	int				rest;
 	State			old;

@@ -1,26 +1,4 @@
-//
-// Rigidbody Physics Stuff
-// Sequential Iterative Impulse approach
-// (c) Stan Melax 1998-2008   bsd licence
-// with some recent minor code cleanups 2011
-// in process of packing the tech into a single header file 2014
-//
-// Feel free to use and/or learn from the following code.  Code provided as is.
-// Author assumes no obligation for correctness of support.
-//
-// What's here is typical of a small basic 3D physics engine.  
-// Primary references include Baraff&Witkin's notes and many threads on Erwin's bullet website.
-// I might do some things slightly different than other engines such as
-// using a runge-kutta integrator for the position updates so i can preserve angular momentum
-// instead of keeping angular spin constant.  
-// No broadphase - i was only doing small demos exploring other concepts at this point.
-// 
-// I've been working on this sort of tech for a while often just implementing what I need at the time.
-// i.e. this and related modules could be characterized as a personal research sandbox.
-// I try to keep code minimal yet have some degree of generality (without "overdesign")
-// and have the code do everthing I need.  Not claiming the architecture is yet perfect.
-// This module maintains a number of rigidbodies and implements the update solver.
-//
+
 
 #include <stdio.h>
 #include <float.h>
@@ -56,7 +34,6 @@ float physics_falltime_to_ballistic=0.2f;
 EXPORTVAR(physics_falltime_to_ballistic);
 
 // global list of physics objects
-std::vector<RigidBody *> g_rigidbodies;
 
 
 
@@ -300,7 +277,6 @@ RigidBody::RigidBody(std::vector<Shape> shapes_, const float3 &_position) : shap
 	position_start = position_old = position_next = position = _position;
 	rest = 0;
 	hittime = 0.0f;
-	g_rigidbodies.push_back(this);
 	collide = (shapes.size()) ? 3 : 0;
 	resolve = (shapes.size()) ? 1 : 0;
 	usesound = 0;
@@ -326,12 +302,6 @@ RigidBody::RigidBody(std::vector<Shape> shapes_, const float3 &_position) : shap
 	radius = magnitude(*std::max_element(allverts.begin(), allverts.end(), [](const float3 &a, const float3 &b){return dot(a, a) < dot(b, b); }));
 	std::tie(bmin, bmax) = Extents(allverts);
 }
-
-RigidBody::~RigidBody()
-{
-	g_rigidbodies.erase(std::find(g_rigidbodies.begin(), g_rigidbodies.end(), this));  // 	Remove(g_rigidbodies, this);
-}
-
 
 
 float springk=12.56f; // spring constant position - default to about half a second for unit mass weight
@@ -510,22 +480,13 @@ void ConstrainContact(std::vector<LimitLinear> &Linears_out, const PhysContact &
 }
 //------------------
 
-int physics_iterations=16;
-EXPORTVAR(physics_iterations);
-int physics_iterations_post=4;
-//EXPORTVAR(physics_iterations_post);
-
-int physics_ccd=1;
-EXPORTVAR(physics_ccd);
-
-int physics_enable=1;
-EXPORTVAR(physics_enable);
 
 void PhysicsUpdate(std::vector<RigidBody*> &rigidbodies, std::vector<LimitLinear> &Linears, std::vector<LimitAngular> &Angulars, const std::vector<std::vector<float3> *> &wgeom)
 {
-	if(!physics_enable) return;
+	const int physics_iterations = 16;
+	const int physics_iterations_post = 4;
 
-	for(auto &rb:rigidbodies) 
+	for (auto &rb : rigidbodies)
 	{
 		if(!rb->resolve) continue;
 		rbinitvelocity(rb); // based on previous and current force/torque
@@ -555,6 +516,7 @@ void PhysicsUpdate(std::vector<RigidBody*> &rigidbodies, std::vector<LimitLinear
 		ln.RemoveBias();
 	for (auto &a : Angulars)
 		a.RemoveBias();
+
 	for(int s=0;s<physics_iterations_post;s++)  
 	{
 		for (auto &ln : Linears)
@@ -611,10 +573,10 @@ void createconelimit(RigidBody* rb0,const float3 &n0,RigidBody* rb1,const float3
 	Angulars.push_back(conelimit(rb0, n0, rb1, n1, limitangle_degrees));
 }
 
-void PhysicsUpdate(const std::vector<std::vector<float3> *> &wgeom)
+void PhysicsUpdate(std::vector<RigidBody*> &rigidbodies,const std::vector<std::vector<float3> *> &wgeom)
 {
 	//GetEnvBSPs(area_bsps);
-	PhysicsUpdate(g_rigidbodies,Linears,Angulars,wgeom);
+	PhysicsUpdate(rigidbodies,Linears,Angulars,wgeom);
 	Linears.clear();
 	Angulars.clear();
 }

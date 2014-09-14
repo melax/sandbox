@@ -765,7 +765,7 @@ inline WingMesh WingMeshDual(const WingMesh &m, float r=1.0f, const float3 &p=fl
 
 
 
-inline WingMesh WingMeshCube(const float3 &bmin,const float3 &bmax)
+inline WingMesh WingMeshBox(const float3 &bmin,const float3 &bmax)
 {
 	WingMesh wm;
 	wm.verts = { { bmin.x, bmin.y, bmin.z },{ bmin.x, bmin.y, bmax.z },{ bmin.x, bmax.y, bmin.z },{ bmin.x, bmax.y, bmax.z },
