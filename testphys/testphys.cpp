@@ -163,12 +163,11 @@ int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst,LPSTR lpszC
 
 		if (g_simulate)
 		{
-			extern void PhysicsUpdate(std::vector<RigidBody*> &rigidbodies,const std::vector<std::vector<float3> *> &wgeom);
-			extern void createangularlimits(RigidBody *rb0, RigidBody *rb1, const float4 &_jointframe, const float3& _jointlimitmin, const float3& _jointlimitmax);
-			extern void createnail(RigidBody *rb0, const float3 &p0, RigidBody *rb1, const float3 &p1);
-			createnail(NULL, seesaw->position_start, seesaw, { 0, 0, 0 });
-			createangularlimits(NULL, seesaw, { 0, 0, 0, 1 }, { 0, -20, 0 }, { 0, 20, 0 });
-			PhysicsUpdate(rigidbodies,{ &world_slab.verts });
+			std::vector<LimitAngular> Angulars;
+			std::vector<LimitLinear> Linears;
+			createnail(Linears,NULL, seesaw->position_start, seesaw, { 0, 0, 0 });
+			createangularlimits(Angulars,NULL, seesaw, { 0, 0, 0, 1 }, { 0, -20, 0 }, { 0, 20, 0 });
+			PhysicsUpdate(rigidbodies,Linears,Angulars,{ &world_slab.verts });
 		}
 
 
