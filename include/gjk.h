@@ -1,10 +1,11 @@
 //
 // gjk algorithm
-// by stan melax 2007   bsd licence
+// by stan melax 2007   open source
 //
 // Just a basic gjk implementation using some wisdom described in Gino's papers on the algorithm. 
-// Essecntially take two convex shapes and their poses and return separating plane.
-//
+// Essecntially take two convex shapes in the form of a supportmap function/lambda and returns separating plane.
+// Implementation is inline for convenience
+// 
 // 2014 update:  just a bit of code and style cleanup in case anyone is interested in trying/testing/using this
 //               generalized the interface so function now takes two functions (or lambdas) 
 //               that return the supportmap for a given direction.
@@ -24,8 +25,6 @@
 
 namespace gjk_implementation
 {
-
-
 	class Contact
 	{
 	public:
@@ -131,10 +130,6 @@ namespace gjk_implementation
 			dst.W[0] = src.W[0];
 			dst.W[1] = src.W[1];
 			dst.W[2] = w;
-			//float3 b = BaryCentric(w0,w1,w.p, v); // probably dont need to compute this unless we need pa and pb
-			//dst.W[0].t = b.x;
-			//dst.W[1].t = b.y;
-			//dst.W[2].t = b.z;
 			return 1;
 		}
 		if(!ine0 && (t0>0.0f)) 
@@ -638,40 +633,26 @@ namespace gjk_implementation
 } // namespace  gjk_implementation
 
 
-inline gjk_implementation::Contact Separated(std::function<float3(const float3&)> A, std::function<float3(const float3&)>B, int findclosest)
+inline gjk_implementation::Contact Separated(std::function<float3(const float3&)> A, std::function<float3(const float3&)>B, int findclosest=1)
 {
-	return gjk_implementation::Separated(A, B, findclosest);
+	return gjk_implementation::Separated(A, B, findclosest);  // pass through into the namespace  
 }
 
 inline std::function<float3(const float3&)> SupportFunc(const std::vector<float3> &points)   // example of how one might write an on-the-fly (lambda) support function for a container
 {
 	return[&points](const float3 &dir){ return points[maxdir(points.data(), points.size(), dir)]; };
 }
-inline gjk_implementation::Contact Separated(const std::vector<float3> &a, const std::vector<float3> &b, int findclosest)
+inline gjk_implementation::Contact Separated(const std::vector<float3> &a, const std::vector<float3> &b, int findclosest=1)  // how to call Separated for two point clouds
 {
 	return gjk_implementation::Separated(SupportFunc(a), SupportFunc(b), findclosest);
 }
 
-template<class SF>
-inline std::function<float3(const float3&)> SupportFuncTrans(SF sf, const float3& position, const float4 &orientation)   // example supportfunc for posed meshes 
+
+inline std::function<float3(const float3&)> SupportFuncTrans(std::function<float3(const float3&)> sf, const float3& position, const float4 &orientation)   // example supportfunc for posed meshes 
 {
 	return [sf, position, orientation](const float3 &dir) {return position + qrot(orientation, sf(qrot(qconj(orientation), dir))); };
-	//auto rf = [sf, position, orientation](const float3 &dir)->float3
-	//{
-	//	float3 dir_local = qrot(qconj(orientation), dir);
-	//	float3 sup_local = sf(dir_local);
-	//	float3 sup_world = position + qrot(orientation, sup_local);
-	//	return sup_world;
-	//	// return position + qrot(orientation, sf(qrot(qconj(orientation),dir))); 
-	//};
-	//return rf;
 }
 
-//template<>
-//inline std::function<float3(const float3&)> SupportFunc<const std::vector<float3>&>(const std::vector<float3> &points, const float3& position, const float4 &orientation)   // example supportfunc for posed meshes 
-//{
-//	return[&points, &position, &orientation](const float3 &dir){ return position + qrot(orientation, points[maxdir(points.data(), points.size(), qrot(qconj(orientation), dir))]); };
-//}
 
 inline gjk_implementation::Contact Separated(const std::vector<float3> &a,const float3 &ap,const float4 &aq, const std::vector<float3> &b,const float3 &bp,const float4 &bq, int findclosest=1)
 {
@@ -697,6 +678,7 @@ struct Patch
 template<class CA, class CB>
 inline Patch ContactPatch(CA s0, CB s1, float max_separation)  // return 0 if s1 and s1 separated more than max_separation
 {
+	// This routine rolls one of the inputs on the axes parallel to the separating plane to approximate the contact area 
 	// using the gjk's separated convention right now   points from s1 to s0   would have prefered point from s0 to s1
 	Patch hitinfo;
 
