@@ -11,8 +11,8 @@
 // hoping to complete and cram this into a concise api/header.
 //
 // given the emphasis is on convenience, likely just have one vertex format and one constant uniform buffer that is a superset of everyones needs.
-//
-// avoid 16 bit wchar.
+// 
+// Avoiding 16 bit wchar.
 //
 
 
@@ -74,9 +74,7 @@ public:
 	ID3D11Device*           pd3dDevice = nullptr;
 	ID3D11Device1*          pd3dDevice1 = nullptr;
 	ID3D11DeviceContext*    pImmediateContext = nullptr;
-	ID3D11DeviceContext1*   pImmediateContext1 = nullptr;
 	IDXGISwapChain*         pSwapChain = nullptr;
-	IDXGISwapChain1*        pSwapChain1 = nullptr;
 	ID3D11RenderTargetView* pRenderTargetView = nullptr;
 	ID3D11Texture2D*        pDepthStencil = nullptr;
 	ID3D11DepthStencilView* pDepthStencilView = nullptr;
@@ -89,7 +87,7 @@ public:
 			image[i*w + j] = ((i & 8) == (j & 8)) ? 0x00000000 : -1;
 		return MakeTex((unsigned char*)image.data(), w, h);
 	}
-	ID3D11ShaderResourceView *MakeTex(const unsigned char *buf, int w, int h)
+	ID3D11ShaderResourceView *MakeTex(const unsigned char *buf, int w, int h) // input image is rgba
 	{
 		ID3D11Texture2D *tex;
 		ID3D11ShaderResourceView* textureView;
@@ -176,7 +174,9 @@ public:
 		dxgiFactory->QueryInterface(__uuidof(IDXGIFactory2), reinterpret_cast<void**>(&dxgiFactory2));
 		if (dxgiFactory2) // DirectX 11.1 
 		{
-			if( pd3dDevice->QueryInterface(__uuidof(ID3D11Device1), reinterpret_cast<void**>(&pd3dDevice1)) >=0)
+			ID3D11DeviceContext1*   pImmediateContext1 = nullptr;  // note probably should be 'released' at shutdown, but oh well
+			IDXGISwapChain1*        pSwapChain1 = nullptr;
+			if (pd3dDevice->QueryInterface(__uuidof(ID3D11Device1), reinterpret_cast<void**>(&pd3dDevice1)) >= 0)
 				(void)pImmediateContext->QueryInterface(__uuidof(ID3D11DeviceContext1), reinterpret_cast<void**>(&pImmediateContext1));
 
 			DXGI_SWAP_CHAIN_DESC1 sd = 
@@ -196,7 +196,7 @@ public:
 			pSwapChain1->QueryInterface(__uuidof(IDXGISwapChain), reinterpret_cast<void**>(&pSwapChain)) && VERIFY;  // ("swapchain QueryInterface");
 			dxgiFactory2->Release();
 		}
-		else // DirectX 11.0 
+		else // DirectX 11.0     sigh, so much api to using dx 
 		{
 			DXGI_SWAP_CHAIN_DESC sd;
 			ZeroMemory(&sd, sizeof(sd));
@@ -348,13 +348,10 @@ public:
 	{
 		if(!hWnd)
 			return; // already destroyed or otherwise non existent
-//
 		hWnd=NULL;
 	}
 
 	HWND    hWnd;
-	//HDC     hDC;              // device context 
-    //HGLRC   hRC;              // opengl context 
 	int 	Width  ;
 	int 	Height ;
 	int     mousewheel;   // if and how much its been rolled up/down this frame
@@ -375,28 +372,6 @@ public:
 	~DXWin()
 	{
 		DestroyDXWindow();
-	}
-	void DrawImmediate(const std::vector<float3> &points, const std::vector<int3> &tris)   
-	{
-		std::vector<Vertex> verts;
-		for (auto p : points)
-			verts.push_back({ p, { 0, 0, 0, 0 }, p.xy() });
-		for (auto t : tris)
-		{
-			float3 n = cross(points[t[1]] - points[t[0]], points[t[2]] - points[t[0]]);
-			auto q = RotationArc(float3(0, 0, 1), n);
-			for (int i = 0; i < 3;i++)
-			{
-				verts[t[i]].orientation += q;
-			}
-		}
-		for (auto &v : verts)
-		{
-			v.orientation = normalize(v.orientation);
-			float3 n = qrot(v.orientation, float3(0, 0, 1));
-			//v.texcoord = { atan2(n.y, n.x), 0.5f + n.y / 2.0f };  // quick sphereical hack
-		}
-		return DrawImmediate(verts, tris);
 	}
 	void DrawImmediate(const std::vector<Vertex> &verts, const std::vector<int3> &tris)   // worst reimplementation of dx9 style drawprimitiveup() ever
 	{
@@ -434,6 +409,28 @@ public:
 		pVertexBuffer->Release();
 		pIndexBuffer = NULL;
 		pVertexBuffer = NULL;
+	}
+	void DrawImmediate(const std::vector<float3> &points, const std::vector<int3> &tris)
+	{
+		std::vector<Vertex> verts;
+		for (auto p : points)
+			verts.push_back({ p, { 0, 0, 0, 0 }, p.xy() });
+		for (auto t : tris)
+		{
+			float3 n = cross(points[t[1]] - points[t[0]], points[t[2]] - points[t[0]]);
+			auto q = RotationArc(float3(0, 0, 1), n);
+			for (int i = 0; i < 3; i++)
+			{
+				verts[t[i]].orientation += q;
+			}
+		}
+		for (auto &v : verts)
+		{
+			v.orientation = normalize(v.orientation);
+			float3 n = qrot(v.orientation, float3(0, 0, 1));
+			//v.texcoord = { atan2(n.y, n.x), 0.5f + n.y / 2.0f };  // quick sphereical hack
+		}
+		return DrawImmediate(verts, tris);
 	}
 
 	bool SwapBuffers() {    
