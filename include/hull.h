@@ -127,7 +127,7 @@ namespace convex_hull_implementation
 			}
 		}
 	}
-	inline void swapn(std::vector<Tri> &tris, int a, int b)
+	inline void swapn(std::vector<Tri> &tris, int a, int b) // swap place in array changing neighbor id
 	{
 		std::swap(tris[a], tris[b]);
 		std::swap(tris[a].id, tris[b].id);
@@ -135,31 +135,8 @@ namespace convex_hull_implementation
 		nnfix(tris,b);
 	}
 
-	inline void detach(std::vector<Tri> &tris,int k)
+	inline void b2bfix(std::vector<Tri> &tris, int s, int t)  // s and t which are back-to-back  reassign their neighbors
 	{
-		assert(tris[k].id == k);
-		tris[k].n = { -1, -1, -1 };
-		if (0) for (int i = 0; i < 3; i++)
-		{
-			int i1 = (i + 1) % 3;
-			int i2 = (i + 2) % 3;
-			if (tris[k].n[i] != -1)
-			{
-				try {
-					int &nn = tris[tris[k].n[i]].neib(tris[k].v[i2], tris[k].v[i1]);
-					if (nn == k)
-						nn = -1;
-				}
-				catch (...){}
-			}
-		}
-		swapn(tris, k, tris.size()-1);
-		tris.pop_back();
-	}
-
-	inline void b2bfix(std::vector<Tri> &tris, int s, int t)
-	{
-		// b2bfix 
 		for(int i=0;i<3;i++) 
 		{
 			int i1=(i+1)%3;
@@ -256,7 +233,7 @@ namespace convex_hull_implementation
 		return {p0,p1,p2,p3};
 	}
 
-	inline std::vector<int3> calchull(float3 *verts,int verts_count, int vlimit) 
+	inline std::vector<int3> calchull(float3 *verts,int verts_count, int vlimit)   
 	{
 		if(verts_count <4) return std::vector<int3>();
 		if(vlimit==0) vlimit=1000000000;
