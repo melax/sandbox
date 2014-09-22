@@ -85,6 +85,7 @@
     <ClCompile Include="testdx.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\include\dxshaders.h" />
     <ClInclude Include="..\include\dxwin.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

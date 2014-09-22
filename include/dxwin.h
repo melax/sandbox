@@ -325,6 +325,18 @@ public:
 
 		pTextureRV = MakeTexCheckerboard();
 
+		// yup, do all the following to specify that "front" faces are ccw.
+		D3D11_RASTERIZER_DESC rastdesc = {
+			 D3D11_FILL_SOLID, // D3D11_FILL_MODE FillMode;
+			 D3D11_CULL_BACK , // D3D11_CULL_MODE CullMode;
+			 true            , // BOOL   FrontCounterClockwise;
+			 0, 0.0, 0.0,      // INT DepthBias; FLOAT DepthBiasClamp; FLOAT SlopeScaledDepthBias;
+			 true,false,false,false,  // BOOL DepthClipEnable, ScissorEnable,  MultisampleEnable,  AntialiasedLineEnable;
+		};
+		ID3D11RasterizerState *raststate;
+		pd3dDevice->CreateRasterizerState(&rastdesc, &raststate)&&VERIFY;
+		pImmediateContext->RSSetState(raststate);
+
 		pImmediateContext->PSSetShader(pPixelShader, nullptr, 0);
 		pImmediateContext->VSSetShader(pVertexShader, nullptr, 0);
 		pImmediateContext->VSSetConstantBuffers(0, 1, &pConstantBuffer);
@@ -404,7 +416,7 @@ public:
 		pImmediateContext->IASetIndexBuffer(pIndexBuffer, DXGI_FORMAT_R32_UINT, 0);  // Set index buffer
 
 		pImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);  // Set primitive topology
-		pImmediateContext->DrawIndexed(3, 0, 0);  // triangle count * 3 
+		pImmediateContext->DrawIndexed(tris.size()*3, 0, 0);  // triangle count * 3 
 		pIndexBuffer->Release();
 		pVertexBuffer->Release();
 		pIndexBuffer = NULL;
