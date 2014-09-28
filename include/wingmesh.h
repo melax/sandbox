@@ -784,6 +784,9 @@ inline WingMesh WingMeshBox(const float3 &bmin,const float3 &bmax)
 	wm.SanityCheck();
 	return wm;
 }
+inline WingMesh WingMeshBox(const float3 &r) { return WingMeshBox(-r, r); }
+inline WingMesh WingMeshCube(const float  r) { return WingMeshBox({ -r, -r, -r }, { r, r, r }); } // r (radius) is half-extent of box
+
 
 inline WingMesh WingMeshCreate(const float3 *verts, const int3 *tris, int n)
 {

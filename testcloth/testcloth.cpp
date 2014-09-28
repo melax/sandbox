@@ -153,7 +153,7 @@ int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst,LPSTR lpszC
 		sprintf_s(buf, "(w)ireframe %s   vert selected %d", ((g_wireframe)?"ON ":"OFF"),selection);
 		glwin.PrintString(buf, 0, 2);
 #       ifdef _DEBUG
-		  glwin.PrintString("Running DEBUG Version.  Peformance may be SLoooow.", 2, -1);
+		  glwin.PrintString("Running DEBUG Version.  Performance may be SLoooow.", 2, -1);
 #       endif
 		glwin.SwapBuffers();
 	}

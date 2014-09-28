@@ -3,7 +3,10 @@
 //
 // a quick sample testing some bsp code. 
 // perhaps even educational for someone.
-// 
+// Shows how to CSG a couple of objects
+// via merging spatial structures.
+// Use mouse drag and mouse wheel to 
+// orbit camera or move boolean operands.
 // 
 
 #include <stdlib.h>
@@ -13,15 +16,16 @@
 
 // in project properties, add "../include" to the vc++ directories include path
 #include "vecmatquat.h"   
-#include "glwin.h"  // minimal opengl for windows setup wrapper
-#include "wingmesh.h"    // fixme
+#include "glwin.h"         // minimal opengl for windows setup wrapper
+#include "wingmesh.h"    
 #include "bsp.h"
 
-void glNormal3fv(const float3 &v) { glNormal3fv(&v.x); }
-void glVertex3fv(const float3 &v) { glVertex3fv(&v.x); }
-void glColor3fv(const float3 &v) { glColor3fv(&v.x); }
-void glTexCoord2fv(const float2 &v) { glTexCoord2fv(&v.x); }
-
+void glNormal3fv(const float3 &v)     { glNormal3fv(&v.x); }
+void glVertex3fv(const float3 &v)     { glVertex3fv(&v.x); }
+void glColor3fv (const float3 &v)     { glColor3fv(&v.x);  }
+void glTexCoord2fv(const float2 &v)   { glTexCoord2fv(&v.x); }
+void glTranslatefv(const float3 &v)   { glTranslatef(v.x, v.y, v.z); }
+void glMultMatrixf(const float4x4 &m) { glMultMatrixf(&m.x.x); }
 
 void InitTex()  // create a checkerboard texture 
 {
@@ -82,7 +86,7 @@ void fdraw(const Face &f)
 }
 void fdraw(const std::vector<Face*> &faces) { for (auto &f : faces) fdraw(*f); }
 
-void wmwire(const WingMesh &m)
+void DrawWireframe(const WingMesh &m)
 {
 	glBegin(GL_LINES);
 	for (auto e : m.edges)
@@ -117,6 +121,9 @@ void glDraw(BSPNode *root, const float3 &camera_position)
 	}
 }
 
+float  Round(const float  x , const float p) { return roundf(x / p) * p; }
+float3 Round(const float3 &v, const float p) { return float3(v.x/p, v.y/p, v.z/p) * p; }
+
 // int main(int argc, char *argv[])
 int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst,
 LPSTR lpszCmdLine, int nCmdShow)
@@ -125,27 +132,17 @@ LPSTR lpszCmdLine, int nCmdShow)
 	int drawmode = 0;  // drawing mode: draw bsp cells or draw brep
 
 	// create a couple boxes and subtract one from the other
+	float3 bpos = { 0, 0, 0.5f };
+	float3 cpos = { 0.8f, 0, 0.45f };   // octahedron offset a bit to the right
 	auto ac   = WingMeshBox({ -1, -1, -1 }, { 1, 1, 1 });  // 2x2 cube
-	auto bc   = WingMeshBox({ -0.5f, -0.5f, -0.5f }, { 0.5f, 0.5f, 1.5f });  // smaller box placed overlapping into top face
-	auto co   = WingMeshTranslate(WingMeshDual(WingMeshBox({ -1, -1, -1 }, { 1, 1, 1 }),0.85f),float3(0.8f,0,0.45f));  // octahedron offset a bit to the right
+	auto bc   = WingMeshBox({ -0.5f, -0.5f, -1.0f }, { 0.5f, 0.5f, 1.0f });  // skinny box placed overlapping into top face, starts at z=0.5
+	auto co   = WingMeshDual(WingMeshBox({ -1, -1, -1 }, { 1, 1, 1 }),0.85f);  
 	auto af   = WingMeshToFaces(ac);
 	auto bf   = WingMeshToFaces(bc);
 	auto cf   = WingMeshToFaces(co);
-	auto absp = BSPCompile(af, WingMeshBox({ -2.0f, -2.0f, -2.0f }, { 2.0f, 2.0f, 2.0f }));
-	auto bbsp = BSPCompile(bf, WingMeshBox({ -2.0f, -2.0f, -2.0f }, { 2.0f, 2.0f, 2.0f }));
-	auto cbsp = BSPCompile(cf, WingMeshBox({ -2.0f, -2.0f, -2.0f }, { 2.0f, 2.0f, 2.0f }));
-	NegateTree(bbsp);  // turn it inside-out, so later  an intersection will be a subtraction
-	NegateTree(cbsp);
-	// note that there are quantization rules that the operands should follow to avoid numerical issues
-	auto bsp = BSPIntersect(cbsp,BSPIntersect(bbsp, absp)); // after this point, dont use absp or bbsp or cbsp anymore
+	BSPNode *bsp=NULL;
+	std::vector<Face*> faces;
 
-	BSPMakeBrep(bsp, BSPRipBrep(bsp));           // just regenerate the brep, ensures no T-intersections
-	// BSPMakeBrep(bsp, BSPRipBrep(bsp));        // uncomment this line to test the ability to extract mat settings from the previous faces
-	std::vector<Face*> faces = BSPRipBrep(bsp);  // brep moved into faces array
-
-	// some extra tests if you are in the mood
-	//	delete bsp;  // lets completely start over
-	//	bsp = BSPCompile(faces, WingMeshCube({ -2.0f, -2.0f, -2.0f }, { 2.0f, 2.0f, 2.0f }));  // compiles from a single mesh that has more complexity
 
 	GLWin glwin("TestBSP compile and intersect sample");
 	InitTex();
@@ -158,16 +155,69 @@ LPSTR lpszCmdLine, int nCmdShow)
 	};
 	float4 cameraorientation = normalize(float4(sinf(60.0f*3.14f/180.0f/2),0,0,cosf(60.0f*3.14f/180.0f/2)));
 	float  cameradist = 5;
-	float3 mousevec_prev;
+	float3 camerapos;
+	int    dragmode = 0;   // for mouse motion.  1: orbit camera   2,3: move corresponding object 
+	float  hitdist  = 0;   // if we select an operand this is how far it is from the viewpoint, so we know how much to translate for subsequent lateral mouse movement
+	float3 mousevec_prev;  // direction of mouse vector from previous frame
+	//float3 impact(0, 0, -100); // for debugging
 	while (glwin.WindowUp())
 	{
 		if (glwin.MouseState)  // on mouse drag 
 		{
-			cameraorientation = qmul(cameraorientation, qconj(VirtualTrackBall(float3(0, 0, 2), float3(0, 0, 0), mousevec_prev, glwin.MouseVector))); // equation is non-typical we are orbiting the camera, not rotating the object
+			if (dragmode == 1)
+				cameraorientation = qmul(cameraorientation, qconj(VirtualTrackBall(float3(0, 0, 2), float3(0, 0, 0), mousevec_prev, glwin.MouseVector))); // equation is non-typical we are orbiting the camera, not rotating the object
+			if (dragmode >= 2)
+			{
+				float3 &pos = (dragmode == 2) ? bpos : cpos;
+				pos += (qrot(cameraorientation, glwin.MouseVector) - qrot(cameraorientation, mousevec_prev))  * hitdist;
+				pos += qrot(cameraorientation, glwin.MouseVector) * (float)glwin.mousewheel * 0.1f;
+				glwin.mousewheel = 0;
+				bsp = NULL; // force regeneration of bsp
+			}
+			if (!dragmode)  // mouse is down, but we dont know what we are manipulating
+			{
+				dragmode = 1;
+				float3 v0 = camerapos, v1 = camerapos + qrot(cameraorientation, glwin.MouseVector*100.0f);
+				if (bsp)
+					HitCheck(bsp, 0, v0, v1, &v1);                                        // shorten segment if we hit a face
+				auto bhit = ConvexHitCheck(bc.faces, { bpos, { 0, 0, 0, 1 } }, v0, v1);
+				v1 = bhit.impact;                                                         // shorten selection ray if necessary so we pick closest
+				auto chit = ConvexHitCheck(co.faces, { cpos, { 0, 0, 0, 1 } }, v0, v1);
+				hitdist = magnitude( chit.impact - v0 );
+				//  impact = chit.impact;  // for debugging
+				dragmode = (bhit) ? 2 : dragmode;
+				dragmode = (chit) ? 3 : dragmode;   
+				if (drawmode == 2)
+					dragmode = 1;  // selection and object moving is too confusing when in this mode, so just allow camera navigation
+			}
 		}
+		else // mouse is up
+			dragmode = 0;
 		mousevec_prev = glwin.MouseVector;
 		cameradist *= powf(0.9f, (float)glwin.mousewheel);
-		float3 camerapos = qzdir(cameraorientation)*cameradist;
+		camerapos = qzdir(cameraorientation)*cameradist;
+
+		if (!bsp)
+		{
+			auto absp = BSPCompile(af, WingMeshCube(2.0f));        // create spatial structures for our operands
+			auto bbsp = BSPCompile(bf, WingMeshCube(2.0f));
+			auto cbsp = BSPCompile(cf, WingMeshCube(2.0f));
+			BSPTranslate(bbsp, Round(bpos,0.05f));                 // move to current position for this operand
+			BSPTranslate(cbsp, Round(cpos,0.05f));
+			NegateTree(bbsp);                                      // turn it inside-out, so intersection will be a subtraction
+			NegateTree(cbsp);
+			// note that there are 
+			extern float qsnap; qsnap = 0.05f;                     // Important. quantization rules for operands to avoid numerical issues.
+			bsp = BSPIntersect(cbsp, BSPIntersect(bbsp, absp));    // after this point, dont use absp or bbsp or cbsp anymore
+			BSPMakeBrep(bsp, BSPRipBrep(bsp));                     // just regenerate the brep, ensures no T-intersections
+			// BSPMakeBrep(bsp, BSPRipBrep(bsp));                  // uncomment this line to test the ability to extract mat settings from the previous faces
+			faces = BSPRipBrep(bsp);                               // brep moved into faces array
+
+			// some extra tests if you are in the mood
+			//	delete bsp;  // lets completely start over
+			//	bsp = BSPCompile(faces, WingMeshCube({ -2.0f, -2.0f, -2.0f }, { 2.0f, 2.0f, 2.0f }));  // compiles from a single mesh that has more complexity
+		}
+
 		glPushAttrib(GL_ALL_ATTRIB_BITS);
 		glViewport(0, 0, glwin.Width,glwin.Height); // Set up the viewport
 		glClearColor(0.1f, 0.1f, 0.15f, 1);
@@ -176,26 +226,24 @@ LPSTR lpszCmdLine, int nCmdShow)
 		glDisable(GL_TEXTURE_2D);
 		glMatrixMode(GL_PROJECTION); 		// Set up matrices
 		glPushMatrix(); glLoadIdentity();
-		gluPerspective(60, (double)glwin.Width/ glwin.Height, 0.01, 10);
+		gluPerspective(glwin.ViewAngle, (double)glwin.Width/ glwin.Height, 0.01, 10);
 		glMatrixMode(GL_MODELVIEW);
 		glPushMatrix(); glLoadIdentity();
-		float4 R[4] = { { 1, 0, 0, 0 }, { 0, 1, 0, 0 }, { 0, 0, 1, 0 }, { 0, 0, 0, 1 } };
-		R[0].xyz() = qxdir(qconj(cameraorientation)); R[1].xyz() = qydir(qconj(cameraorientation)); R[2].xyz() = qzdir(qconj(cameraorientation));
-		glMultMatrixf(&R[0].x);  // inverse camera orientation
-		glTranslatef(-camerapos.x, -camerapos.y, -camerapos.z);  // inverse camera position
+		glMultMatrixf(Pose(camerapos, cameraorientation).Inverse().Matrix());
 
-		//gluLookAt(camerapos.x,camerapos.y,camerapos.z , 0, 0, 0, cameraup.x,cameraup.y,cameraup.z);
+		//glColor3f(((dragmode>=2)?1.0f:0.0f), 0.5f, 0.5f);   // for debugging the user selection 
+		//float3 axes[] = { { 1, 0, 0 }, { 0, 1, 0 }, { 0, 0, 1 } };
+		//glBegin(GL_LINES);
+		//for (auto a:axes)
+		//	glVertex3fv(impact - a*0.1f), glVertex3fv(impact + a*0.1f); // note the comma
 
-		glColor3f(0, 1, 0.5f);   // wireframe render the boolean operands
-		wmwire(ac);  
-		glColor3f(0, 0.5f, 1);
-		wmwire(bc);
-		glColor3f(0.5f, 0, 1);
-		wmwire(co);
+		// wireframe render the boolean operands
+		glColor3f(0, 1, 0.5f); DrawWireframe(ac);  
+		glColor3f(0, 0.5f, 1); glPushMatrix(); glTranslatefv(Round(bpos,0.05f)); DrawWireframe(bc); glPopMatrix();
+		glColor3f(0.5f, 0, 1); glPushMatrix(); glTranslatefv(Round(cpos,0.05f)); DrawWireframe(co); glPopMatrix();
 		glColor3f(1, 1, 1);
 
-		glEnable(GL_LIGHTING);
-		glEnable(GL_LIGHT0);
+		glEnable(GL_LIGHTING); glEnable(GL_LIGHT0);
 		if (drawmode==0)  // draw the brep
 		{
 			fdraw(faces);
@@ -215,9 +263,9 @@ LPSTR lpszCmdLine, int nCmdShow)
 						c += v * (1.0f/n->convex.verts.size());  // approx center for convex cell
 					glPushMatrix();
 					//glTranslatef(c.x*0.1f, c.y*0.1f, c.z*0.1f);  // expand outward to slightly separate the cells
-					glTranslatef(c.x, c.y, c.z);
+					glTranslatefv(c);
 					glScalef(0.95f, 0.95f, 0.95f);                 // shrink slightly about each cell center
-					glTranslatef(-c.x, -c.y, -c.z);
+					glTranslatefv(-c);
 					gldraw(n->convex.verts,n->convex.GenerateTris());
 					glPopMatrix();
 				}
@@ -244,11 +292,15 @@ LPSTR lpszCmdLine, int nCmdShow)
 		glPopAttrib();
 		glMatrixMode(GL_MODELVIEW);  
 
-		glwin.PrintString("Press esc to (q)uit.    ", 5, 0);
+		glwin.PrintString("ESC to (q)uit.  Mouse left or wheel to manipulate", 5, 0);
 		char buf[256];
 		char * drawmodename[] = { "brep", "cells", "tree" };
 		sprintf_s(buf, "(d)rawmode %s ", drawmodename[drawmode]);
 		glwin.PrintString(buf, 5, 1);
+#       ifdef _DEBUG
+		if (dragmode>=2)
+			glwin.PrintString("DEBUG Version.  Perf may be SLOW.", 2, -1);
+#       endif
 
 		glwin.SwapBuffers();
 	}

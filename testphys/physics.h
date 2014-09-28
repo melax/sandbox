@@ -47,20 +47,6 @@ template<class T> void Append(std::vector<T> &a, const std::vector<T> &b){ a.ins
 
 class Spring;
 
-struct Pose // Value type representing a rigid transformation consisting of a translation and rotation component
-{
-	float3      position;
-	float4      orientation;
-
-	Pose(const float3 & p, const float4 & q) : position(p), orientation(q) {}
-	Pose() : Pose({ 0, 0, 0 }, { 0, 0, 0, 1 }) {}
-
-	Pose        Inverse() const                             { auto q = qconj(orientation); return{ qrot(q, -position), q }; }
-	float4x4    Matrix() const                              { return MatrixFromRotationTranslation(orientation, position); }
-
-	float3      operator * (const float3 & point) const     { return position + qrot(orientation, point); }
-	Pose        operator * (const Pose & pose) const        { return{ *this * pose.position, qmul(orientation, pose.orientation) }; }
-};
 
 
 struct Shape // rigidbody has an array of shapes.  all meshes are stored in the coord system of the rigidbody, no additional shape transform.

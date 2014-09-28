@@ -91,8 +91,6 @@ void rbdraw(const RigidBody *rb)
 }
 
 
-inline WingMesh WingMeshCube(const float  r) { return WingMeshBox({ -r, -r, -r }, { r, r, r }); } // r (radius) is half-extent of box
-inline WingMesh WingMeshBox(const float3 &r) { return WingMeshBox(-r, r); }
 
 Shape AsShape(const WingMesh &m) { return Shape(m.verts, m.GenerateTris()); }
 

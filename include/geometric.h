@@ -25,6 +25,24 @@
 #define SPLIT      (OVER|UNDER)
 #define PAPERWIDTH (0.0001f)  
 
+inline float4x4 MatrixFromRotationTranslation(const float4 & rotationQuat, const float3 & translationVec)    { return{ { qxdir(rotationQuat), 0 }, { qydir(rotationQuat), 0 }, { qzdir(rotationQuat), 0 }, { translationVec, 1 } }; }
+
+
+struct Pose // Value type representing a rigid transformation consisting of a translation and rotation component
+{
+	float3      position;
+	float4      orientation;
+
+	Pose(const float3 & p, const float4 & q) : position(p), orientation(q) {}
+	Pose() : Pose({ 0, 0, 0 }, { 0, 0, 0, 1 }) {}
+
+	Pose        Inverse() const                             { auto q = qconj(orientation); return{ qrot(q, -position), q }; }
+	float4x4    Matrix() const                              { return MatrixFromRotationTranslation(orientation, position); }
+
+	float3      operator * (const float3 & point) const     { return position + qrot(orientation, point); }
+	Pose        operator * (const Pose & pose) const        { return{ *this * pose.position, qmul(orientation, pose.orientation) }; }
+};
+
 
 inline float3 PlaneLineIntersection(const float3 &n, const float d, const float3 &p0, const float3 &p1)   // returns the point where the line p0-p2 intersects the plane n&d
 {
@@ -109,12 +127,12 @@ inline float4 PolyPlane(const std::vector<float3>& verts)
 	p.w = -dot(c, p.xyz());
 	return p;
 }
-struct HitInfo { bool hit; float3 impact; float3 normal; operator bool(){ return hit; }; HitInfo(bool hit):hit(hit){} };
+struct HitInfo { bool hit; float3 impact; float3 normal; operator bool(){ return hit; };  };
 
 inline HitInfo PolyHitCheck(const std::vector<float3>& verts, const float4 &plane, const float3 &v0, const float3 &v1)
 {
 	float d0, d1;
-	HitInfo hitinfo((d0 = dot(float4(v0, 1), plane)) >0 && (d1 = dot(float4(v1, 1), plane)) <0);  // if segment crosses into plane
+	HitInfo hitinfo = { ((d0 = dot(float4(v0, 1), plane)) > 0 && (d1 = dot(float4(v1, 1), plane)) < 0), { 0, 0, 0 }, { 0, 0, 0 } };  // if segment crosses into plane
 	hitinfo.normal = plane.xyz();
 	hitinfo.impact = v0 + (v1 - v0)* d0 / (d0 - d1);  //  if both points on plane this will be 0/0, if parallel you might get infinity
 	for (unsigned int i = 0; hitinfo&& i < verts.size(); i++)
@@ -122,6 +140,35 @@ inline HitInfo PolyHitCheck(const std::vector<float3>& verts, const float4 &plan
 	return hitinfo;  
 }
 inline HitInfo PolyHitCheck(const std::vector<float3>& verts, const float3 &v0, const float3 &v1) { return PolyHitCheck(verts, PolyPlane(verts), v0, v1); }
+
+inline HitInfo ConvexHitCheck(const std::vector<float4>& planes, float3 v0, const float3 &v1_)
+{
+	float3 v1 = v1_;
+	float3 n;
+	for (auto plane : planes)
+	{
+		float d0 = dot(float4(v0, 1), plane);
+		float d1 = dot(float4(v1, 1), plane);
+		if (d0 >= 0 && d1>=0)  // segment above plane
+			return{ false, v1_, { 0, 0, 0 } }; // hitinfo;
+		if (d0 <= 0 && d1<=0 )
+			continue; //  start and end point under plane
+		auto c = v0 + (v1 - v0)* d0 / (d0 - d1);
+		if (d0 >= 0)
+		{
+			n = plane.xyz();
+			v0 = c;
+		}
+		else
+			v1 = c;
+	}
+	return{ true, v0, n };
+}
+inline HitInfo ConvexHitCheck(const std::vector<float4>& planes, const Pose &pose, float3 v0, const float3 &v1)
+{
+	auto h = ConvexHitCheck(planes, pose.Inverse()*v0, pose.Inverse()*v1);
+	return { h.hit, pose*h.impact, qrot(pose.orientation, h.normal) };
+}
 
 inline int argmax(const float a[], int count)  // returns index
 {
@@ -170,7 +217,6 @@ inline float4 VirtualTrackBall(const float3 &cop, const float3 &cor, const float
 	return RotationArc(u, v);
 }
 
-inline float4x4 MatrixFromRotationTranslation(const float4 & rotationQuat, const float3 & translationVec)    { return{ { qxdir(rotationQuat), 0 }, { qydir(rotationQuat), 0 }, { qzdir(rotationQuat), 0 }, { translationVec, 1 } }; }
 
 
 template<class T, int N>
