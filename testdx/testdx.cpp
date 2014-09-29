@@ -11,15 +11,19 @@ std::pair< std::vector<Vertex>, std::vector<int3> > MeshFlatShadeTex(const std::
 	for (auto t : tris)
 	{
 		float3 n = TriNormal(verts[t[0]], verts[t[1]], verts[t[2]]);
-		float4 q = RotationArc(float3(0, 0, 1), n);
 		auto vn = vabs(n);
 		int k = argmax(&vn.x, 3);
 		int c = (int)vout.size();
 		tout.push_back({ c, c + 1, c + 2 });
+		float3 st = gradient(verts[t[0]], verts[t[1]], verts[t[2]], verts[t[0]][(k + 1) % 3], verts[t[1]][(k + 1) % 3], verts[t[2]][(k + 1) % 3]);
+		float3 sb = gradient(verts[t[0]], verts[t[1]], verts[t[2]], verts[t[0]][(k + 2) % 3], verts[t[1]][(k + 2) % 3], verts[t[2]][(k + 2) % 3]);
+		bool flipu = dot(sb,cross(n, st))<0.0f;
+		st = cross(sb, n);
+		auto q = quatfrommat(float3x3(st, sb, n)); //  RotationArc(float3(0, 0, 1), n);
 		for (int j = 0; j < 3; j++)
 		{
 			const float3 &v = verts[t[j]];
-			vout.push_back({ v, q, { v[(k + 1) % 3], v[(k + 2) % 3] } });
+			vout.push_back({ v, q, { v[(k + 1) % 3]* (flipu ? -1.0f : 1.0f), v[(k + 2) % 3] } });
 		}
 	}
 	return std::pair< std::vector<Vertex>, std::vector<int3> >(vout, tout);
@@ -33,8 +37,8 @@ int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst, LPSTR lpsz
 {
 	DXWin dxwin("dx test (nothing to see here yet, work in progress)");
 
-	WingMesh cube_wm = WingMeshBox({ -0.5f, -0.5f, -0.5f }, { 0.5f, 0.5f, 0.5f });
-	WingMesh oct_wm = WingMeshDual(cube_wm, 0.7f);
+	WingMesh cube_wm = WingMeshCube(1.0f);
+	WingMesh oct_wm = WingMeshDual(cube_wm, 1.4f);
 	auto cube_mesh = MeshFlatShadeTex(cube_wm);
 	auto oct_mesh  = MeshFlatShadeTex(oct_wm );
 	int frame = 0;
@@ -48,8 +52,8 @@ int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst, LPSTR lpsz
 		DXWin::ConstantBuffer cb;
 		cb.Projection = transpose(MatrixPerspectiveFov(dxwin.ViewAngle*3.14f/180.0f, (float)1 / 1, 0.05f, 50.0f));
 		cb.hack = { 0.5f+0.5f*sinf(frame*0.0002f), 1, 1, 1 };
-		cb.camerap = { 0, -3, 1 };
-		cb.cameraq = normalize(float4(1, 0, 0, 1));  
+		cb.camerap = { 0, -3, 2 };
+		cb.cameraq = normalize(float4(1, 0, 0, 2));  
 		cb.meshq = { 0, 0, sinf(frame*0.0001f), cosf(frame*0.0001f) };
 		dxwin.pImmediateContext->UpdateSubresource(dxwin.pConstantBuffer, 0, nullptr, &cb, 0, 0);
 
@@ -58,7 +62,7 @@ int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst, LPSTR lpsz
 		cb.meshq = { 0, 0, 0, 1 };//DXWin::ConstantBuffer(dxwin.ViewAngle,1)
 		dxwin.pImmediateContext->UpdateSubresource(dxwin.pConstantBuffer, 0, nullptr, cb, 0, 0);
 		//dxwin.pImmediateContext->PSSetConstantBuffers(0, 1, &dxwin.pConstantBuffer);
-		dxwin.DrawImmediate({{0.5f,-0.0f,-0.45f},{-0.5f,-0.0f,-0.55f},{0.0f,-0.6f,-0.5f}} , {{0,1,2}} );
+		dxwin.DrawImmediate({{0.0f,-0.0f,-0.45f},{1.0f,-0.0f,-0.55f},{0.0f,1.0f,-0.5f},{1.0f,1.0f,-0.5f}} , {{0,1,2},{2,1,3}} );
 
 		cb.hack = { 1, 1, 0, 1 };
 		cb.meshp = { 0.5f, 3.3f, -0.25f };

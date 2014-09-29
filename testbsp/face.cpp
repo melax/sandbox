@@ -63,28 +63,6 @@ void AssignTex(BSPNode *node,int matid)
 
 
 
-float3 gradient(const float3 &v0,const float3 &v1,const float3 &v2,
-				const float t0  ,const float t1  ,const float t2   ) {
-	float3 e0 = v1-v0;
-	float3 e1 = v2-v0;
-	float  d0 = t1-t0;
-	float  d1 = t2-t0;
-	float3 pd = e1*d0 - e0*d1 ;
-	if(pd == float3(0,0,0)){
-		return float3 (0,0,1);
-	}
-	pd = normalize(pd);
-	if(fabsf(d0)>fabsf(d1)) {
-		e0 = e0 + pd * -dot(pd,e0);
-		e0 = e0 * (1.0f/d0);
-		return e0 * (1.0f/dot(e0,e0));;
-	}
-	// else
-	assert(fabsf(d0)<=fabsf(d1));
-	e1 = e1 + pd * -dot(pd,e1);
-	e1 = e1 * (1.0f/d1);
-	return e1 * (1.0f/dot(e1,e1));
-}
 
 
 void FaceExtractMatVals(Face *face,

@@ -25,6 +25,43 @@
 #define SPLIT      (OVER|UNDER)
 #define PAPERWIDTH (0.0001f)  
 
+
+
+inline float4 quatfrommat(const float3x3 &m)
+{
+	float magw = m[0][0] + m[1][1] + m[2][2];
+	float magxy;
+	float magzw;
+	float3 pre;
+	float3 prexy;
+	float3 prezw;
+
+	bool wvsz = magw  > m[2][2];
+	magzw = wvsz ? magw : m[2][2];
+	prezw = wvsz ? float3(1, 1, 1) : float3(-1, -1, 1);
+	auto postzw = wvsz ? float4(0, 0, 0, 1) : float4(0, 0, 1, 0);
+
+	bool xvsy = m[0][0] > m[1][1];
+	magxy = xvsy ? m[0][0] : m[1][1];
+	prexy = xvsy ? float3(1, -1, -1) : float3(-1, 1, -1);
+	auto postxy = xvsy ? float4(1, 0, 0, 0) : float4(0, 1, 0, 0);
+
+	bool zwvsxy = magzw > magxy;
+	pre = zwvsxy ? prezw : prexy;
+	auto post = zwvsxy ? postzw : postxy;
+
+	float t = pre.x * m[0][0] + pre.y * m[1][1] + pre.z * m[2][2] + 1;
+	float s = 1 / sqrt(t) / 2;
+	float4 qp
+	{
+		(pre.y * m[1][2] - pre.z * m[2][1]) * s,
+		(pre.z * m[2][0] - pre.x * m[0][2]) * s,
+		(pre.x * m[0][1] - pre.y * m[1][0]) * s,
+		t * s
+	};
+	return qmul(qp, post);
+}
+
 inline float4x4 MatrixFromRotationTranslation(const float4 & rotationQuat, const float3 & translationVec)    { return{ { qxdir(rotationQuat), 0 }, { qydir(rotationQuat), 0 }, { qzdir(rotationQuat), 0 }, { translationVec, 1 } }; }
 
 
@@ -67,6 +104,29 @@ inline float LineProjectTime(const float3 &p0, const float3 &p1, const float3 &a
 	return t;
 }
 inline float3 LineProject(const float3 &p0, const float3 &p1, const float3 &a) { return p0 + (p1 - p0) * LineProjectTime(p0, p1, a); }
+
+inline float3 gradient(const float3 &v0, const float3 &v1, const float3 &v2,
+	const float t0, const float t1, const float t2) {
+	float3 e0 = v1 - v0;
+	float3 e1 = v2 - v0;
+	float  d0 = t1 - t0;
+	float  d1 = t2 - t0;
+	float3 pd = e1*d0 - e0*d1;
+	if (pd == float3(0, 0, 0)){
+		return float3(0, 0, 1);
+	}
+	pd = normalize(pd);
+	if (fabsf(d0)>fabsf(d1)) {
+		e0 = e0 + pd * -dot(pd, e0);
+		e0 = e0 * (1.0f / d0);
+		return e0 * (1.0f / dot(e0, e0));;
+	}
+	// else
+	//assert(fabsf(d0) <= fabsf(d1));
+	e1 = e1 + pd * -dot(pd, e1);
+	e1 = e1 * (1.0f / d1);
+	return e1 * (1.0f / dot(e1, e1));
+}
 
 inline float3 BaryCentric(const float3 &v0, const float3 &v1, const float3 &v2, float3 s)
 {

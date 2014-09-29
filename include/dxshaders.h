@@ -54,6 +54,7 @@ cbuffer ConstantBuffer : register( b0 )
 }
 
 Texture2D    txDiffuse : register( t0 );
+Texture2D    txNMap    : register( t1 );
 SamplerState samLinear : register( s0 );
 
 
@@ -84,9 +85,18 @@ Fragment VS( Vertex v ) //: SV_POSITION
 //--------------------------------------------------------------------------------------
 // Pixel Shader
 //--------------------------------------------------------------------------------------
-float4 PS( float4 Pos : SV_POSITION , float2 texcoord : TEXCOORD0 ) : SV_Target
+float4 PS( Fragment v) : SV_Target
 {
-    return hack * txDiffuse.Sample( samLinear,texcoord) ; // float4( 1.0f, 1.0f, 0.0f, 1.0f );    // Yellow, with Alpha = 1
+    // return hack /* txDiffuse.Sample( samLinear,v.texcoord) */ * txNMap.Sample( samLinear,v.texcoord).w  ; // float4( 1.0f, 1.0f, 0.0f, 1.0f );    // Yellow, with Alpha = 1
+	float3 nl = normalize(txNMap.Sample( samLinear,v.texcoord*float3(1,1,1)).xyz - float3(0.5,0.5,0.5));
+	float3x3 m = float3x3(normalize(v.tangent),normalize(v.binormal),normalize(v.normal));
+	float3 nw = mul(nl,m);
+//return float4(nl*0.5+float3(0.5,0.5,0.5),1.0);
+//    return hack * dot(nw ,qrot(cameraq,float3(0,0,1)) )  ; // float4( 1.0f, 1.0f, 0.0f, 1.0f );    // Yellow, with Alpha = 1
+//    return dot(nw ,qrot(cameraq,float3(-.5,.5,.5)) )  ; // float4( 1.0f, 1.0f, 0.0f, 1.0f );    // Yellow, with Alpha = 1
+//    return dot(nw ,normalize(float3(-1,-2,1)) )  ; // float4( 1.0f, 1.0f, 0.0f, 1.0f );    // Yellow, with Alpha = 1
+//return txNMap.Sample( samLinear,v.texcoord).zzzz;
+  return hack * (0.75+0.25*txDiffuse.Sample( samLinear,v.texcoord)) * dot(nw ,normalize(float3(-1,-2,1)) )  ; // float4( 1.0f, 1.0f, 0.0f, 1.0f );    // Yellow, with Alpha = 1
 }
 
 )EFFECTFILE";

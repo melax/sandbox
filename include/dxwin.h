@@ -87,6 +87,29 @@ public:
 			image[i*w + j] = ((i & 8) == (j & 8)) ? 0x00000000 : -1;
 		return MakeTex((unsigned char*)image.data(), w, h);
 	}
+	ID3D11ShaderResourceView *MakeTexWav()
+	{
+		int w = 128, h = 128;
+		std::vector<float> hmap(w*h, 0);
+		for (int y = 0; y < h; y++) for (int x = 0; x < w; x++)
+		{
+			float fx = (float)x / float(w) -0.5f ;
+			float fy = (float)y / float(h) - 0.5f;
+			hmap[y*w + x] = 0.5f + std::max(0.0f,cosf( sqrtf(fx*fx+fy*fy)*1.1f*3.14f  )) / 2.0f / 1.0f;  // 1/10 max slopes
+//			hmap[y*w + x] = 0.5f + (cosf(((float)x / (float)(w))*3.14f*2.0f * 3) + cosf( ((float)y / (float)h)*3.14f*2.0f * 3)) / 4.0f / 10.0f;  // 1/10 max slopes
+		}
+		std::vector<unsigned char> image(w * h * 4, 0);
+		for (int y = 0; y < h; y++) for (int x = 0; x < w; x++)
+		{
+			int xp = (x + w - 1) % w, xn = (x + 1) % w, yp = (y + h - 1) % h, yn = (y + 1) % h;
+			auto n = normalize(float3( (hmap[y*w + xp] - hmap[y*w + xn]), (hmap[yp*w + x] - hmap[yn*w + x]), 2.0f/w ))*127.0f + float3(128,128,128);
+			image[(y*w + x) * 4 + 0] = (unsigned char)n.x;
+			image[(y*w + x) * 4 + 1] = (unsigned char)n.y;
+			image[(y*w + x) * 4 + 2] = (unsigned char)n.z;
+			image[(y*w + x) * 4 + 3] = (unsigned char) (hmap[y*w+x]*255.0f );
+		}
+		return MakeTex((unsigned char*)image.data(), w, h);
+	}
 	ID3D11ShaderResourceView *MakeTex(const unsigned char *buf, int w, int h) // input image is rgba
 	{
 		ID3D11Texture2D *tex;
@@ -266,6 +289,7 @@ public:
 	ID3D11Buffer*                       pConstantBuffer = nullptr;
 
 	ID3D11ShaderResourceView*           pTextureRV      = nullptr;
+	ID3D11ShaderResourceView*           pNMapRV         = nullptr;
 	ID3D11SamplerState*                 pSamplerLinear  = nullptr;
 
 	void CreateShaders()
@@ -324,6 +348,7 @@ public:
 		pd3dDevice->CreateSamplerState(&sampDesc, &pSamplerLinear) &&VERIFY;
 
 		pTextureRV = MakeTexCheckerboard();
+		pNMapRV = MakeTexWav();
 
 		// yup, do all the following to specify that "front" faces are ccw.
 		D3D11_RASTERIZER_DESC rastdesc = {
@@ -343,6 +368,7 @@ public:
 		pImmediateContext->PSSetConstantBuffers(0, 1, &pConstantBuffer);
 		pImmediateContext->PSSetSamplers(0, 1, &pSamplerLinear);
 		pImmediateContext->PSSetShaderResources(0, 1, &pTextureRV);
+		pImmediateContext->PSSetShaderResources(1, 1, &pNMapRV);
 
 	}
 
@@ -422,6 +448,7 @@ public:
 		pIndexBuffer = NULL;
 		pVertexBuffer = NULL;
 	}
+
 	void DrawImmediate(const std::vector<float3> &points, const std::vector<int3> &tris)
 	{
 		std::vector<Vertex> verts;
@@ -429,8 +456,10 @@ public:
 			verts.push_back({ p, { 0, 0, 0, 0 }, p.xy() });
 		for (auto t : tris)
 		{
-			float3 n = cross(points[t[1]] - points[t[0]], points[t[2]] - points[t[0]]);
-			auto q = RotationArc(float3(0, 0, 1), n);
+			float3 sn = normalize(cross(points[t[1]] - points[t[0]], points[t[2]] - points[t[0]]));
+			float3 st = gradient(points[t[0]], points[t[1]], points[t[2]], verts[t[0]].texcoord.x, verts[t[1]].texcoord.x, verts[t[2]].texcoord.x);
+			float3 sb = cross(sn, st);
+			auto q = quatfrommat(float3x3(st, sb, sn)); //  RotationArc(float3(0, 0, 1), n);
 			for (int i = 0; i < 3; i++)
 			{
 				verts[t[i]].orientation += q;
