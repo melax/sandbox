@@ -53,6 +53,8 @@ cbuffer ConstantBuffer : register( b0 )
 	float4 meshq;
 }
 
+
+
 Texture2D    txDiffuse : register( t0 );
 Texture2D    txNMap    : register( t1 );
 SamplerState samLinear : register( s0 );
@@ -87,16 +89,22 @@ Fragment VS( Vertex v ) //: SV_POSITION
 //--------------------------------------------------------------------------------------
 float4 PS( Fragment v) : SV_Target
 {
+	float parallaxscale = 0.2;  // was 0.06
+
     // return hack /* txDiffuse.Sample( samLinear,v.texcoord) */ * txNMap.Sample( samLinear,v.texcoord).w  ; // float4( 1.0f, 1.0f, 0.0f, 1.0f );    // Yellow, with Alpha = 1
-	float3 nl = normalize(txNMap.Sample( samLinear,v.texcoord*float3(1,1,1)).xyz - float3(0.5,0.5,0.5));
+	float height = txNMap.Sample( samLinear,v.texcoord).w * parallaxscale - parallaxscale/2.0f;
 	float3x3 m = float3x3(normalize(v.tangent),normalize(v.binormal),normalize(v.normal));
+	float2 offset = height * mul(m,normalize(camerap-v.position)) ; // rotate eye vector into tangent space
+
+	float3 nl = normalize(txNMap.Sample( samLinear,v.texcoord+offset).xyz - float3(0.5,0.5,0.5));
 	float3 nw = mul(nl,m);
 //return float4(nl*0.5+float3(0.5,0.5,0.5),1.0);
 //    return hack * dot(nw ,qrot(cameraq,float3(0,0,1)) )  ; // float4( 1.0f, 1.0f, 0.0f, 1.0f );    // Yellow, with Alpha = 1
 //    return dot(nw ,qrot(cameraq,float3(-.5,.5,.5)) )  ; // float4( 1.0f, 1.0f, 0.0f, 1.0f );    // Yellow, with Alpha = 1
 //    return dot(nw ,normalize(float3(-1,-2,1)) )  ; // float4( 1.0f, 1.0f, 0.0f, 1.0f );    // Yellow, with Alpha = 1
 //return txNMap.Sample( samLinear,v.texcoord).zzzz;
-  return hack * (0.75+0.25*txDiffuse.Sample( samLinear,v.texcoord)) * dot(nw ,normalize(float3(-1,-2,1)) )  ; // float4( 1.0f, 1.0f, 0.0f, 1.0f );    // Yellow, with Alpha = 1
+//return float4(0.5+offset.x*100,0.5+offset.y*100,parallaxscale*100,1);
+  return hack * (0.75+0.25*txDiffuse.Sample( samLinear,v.texcoord+offset)) * dot(nw ,normalize(float3(-1,-2,1)) )  ; // float4( 1.0f, 1.0f, 0.0f, 1.0f );    // Yellow, with Alpha = 1
 }
 
 )EFFECTFILE";
