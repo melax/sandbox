@@ -78,6 +78,7 @@ struct Pose // Value type representing a rigid transformation consisting of a tr
 
 	float3      operator * (const float3 & point) const     { return position + qrot(orientation, point); }
 	Pose        operator * (const Pose & pose) const        { return{ *this * pose.position, qmul(orientation, pose.orientation) }; }
+	float4      TransformPlane(const float4 &p)             { float3 n = qrot(orientation, p.xyz()); return float4(n, p.w - dot(position, n)); }
 };
 
 
