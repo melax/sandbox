@@ -117,15 +117,13 @@ int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst,LPSTR lpszC
 	Pose boxpose({ 0, 0, 2 }, normalize(float4( 0.2f, 0.3f, 0.4f, 1.0f )));
 
 	RigidBody trackmodel({ AsShape(box) }, { 0, -0.5, 2.25f });  // a tracking model based on the geometry of the real object we are tracking
-	trackmodel.gravscale = 0;
-	trackmodel.damping = 1;
 	std::vector<RigidBody*> rigidbodies = { &trackmodel };
 
-	WingMesh world_slab = WingMeshBox({ -3, -3, -0.25f }, { 3, 3, -0 }); // just some ground plane world_geometry
+	WingMesh world_slab = WingMeshBox({ -3, -3, -1.25f }, { 3, 3, -1 }); // just some ground plane world_geometry
 
 
 
-	GLWin glwin("TestPhys sample");
+	GLWin glwin("Tracking single object from depth samples.");
 	glwin.ViewAngle = 60.0f;
 
 	glwin.keyboardfunc = [&](unsigned char key, int x, int y)->void 
@@ -165,11 +163,11 @@ int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst,LPSTR lpszC
 		}
 		mouseprev = { glwin.MouseX, glwin.MouseY };
 
-		boxpose.orientation = normalize(float4(sinf(frame*0.001f),sin(frame*0.0035f),sin(frame*0.0045f),1.0f));  // animate the source object
-		boxpose.position = float3(sinf(frame*0.001f)*0.5f, cosf(frame*0.001f)*0.5f, boxpose.position.z);
+		boxpose.orientation = normalize(float4(sinf(frame*0.01f),sin(frame*0.035f),sin(frame*0.045f),1.0f));  // animate the source object
+		boxpose.position = float3(sinf(frame*0.01f)*0.75f, cosf(frame*0.01f)*0.75f, boxpose.position.z);
 	
 		std::vector<float3> depthdata; // generated pointcloud 
-		for (float y = -1.0f; y <= 1.0f; y += 0.2f) for (float x = -1.0f; x <= 1.0f; x += 0.2f)
+		for (float y = -1.0f; y <= 1.0f; y += 0.1f) for (float x = -1.0f; x <= 1.0f; x += 0.1f)
 		{
 			if (auto hit = ConvexHitCheck(box.faces, boxpose, { 0, 0, 0 }, float3(x, y, 1.0f)*5.0f))
 				depthdata.push_back(hit.impact);
@@ -177,6 +175,8 @@ int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst,LPSTR lpszC
 		std::vector<std::pair<float3,float3>> match;
 		if (g_tracking)
 		{
+			trackmodel.gravscale = 0;
+			trackmodel.damping = 1;
 			std::vector<LimitAngular> angulars;
 			std::vector<LimitLinear>  linears;
 			std::vector<float4> planesw;
@@ -185,7 +185,7 @@ int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst,LPSTR lpszC
 			for (auto p0 : depthdata)
 			{
 				auto plane = closestplane(planesw, p0, { 0, 0, 0 } );  // could pass normal direction of -p0 to avoid backside planes
-				if(plane.w<0) plane.w = std::min(0.0f, plane.w + 0.2f);  // add thickness if we found a backside plane
+				if(plane.w<0) plane.w = std::min(0.0f, plane.w + 0.2f);  // small hack here (may add jitter)!! add thickness if we are using a backside plane
 
 				auto p1w = p0 - plane.xyz()*dot(plane, float4(p0, 1));               // p1 is on the plane
 				match.push_back(std::pair<float3,float3>(p0,p1w));
@@ -193,7 +193,13 @@ int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst,LPSTR lpszC
 			}
 			// trackmodel.angular_momentum = trackmodel.linear_momentum = { 0, 0, 0 };  // damping should be 1 already
 			// Append(linears , ConstrainPositionNailed(NULL, seesaw->position_start, seesaw, { 0, 0, 0 }));
-			PhysicsUpdate(rigidbodies, linears, angulars, { &world_slab.verts });
+			PhysicsUpdate(rigidbodies, linears, angulars, {});
+		}
+		else
+		{
+			trackmodel.gravscale = 1;
+			trackmodel.damping = 0.1f;
+			PhysicsUpdate(rigidbodies, {}, std::vector<LimitAngular>(0), { &world_slab.verts });
 		}
 
 
