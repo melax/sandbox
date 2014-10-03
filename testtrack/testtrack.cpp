@@ -25,12 +25,6 @@ void glVertex3fv(const float3 &v) { glVertex3fv(&v.x); }
 void glColor3fv (const float3 &v) { glColor3fv(&v.x);  }
 void glMultMatrix(const float4x4 &m) { glMultMatrixf(&m.x.x); }
 
-float g_pitch, g_yaw;
-bool  g_tracking = 0;
-
-inline float randf(){ return static_cast<float>(rand()) / static_cast<float>(RAND_MAX); }
-
-float3 vrand(){ return {randf(),randf(),randf()}; }
 
 
 float4 closestplane(const std::vector<float4> &planes, const float3 &v, const float3 &n)
@@ -113,28 +107,37 @@ int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst,LPSTR lpszC
 {
 	std::cout << "Test tracking\n";
 
-	WingMesh box = WingMeshBox({ 1, 0.5f, 0.2f });  // our "real world" object used to generate computer vision or depth data input
+	WingMesh box = WingMeshBox({ 0.5, 0.25f, 0.1f });  // our "real world" object used to generate computer vision or depth data input
 	Pose boxpose({ 0, 0, 2 }, normalize(float4( 0.2f, 0.3f, 0.4f, 1.0f )));
 
 	RigidBody trackmodel({ AsShape(box) }, { 0, -0.5, 2.25f });  // a tracking model based on the geometry of the real object we are tracking
 	std::vector<RigidBody*> rigidbodies = { &trackmodel };
 
-	WingMesh world_slab = WingMeshBox({ -3, -3, -1.25f }, { 3, 3, -1 }); // just some ground plane world_geometry
+	WingMesh world_slab = WingMeshBox({ -2, -2, -0.75f }, { 2, 2, -0.5f }); // just some ground plane world_geometry
 
 
 
 	GLWin glwin("Tracking single object from depth samples.");
+	InitTex();
 	glwin.ViewAngle = 60.0f;
+	int2  mouseprev;
+	int   animating = 1;
+	float view_dist = 7.0f, view_pitch=20.0f, view_yaw=0;
+	int   frame = 0;
+	bool  enable_tracking = 0;
+	int   sample_resolution = 30;
+	float src_offset = -2.0f;
 
 	glwin.keyboardfunc = [&](unsigned char key, int x, int y)->void 
 	{
 			switch (std::tolower(key))
 			{
-			case ' ':
-				g_tracking = !g_tracking;
-				break;
-			case 'q': case 27:   // ESC
-				exit(0); break;  
+			case 't': case ' ':   enable_tracking = !enable_tracking;                     break;
+			case 'a': case 's':   animating = 1 - animating;                              break;
+			case '-': case '_':   sample_resolution = std::max(sample_resolution - 1, 3); break;
+			case '+': case '=':   sample_resolution++;                                    break;
+			case 'q': case 27 :   exit(0);                                                break;   // ESC
+			case 'x': case 'o':   src_offset += 0.5f * ((key == 'X') ? -1.0f : 1.0f);     break;
 			case 'r':
 				for (auto &rb : rigidbodies)
 				{
@@ -150,45 +153,43 @@ int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst,LPSTR lpszC
 			}
 	};
 
-	InitTex();
-	int2 mouseprev;
-	int frame = 0;
 	while (glwin.WindowUp())
 	{
-		frame++;
+		frame+=animating;
 		if (glwin.MouseState)  // on mouse drag 
 		{
-			g_yaw   += (glwin.MouseX - mouseprev.x) * 0.3f;  // poor man's trackball
-			g_pitch += (glwin.MouseY - mouseprev.y) * 0.3f;
+			view_yaw   += (glwin.MouseX - mouseprev.x) * 0.3f;  // poor man's trackball
+			view_pitch += (glwin.MouseY - mouseprev.y) * 0.3f;
 		}
 		mouseprev = { glwin.MouseX, glwin.MouseY };
+		view_dist *= powf(1.1f, (float)glwin.mousewheel);
 
 		boxpose.orientation = normalize(float4(sinf(frame*0.01f),sin(frame*0.035f),sin(frame*0.045f),1.0f));  // animate the source object
 		boxpose.position = float3(sinf(frame*0.01f)*0.75f, cosf(frame*0.01f)*0.75f, boxpose.position.z);
 	
 		std::vector<float3> depthdata; // generated pointcloud 
-		for (float y = -1.0f; y <= 1.0f; y += 0.1f) for (float x = -1.0f; x <= 1.0f; x += 0.1f)
+		for (float y = -1.0f; y <= 1.0f; y += 2.0f/sample_resolution) for (float x = -1.0f; x <= 1.0f; x += 2.0f/sample_resolution)
 		{
 			if (auto hit = ConvexHitCheck(box.faces, boxpose, { 0, 0, 0 }, float3(x, y, 1.0f)*5.0f))
 				depthdata.push_back(hit.impact);
 		}
 		std::vector<std::pair<float3,float3>> match;
-		if (g_tracking)
+		if (enable_tracking)
 		{
 			trackmodel.gravscale = 0;
 			trackmodel.damping = 1;
-			std::vector<LimitAngular> angulars;
-			std::vector<LimitLinear>  linears;
 			std::vector<float4> planesw;
 			for (auto p : box.faces) // should be getting from shape, but oh well
 				planesw.push_back(trackmodel.pose().TransformPlane(p));
+			std::vector<LimitAngular> angulars;
+			std::vector<LimitLinear>  linears;
 			for (auto p0 : depthdata)
 			{
-				auto plane = closestplane(planesw, p0, { 0, 0, 0 } );  // could pass normal direction of -p0 to avoid backside planes
-				if(plane.w<0) plane.w = std::min(0.0f, plane.w + 0.2f);  // small hack here (may add jitter)!! add thickness if we are using a backside plane
+				auto plane = closestplane(planesw, p0, { 0, 0, 0 });  // could pass normal direction of -p0 to avoid backside planes
+				if (plane.w < 0) plane.w = std::min(0.0f, plane.w + dot(plane.xyz(), normalize(p0))*0.2f);  // small hack here (may add jitter)!! add thickness if we are using a backside plane
 
 				auto p1w = p0 - plane.xyz()*dot(plane, float4(p0, 1));               // p1 is on the plane
-				match.push_back(std::pair<float3,float3>(p0,p1w));
+				match.push_back(std::pair<float3, float3>(p0, p1w));
 				linears.push_back(ConstrainAlongDirection(NULL, p0, &trackmodel, trackmodel.pose().Inverse()*p1w, plane.xyz(), -50, 50));
 			}
 			// trackmodel.angular_momentum = trackmodel.linear_momentum = { 0, 0, 0 };  // damping should be 1 already
@@ -214,13 +215,16 @@ int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst,LPSTR lpszC
 		gluPerspective(glwin.ViewAngle, (double)glwin.Width/ glwin.Height, 0.01, 50);
 
 		glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity();
-		gluLookAt(0, -8, 5, 0, 0, 0, 0, 0, 1);
-		glRotatef(g_pitch, 1, 0, 0);
-		glRotatef(g_yaw, 0, 0, 1);
+		gluLookAt(0, -view_dist, 0, 0, 0, 0, 0, 0, 1);
+		glRotatef(view_pitch, 1, 0, 0);
+		glRotatef(view_yaw, 0, 0, 1);
 
 		glDisable(GL_TEXTURE_2D);
 		glColor3f(1.0f, 0.75f, 0.5f);
+		glPushMatrix();
+		glTranslatef(src_offset, 0, 0);
 		wmwire(box, boxpose);
+		glPopMatrix();
 
 		glColor3f(1.0f, 1.0f, 0.0f);
 		glPointSize(2.0f);
@@ -253,7 +257,7 @@ int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst,LPSTR lpszC
 
 		glwin.PrintString("ESC/q quits. SPACE to toggle tracking.", 5, 0);
 		char buf[256];
-		sprintf_s(buf, "tracking %s", (g_tracking)?"ON":"OFF");
+		sprintf_s(buf, "(t)racking %s.  (a)nimating %s.  depthres %d", (enable_tracking) ? "ON" : "OFF", (animating) ? "ON" : "OFF", sample_resolution);
 		glwin.PrintString(buf, 5, 1);
 
 		glwin.SwapBuffers();
