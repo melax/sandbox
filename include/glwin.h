@@ -275,7 +275,7 @@ public:
 	float 	ViewAngle;
 	std::function<void(int, int, int)> keyboardfunc;
 
-	GLWin(const char *title) : Width(512), Height(512), MouseX(0), MouseY(0), MouseState(0), mousewheel(0), ViewAngle(45.0f) //, keyboardfunc([](int, int, int){})
+	GLWin(const char *title,int w=512,int h=512) : Width(w), Height(h), MouseX(0), MouseY(0), MouseState(0), mousewheel(0), ViewAngle(45.0f) //, keyboardfunc([](int, int, int){})
 	{
 		hWnd = CreateOpenGLWindow(title);
 		if (hWnd == NULL) throw("failed to create opengl window");
