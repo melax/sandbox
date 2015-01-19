@@ -42,8 +42,8 @@ const float   physics_damping = 0.15f;  // 1 means critically damped,  0 means n
 inline float3 safenormalize(const float3 &v) { return (v == float3(0, 0, 0)) ? float3(0, 0, 1) : normalize(v); }
 inline float  clamp(float a, float mn = 0.0f, float mx = 1.0f) { return std::min(std::max(a, mn), mx); }
 
-template<class T> void Append(std::vector<T> &a, const T& t){ a.push_back(t);  }
-template<class T> void Append(std::vector<T> &a, const std::vector<T> &b){ a.insert(a.end(),b.begin(),b.end());  }
+template<class T> std::vector<T> & Append(std::vector<T> &a, const T& t){ a.push_back(t); return a; }
+template<class T> std::vector<T> & Append(std::vector<T> &a, const std::vector<T> &b){ a.insert(a.end(), b.begin(), b.end()); return a; }
 
 class Spring;
 

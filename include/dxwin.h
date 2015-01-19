@@ -4,15 +4,6 @@
 // trying for smallest possible d3d11 on windows framework for writing quick graphics test apps but need d3d11.
 // All in one header file.  No extra downloads, installs, cmake, .DLLs, .LIBs. etc...
 //
-// This is preliminary work/experimentation in progress
-// started this less than 24 hours ago, referenced the d3d11 version of the dx tutorials from the MSDN site.  
-// I hadn't been recenly been focusing on anything graphics and usually had just used a dx9 based rendering sytem that is kinda out of date.
-// want a d3d11 version going forward for compatability with future libs and usages.
-// hoping to complete and cram this into a concise api/header.
-//
-// given the emphasis is on convenience, likely just have one vertex format and one constant uniform buffer that is a superset of everyones needs.
-// 
-// Avoiding 16 bit wchar.
 //
 
 
@@ -36,26 +27,51 @@
 #pragma comment(lib,"dxguid.lib")
 #endif
 
-#include "geometric.h"
+#include <geometric.h>
+#include <mesh.h>
+
 // not sure if best way to do this:
 #include "dxshaders.h"  // defines shaders in a big string (char*) dxshaders
 
 #define VERIFY (assert(0),throw(std::exception((std::string(__FILE__) + ":" + std::to_string(__LINE__)).c_str())),1)
 
 
-inline float4x4 MatrixPerspectiveFov(float fovy, float aspect, float zn, float zf) { auto h = 1 / tan(fovy / 2), zr = zf / (zn - zf); return{ { h / aspect, 0, 0, 0 }, { 0, h, 0, 0 }, { 0, 0, zr, -1 }, { 0, 0, zn*zr, 0 } }; }
+inline float4x4 MatrixPerspectiveFovAspect(float fovy, float aspect, float zn, float zf) { auto h = 1 / tan(fovy / 2), zr = zf / (zn - zf); return{ { h / aspect, 0, 0, 0 }, { 0, h, 0, 0 }, { 0, 0, zr, -1 }, { 0, 0, zn*zr, 0 } }; }
 #define OFFSET(Class,Member)  (((char*) (&(((Class*)NULL)-> Member )))- ((char*)NULL))
 
-struct Vertex  // pretty much just need one vertex layout to do anything.  
-{
-	float3 position;    // : POSITION;
-	float4 orientation; // : TEXCOORD1;  quaternion for tangent,binormal,normal
-	float2 texcoord;    // : TEXCOORD0;
-};
+//from mesh.h:
+//      struct Vertex  // pretty much just need one vertex layout to do anything.  
+//      {
+//      	float3 position;    // : POSITION;
+//      	float4 orientation; // : TEXCOORD1;  quaternion for tangent,binormal,normal
+//      	float2 texcoord;    // : TEXCOORD0;
+//      };
 
 class DXWin
 {
 public:
+
+	HWND                    hWnd;
+	int 	                Width;
+	int 	                Height;
+	int                     mousewheel;   // if and how much its been rolled up/down this frame
+	int                     MouseX;
+	int                     MouseY;
+	float3                  MouseVector;      // 3D direction mouse points
+	float3                  OldMouseVector;
+	int                     MouseState;     // true iff left button down
+	float 	                ViewAngle;
+	std::function<void(int, int, int)> keyboardfunc;
+
+
+	ID3D11Device*           dxdevice           = nullptr;
+	ID3D11Device1*          dxdevice1          = nullptr;
+	ID3D11DeviceContext*    dxcontext          = nullptr;
+	IDXGISwapChain*         dxswapchain        = nullptr;
+	ID3D11RenderTargetView* dxrendertargetview = nullptr;
+	ID3D11Texture2D*        dxdepthstenciltex  = nullptr;
+	ID3D11DepthStencilView* dxdepthstencilview = nullptr;
+
 
 	struct ConstantBuffer  // struct matches global var struct used by shaders
 	{
@@ -65,19 +81,10 @@ public:
 		float4 cameraq = { 0, 0, 0, 1 };
 		float3 meshp; float unusedm;
 		float4 meshq = { 0, 0, 0, 1 };
+		float4 lightposn = { -2, -4, 3, 1 };
 		ConstantBuffer(){}
-		ConstantBuffer(float fov, float aspect) :Projection(transpose(MatrixPerspectiveFov(fov*3.14f / 180.0f, aspect, 0.05f, 50.0f))){}
-		operator const ConstantBuffer*() { return this; } // useful for passing to d3d api
+		ConstantBuffer(float fov, float aspect) :Projection(transpose(MatrixPerspectiveFovAspect(fov*3.14f / 180.0f, aspect, 0.05f, 50.0f))){}
 	};
-
-
-	ID3D11Device*           pd3dDevice = nullptr;
-	ID3D11Device1*          pd3dDevice1 = nullptr;
-	ID3D11DeviceContext*    pImmediateContext = nullptr;
-	IDXGISwapChain*         pSwapChain = nullptr;
-	ID3D11RenderTargetView* pRenderTargetView = nullptr;
-	ID3D11Texture2D*        pDepthStencil = nullptr;
-	ID3D11DepthStencilView* pDepthStencilView = nullptr;
 
 	ID3D11ShaderResourceView *MakeTexCheckerboard()
 	{
@@ -132,14 +139,14 @@ public:
 		tdesc.CPUAccessFlags = 0;
 		tdesc.MiscFlags = 0;
 
-		pd3dDevice->CreateTexture2D(&tdesc, &tbsd, &tex) && VERIFY;
+		dxdevice->CreateTexture2D(&tdesc, &tbsd, &tex) && VERIFY;
 
 		D3D11_SHADER_RESOURCE_VIEW_DESC SRVDesc;
 		memset(&SRVDesc, 0, sizeof(SRVDesc));
 		SRVDesc.Format = tdesc.Format;
 		SRVDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
 		SRVDesc.Texture2D.MipLevels = (!tdesc.MipLevels) ? -1 : tdesc.MipLevels;
-		pd3dDevice->CreateShaderResourceView(tex,&SRVDesc,&textureView)&&VERIFY;
+		dxdevice->CreateShaderResourceView(tex,&SRVDesc,&textureView)&&VERIFY;
 
 		return(textureView);
 	}
@@ -160,8 +167,10 @@ public:
 		if (!RegisterClassA(&wc)) 
 			throw("RegisterClassA() failed:  Cannot register window class.");  // supposedly should only register the window class once
 
+		RECT rc = { 100, 100, 100 + Width, 100 + Height };
+		auto bb = AdjustWindowRect(&rc, WS_OVERLAPPEDWINDOW | WS_CLIPSIBLINGS | WS_CLIPCHILDREN, 0);
 		HWND hWnd = CreateWindowA("D3D11", title, WS_OVERLAPPEDWINDOW | WS_CLIPSIBLINGS | WS_CLIPCHILDREN,
-			0, 0, Width, Height, NULL, NULL, wc.hInstance, this);  // force non-unicode16 non-wchar version of Windows's CreateWindow
+			rc.left , rc.top , rc.right-rc.left, rc.bottom-rc.top, NULL, NULL, wc.hInstance, this);  // force non-unicode16 non-wchar version of Windows's CreateWindow
 
 		if (hWnd == NULL)
 			throw("CreateWindow() failed:  Cannot create a window.");
@@ -170,7 +179,6 @@ public:
 
 		HRESULT hr = S_OK;
 
-		RECT rc;
 		GetClientRect(hWnd, &rc);
 		UINT width = rc.right - rc.left;
 		UINT height = rc.bottom - rc.top;
@@ -181,13 +189,13 @@ public:
 		D3D_FEATURE_LEVEL featureLevel = D3D_FEATURE_LEVEL_11_0;
 
 		D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, createDeviceFlags, featureLevels, sizeof(featureLevels)/sizeof(featureLevel),
-			D3D11_SDK_VERSION, &pd3dDevice, &featureLevel, &pImmediateContext) && VERIFY ;  // ("create d3d11 device");
+			D3D11_SDK_VERSION, &dxdevice, &featureLevel, &dxcontext) && VERIFY ;  // ("create d3d11 device");
 
 		// Obtain DXGI factory from device (since we used nullptr for pAdapter above)
 		IDXGIFactory1* dxgiFactory = nullptr;
 
 		IDXGIDevice* dxgiDevice = nullptr;
-		pd3dDevice->QueryInterface(__uuidof(IDXGIDevice), reinterpret_cast<void**>(&dxgiDevice)) && VERIFY;  // ("dxgidevice");
+		dxdevice->QueryInterface(__uuidof(IDXGIDevice), reinterpret_cast<void**>(&dxgiDevice)) && VERIFY;  // ("dxgidevice");
 		IDXGIAdapter* adapter = nullptr;
 		dxgiDevice->GetAdapter(&adapter) && VERIFY; // "GetAdapter");
 		adapter->GetParent(__uuidof(IDXGIFactory1), reinterpret_cast<void**>(&dxgiFactory)) && VERIFY ;  // ("GetParent dxgiFactory");
@@ -197,10 +205,10 @@ public:
 		dxgiFactory->QueryInterface(__uuidof(IDXGIFactory2), reinterpret_cast<void**>(&dxgiFactory2));
 		if (dxgiFactory2) // DirectX 11.1 
 		{
-			ID3D11DeviceContext1*   pImmediateContext1 = nullptr;  // note probably should be 'released' at shutdown, but oh well
-			IDXGISwapChain1*        pSwapChain1 = nullptr;
-			if (pd3dDevice->QueryInterface(__uuidof(ID3D11Device1), reinterpret_cast<void**>(&pd3dDevice1)) >= 0)
-				(void)pImmediateContext->QueryInterface(__uuidof(ID3D11DeviceContext1), reinterpret_cast<void**>(&pImmediateContext1));
+			ID3D11DeviceContext1*   dxcontext1 = nullptr;  // note probably should be 'released' at shutdown, but oh well
+			IDXGISwapChain1*        dxswapchain1 = nullptr;
+			if (dxdevice->QueryInterface(__uuidof(ID3D11Device1), reinterpret_cast<void**>(&dxdevice1)) >= 0)
+				(void)dxcontext->QueryInterface(__uuidof(ID3D11DeviceContext1), reinterpret_cast<void**>(&dxcontext1));
 
 			DXGI_SWAP_CHAIN_DESC1 sd = 
 			{                                           
@@ -215,8 +223,8 @@ public:
 				DXGI_ALPHA_MODE_UNSPECIFIED, 			// DXGI_ALPHA_MODE AlphaMode;
 				0 										// UINT Flags;
 			};
-			dxgiFactory2->CreateSwapChainForHwnd(pd3dDevice, hWnd, &sd, nullptr, nullptr, &pSwapChain1) && VERIFY;  // ("dxgifactory2createswapchain");
-			pSwapChain1->QueryInterface(__uuidof(IDXGISwapChain), reinterpret_cast<void**>(&pSwapChain)) && VERIFY;  // ("swapchain QueryInterface");
+			dxgiFactory2->CreateSwapChainForHwnd(dxdevice, hWnd, &sd, nullptr, nullptr, &dxswapchain1) && VERIFY;  // ("dxgifactory2createswapchain");
+			dxswapchain1->QueryInterface(__uuidof(IDXGISwapChain), reinterpret_cast<void**>(&dxswapchain)) && VERIFY;  // ("swapchain QueryInterface");
 			dxgiFactory2->Release();
 		}
 		else // DirectX 11.0     sigh, so much api to using dx 
@@ -235,17 +243,17 @@ public:
 			sd.SampleDesc.Quality = 0;
 			sd.Windowed = TRUE;
 
-			dxgiFactory->CreateSwapChain(pd3dDevice, &sd, &pSwapChain) && VERIFY;  // ("dxgiFactory->CreateSwapChain");
+			dxgiFactory->CreateSwapChain(dxdevice, &sd, &dxswapchain) && VERIFY;  // ("dxgiFactory->CreateSwapChain");
 		}
 
 		dxgiFactory->Release();
 
 		ID3D11Texture2D* pBackBuffer = nullptr;
-		hr = pSwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), reinterpret_cast<void**>(&pBackBuffer)) && VERIFY;  //("pSwapChain->GetBuffer");
+		hr = dxswapchain->GetBuffer(0, __uuidof(ID3D11Texture2D), reinterpret_cast<void**>(&pBackBuffer)) && VERIFY;  //("dxswapchain->GetBuffer");
 
-		hr = pd3dDevice->CreateRenderTargetView(pBackBuffer, nullptr, &pRenderTargetView) && VERIFY;  // ("pd3dDevice->CreateRenderTargetView")
+		hr = dxdevice->CreateRenderTargetView(pBackBuffer, nullptr, &dxrendertargetview) && VERIFY;  // ("dxdevice->CreateRenderTargetView")
 		pBackBuffer->Release();
-		pImmediateContext->OMSetRenderTargets(1, &pRenderTargetView, nullptr);
+		dxcontext->OMSetRenderTargets(1, &dxrendertargetview, nullptr);
 
 		// so the next many dozen lines of code are about the same as glEnable(GL_DEPTH_TEST) sigh
 		D3D11_TEXTURE2D_DESC descDepth;
@@ -261,24 +269,18 @@ public:
 		descDepth.BindFlags = D3D11_BIND_DEPTH_STENCIL;
 		descDepth.CPUAccessFlags = 0;
 		descDepth.MiscFlags = 0;
-		pd3dDevice->CreateTexture2D(&descDepth, nullptr, &pDepthStencil) &&VERIFY;
+		dxdevice->CreateTexture2D(&descDepth, nullptr, &dxdepthstenciltex) &&VERIFY;
 		D3D11_DEPTH_STENCIL_VIEW_DESC descDSV;
 		ZeroMemory(&descDSV, sizeof(descDSV));
 		descDSV.Format = descDepth.Format;
 		descDSV.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
 		descDSV.Texture2D.MipSlice = 0;
-		pd3dDevice->CreateDepthStencilView(pDepthStencil, &descDSV, &pDepthStencilView)  &&VERIFY;
-		pImmediateContext->OMSetRenderTargets(1, &pRenderTargetView, pDepthStencilView);
+		dxdevice->CreateDepthStencilView(dxdepthstenciltex, &descDSV, &dxdepthstencilview)  &&VERIFY;
+		dxcontext->OMSetRenderTargets(1, &dxrendertargetview, dxdepthstencilview);
 
 		// Setup the viewport
-		D3D11_VIEWPORT vp;
-		vp.Width = (FLOAT)width;
-		vp.Height = (FLOAT)height;
-		vp.MinDepth = 0.0f;
-		vp.MaxDepth = 1.0f;
-		vp.TopLeftX = 0;
-		vp.TopLeftY = 0;
-		pImmediateContext->RSSetViewports(1, &vp);
+		D3D11_VIEWPORT vp = { 0, 0, (FLOAT)width, (FLOAT)height, 0.0f, 1.0f };
+		dxcontext->RSSetViewports(1, &vp);
 
 		return hWnd;
 	}    
@@ -298,7 +300,7 @@ public:
 		ID3DBlob* pErrorBlob = nullptr;
 		//hr = CompileShaderFromFile( L"Tutorial02.fx", "VS", "vs_4_0", &pVSBlob );
 		D3DCompile(dxshaders, strlen(dxshaders), "vs", NULL, NULL, "VS", "vs_4_0", D3DCOMPILE_DEBUG, 0, &pVSBlob, &pErrorBlob) && VERIFY;
-		pd3dDevice->CreateVertexShader(pVSBlob->GetBufferPointer(), pVSBlob->GetBufferSize(), nullptr, &pVertexShader) && VERIFY;
+		dxdevice->CreateVertexShader(pVSBlob->GetBufferPointer(), pVSBlob->GetBufferSize(), nullptr, &pVertexShader) && VERIFY;
 
 		D3D11_INPUT_ELEMENT_DESC layout[] =
 		{
@@ -309,9 +311,9 @@ public:
 		UINT numElements = ARRAYSIZE(layout);
 
 		// Create the input layout
-		pd3dDevice->CreateInputLayout(layout,sizeof(layout)/sizeof(*layout), pVSBlob->GetBufferPointer(),pVSBlob->GetBufferSize(), &pVertexLayout) &&VERIFY;
+		dxdevice->CreateInputLayout(layout,sizeof(layout)/sizeof(*layout), pVSBlob->GetBufferPointer(),pVSBlob->GetBufferSize(), &pVertexLayout) &&VERIFY;
 		pVSBlob->Release();
-		pImmediateContext->IASetInputLayout(pVertexLayout);
+		dxcontext->IASetInputLayout(pVertexLayout);
 
 		// Compile the pixel shader
 		ID3DBlob* pPSBlob = nullptr;
@@ -319,11 +321,11 @@ public:
 		D3DCompile(dxshaders, strlen(dxshaders), "ps", NULL, NULL, "PS", "ps_4_0", D3DCOMPILE_DEBUG, 0, &pPSBlob, &pErrorBlob) && VERIFY;
 
 		// Create the pixel shader
-		pd3dDevice->CreatePixelShader(pPSBlob->GetBufferPointer(), pPSBlob->GetBufferSize(), nullptr, &pPixelShader) && VERIFY;
+		dxdevice->CreatePixelShader(pPSBlob->GetBufferPointer(), pPSBlob->GetBufferSize(), nullptr, &pPixelShader) && VERIFY;
 		pPSBlob->Release();
 
 		ConstantBuffer shaderglobals;
-		shaderglobals.Projection = MatrixPerspectiveFov(this->ViewAngle, (float)Width / Height, 0.05f, 50.0f);
+		shaderglobals.Projection = MatrixPerspectiveFovAspect(this->ViewAngle, (float)Width / Height, 0.05f, 50.0f);
 		shaderglobals.hack = { 1, 0, 0, 1 };
 		D3D11_BUFFER_DESC bdc =
 		{
@@ -333,8 +335,8 @@ public:
 			0, 0, 0  // UINT CPUAccessFlags;UINT MiscFlags;UINT StructureByteStride;
 		};
 		D3D11_SUBRESOURCE_DATA shaderglobals_rc = { &shaderglobals, 0, 0 };
-		//pd3dDevice->CreateBuffer(&bdc, &shaderglobals_rc, &pConstantBuffer) && VERIFY;
-		pd3dDevice->CreateBuffer(&bdc, nullptr, &pConstantBuffer) && VERIFY;
+		//dxdevice->CreateBuffer(&bdc, &shaderglobals_rc, &pConstantBuffer) && VERIFY;
+		dxdevice->CreateBuffer(&bdc, nullptr, &pConstantBuffer) && VERIFY;
 
 		D3D11_SAMPLER_DESC sampDesc;
 		ZeroMemory(&sampDesc, sizeof(sampDesc));
@@ -345,7 +347,7 @@ public:
 		sampDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
 		sampDesc.MinLOD = 0;
 		sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
-		pd3dDevice->CreateSamplerState(&sampDesc, &pSamplerLinear) &&VERIFY;
+		dxdevice->CreateSamplerState(&sampDesc, &pSamplerLinear) &&VERIFY;
 
 		pTextureRV = MakeTexCheckerboard();
 		pNMapRV = MakeTexWav();
@@ -359,16 +361,16 @@ public:
 			 true,false,false,false,  // BOOL DepthClipEnable, ScissorEnable,  MultisampleEnable,  AntialiasedLineEnable;
 		};
 		ID3D11RasterizerState *raststate;
-		pd3dDevice->CreateRasterizerState(&rastdesc, &raststate)&&VERIFY;
-		pImmediateContext->RSSetState(raststate);
+		dxdevice->CreateRasterizerState(&rastdesc, &raststate)&&VERIFY;
+		dxcontext->RSSetState(raststate);
 
-		pImmediateContext->PSSetShader(pPixelShader, nullptr, 0);
-		pImmediateContext->VSSetShader(pVertexShader, nullptr, 0);
-		pImmediateContext->VSSetConstantBuffers(0, 1, &pConstantBuffer);
-		pImmediateContext->PSSetConstantBuffers(0, 1, &pConstantBuffer);
-		pImmediateContext->PSSetSamplers(0, 1, &pSamplerLinear);
-		pImmediateContext->PSSetShaderResources(0, 1, &pTextureRV);
-		pImmediateContext->PSSetShaderResources(1, 1, &pNMapRV);
+		dxcontext->PSSetShader(pPixelShader, nullptr, 0);
+		dxcontext->VSSetShader(pVertexShader, nullptr, 0);
+		dxcontext->VSSetConstantBuffers(0, 1, &pConstantBuffer);
+		dxcontext->PSSetConstantBuffers(0, 1, &pConstantBuffer);
+		dxcontext->PSSetSamplers(0, 1, &pSamplerLinear);
+		dxcontext->PSSetShaderResources(0, 1, &pTextureRV);
+		dxcontext->PSSetShaderResources(1, 1, &pNMapRV);
 
 	}
 
@@ -379,9 +381,6 @@ public:
 		float x = spread * (MouseX-Width/2.0f)  /(Height/2.0f);
 		MouseVector = normalize(float3(x,y,-1));
 	}
-	void Reshape(int width, int height){
-		// called initially and when the window changes size
-	}
 	void DestroyDXWindow()
 	{
 		if(!hWnd)
@@ -389,19 +388,7 @@ public:
 		hWnd=NULL;
 	}
 
-	HWND    hWnd;
-	int 	Width  ;
-	int 	Height ;
-	int     mousewheel;   // if and how much its been rolled up/down this frame
-	int     MouseX ;
-	int     MouseY ;
-	float3  MouseVector;      // 3D direction mouse points
-	float3  OldMouseVector;
-	int     MouseState;     // true iff left button down
-	float 	ViewAngle;
-	std::function<void(int, int, int)> keyboardfunc;
-
-	DXWin(const char *title) : Width(512), Height(512), MouseX(0), MouseY(0), MouseState(0), mousewheel(0), ViewAngle(60.0f) //, keyboardfunc([](int, int, int){})
+	DXWin(const char *title) : Width(1024), Height(1024), MouseX(0), MouseY(0), MouseState(0), mousewheel(0), ViewAngle(60.0f) //, keyboardfunc([](int, int, int){})
 	{
 		hWnd = CreateDXWindow(title);
 		if (hWnd == NULL) throw("failed to create d3d11 window");
@@ -423,12 +410,12 @@ public:
 			0,0,0  // UINT CPUAccessFlags;UINT MiscFlags;UINT StructureByteStride;
 		};
 		D3D11_SUBRESOURCE_DATA vertices_rc = { verts.data(), 0, 0 };
-		pd3dDevice->CreateBuffer(&bdv, &vertices_rc, &pVertexBuffer) && VERIFY;
+		dxdevice->CreateBuffer(&bdv, &vertices_rc, &pVertexBuffer) && VERIFY;
 
 		// Set vertex buffer
 		UINT strides[] = { sizeof(Vertex) };
 		UINT offsets[] = { 0 };
-		pImmediateContext->IASetVertexBuffers(0, 1, &pVertexBuffer, strides, offsets);
+		dxcontext->IASetVertexBuffers(0, 1, &pVertexBuffer, strides, offsets);
 
 		D3D11_BUFFER_DESC bdt =
 		{
@@ -438,54 +425,65 @@ public:
 			0, 0, 0  // UINT CPUAccessFlags;UINT MiscFlags;UINT StructureByteStride;
 		};
 		D3D11_SUBRESOURCE_DATA indices_rc = { tris.data(), 0, 0 };
-		pd3dDevice->CreateBuffer(&bdt, &indices_rc, &pIndexBuffer) && VERIFY;
-		pImmediateContext->IASetIndexBuffer(pIndexBuffer, DXGI_FORMAT_R32_UINT, 0);  // Set index buffer
+		dxdevice->CreateBuffer(&bdt, &indices_rc, &pIndexBuffer) && VERIFY;
+		dxcontext->IASetIndexBuffer(pIndexBuffer, DXGI_FORMAT_R32_UINT, 0);  // Set index buffer
 
-		pImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);  // Set primitive topology
-		pImmediateContext->DrawIndexed(tris.size()*3, 0, 0);  // triangle count * 3 
+		dxcontext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);  // Set primitive topology
+		dxcontext->DrawIndexed(tris.size()*3, 0, 0);  // triangle count * 3 
 		pIndexBuffer->Release();
 		pVertexBuffer->Release();
 		pIndexBuffer = NULL;
 		pVertexBuffer = NULL;
 	}
 
-	void DrawImmediate(const std::vector<float3> &points, const std::vector<int3> &tris)
+	void DrawMeshes(ConstantBuffer cb, const std::vector<Mesh*> &meshes)
 	{
-		std::vector<Vertex> verts;
-		for (auto p : points)
-			verts.push_back({ p, { 0, 0, 0, 0 }, p.xy() });
-		for (auto t : tris)
+		for (auto m : meshes)
 		{
-			float3 sn = normalize(cross(points[t[1]] - points[t[0]], points[t[2]] - points[t[0]]));
-			float3 st = gradient(points[t[0]], points[t[1]], points[t[2]], verts[t[0]].texcoord.x, verts[t[1]].texcoord.x, verts[t[2]].texcoord.x);
-			float3 sb = cross(sn, st);
-			auto q = quatfrommat(float3x3(st, sb, sn)); //  RotationArc(float3(0, 0, 1), n);
-			for (int i = 0; i < 3; i++)
-			{
-				verts[t[i]].orientation += q;
-			}
+			cb.hack  = m->hack;
+			cb.meshp = m->pose.position;
+			cb.meshq = m->pose.orientation;
+			dxcontext->UpdateSubresource(pConstantBuffer, 0, nullptr, &cb, 0, 0);
+			DrawImmediate(m->verts, m->tris);
 		}
-		for (auto &v : verts)
-		{
-			v.orientation = normalize(v.orientation);
-			float3 n = qrot(v.orientation, float3(0, 0, 1));
-			//v.texcoord = { atan2(n.y, n.x), 0.5f + n.y / 2.0f };  // quick sphereical hack
-		}
-		return DrawImmediate(verts, tris);
 	}
-
-	bool SwapBuffers() {    
-		return true;
+	void RenderScene(const Pose &camera, const std::vector<Mesh*> &meshes)
+	{
+		float clearcolor[] = { 0.5f, 0.6f, 1.0f, 1.0f };
+		dxcontext->ClearRenderTargetView(dxrendertargetview, clearcolor);
+		dxcontext->ClearDepthStencilView(dxdepthstencilview, D3D11_CLEAR_DEPTH, 1.0f, 0); // Clear depth buffer to 1.0 (max depth)
+		DXWin::ConstantBuffer cb;
+		cb.Projection = transpose(MatrixPerspectiveFovAspect(ViewAngle*3.14f / 180.0f, (float)1 / 1, 0.05f, 50.0f));
+		cb.camerap = camera.position;
+		cb.cameraq = camera.orientation;
+		DrawMeshes(cb, meshes);
+		dxswapchain->Present(0, 0);
+	}
+	void RenderStereo(const Pose &camera, const std::vector<Mesh*> &meshes)
+	{
+		float clearcolor[] = { 0.5f, 0.6f, 1.0f, 1.0f };
+		D3D11_VIEWPORT fullviewport = { 0.0f, 0.0f, (float)Width, (float)Height, 0.0f, 1.0f };
+		dxcontext->RSSetViewports(1, &fullviewport);
+		dxcontext->ClearRenderTargetView(dxrendertargetview, clearcolor);
+		dxcontext->ClearDepthStencilView(dxdepthstencilview, D3D11_CLEAR_DEPTH, 1.0f, 0); // Clear depth buffer to 1.0 (max depth)
+		for (int e = 0; e < 2; e++)
+		{
+			D3D11_VIEWPORT eviewport = { (float)Width / 2 * e, 0.0f, (float)Width / 2, (float)Height, 0.0f, 1.0f };
+			dxcontext->RSSetViewports(1, &eviewport);
+			DXWin::ConstantBuffer cb;
+			cb.Projection = transpose(MatrixPerspectiveFovAspect(ViewAngle*3.14f / 180.0f, (float)1 / 1, 0.05f, 50.0f));
+			cb.camerap = camera.position;
+			cb.cameraq = camera.orientation;
+			DrawMeshes(cb, meshes);
+		}
+		dxcontext->RSSetViewports(1, &fullviewport);
+		dxswapchain->Present(0, 0);
 	}
 
 	LONG WINAPI MsgProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{
 
 		switch (uMsg) {
-		case WM_SIZE:
-			Reshape(LOWORD(lParam), HIWORD(lParam));
-			PostMessage(hWnd, WM_PAINT, 0, 0);
-			return 0;
 		case WM_CHAR:
 			switch (wParam) {
 			case 27: /* ESC key */
