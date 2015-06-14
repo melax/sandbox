@@ -140,7 +140,7 @@ LPSTR lpszCmdLine, int nCmdShow)
 	auto af   = WingMeshToFaces(ac);
 	auto bf   = WingMeshToFaces(bc);
 	auto cf   = WingMeshToFaces(co);
-	BSPNode *bsp=NULL;
+	std::unique_ptr<BSPNode> bsp;
 	std::vector<Face> faces;
 
 
@@ -179,7 +179,7 @@ LPSTR lpszCmdLine, int nCmdShow)
 				dragmode = 1;
 				float3 v0 = camerapos, v1 = camerapos + qrot(cameraorientation, glwin.MouseVector*100.0f);
 				if (bsp)
-					HitCheck(bsp, 0, v0, v1, &v1);                                        // shorten segment if we hit a face
+					HitCheck(bsp.get(), 0, v0, v1, &v1);                                        // shorten segment if we hit a face
 				auto bhit = ConvexHitCheck(bc.faces, { bpos, { 0, 0, 0, 1 } }, v0, v1);
 				v1 = bhit.impact;                                                         // shorten selection ray if necessary so we pick closest
 				auto chit = ConvexHitCheck(co.faces, { cpos, { 0, 0, 0, 1 } }, v0, v1);
@@ -202,16 +202,16 @@ LPSTR lpszCmdLine, int nCmdShow)
 			auto absp = BSPCompile(af, WingMeshCube(2.0f));        // create spatial structures for our operands
 			auto bbsp = BSPCompile(bf, WingMeshCube(2.0f));
 			auto cbsp = BSPCompile(cf, WingMeshCube(2.0f));
-			BSPTranslate(bbsp, Round(bpos,0.05f));                 // move to current position for this operand
-			BSPTranslate(cbsp, Round(cpos,0.05f));
-			NegateTree(bbsp);                                      // turn it inside-out, so intersection will be a subtraction
-			NegateTree(cbsp);
+			BSPTranslate(bbsp.get(), Round(bpos,0.05f));                 // move to current position for this operand
+			BSPTranslate(cbsp.get(), Round(cpos,0.05f));
+			NegateTree(bbsp.get());                                      // turn it inside-out, so intersection will be a subtraction
+			NegateTree(cbsp.get());
 			// note that there are 
 			extern float qsnap; qsnap = 0.05f;                     // Important. quantization rules for operands to avoid numerical issues.
-			bsp = BSPIntersect(cbsp, BSPIntersect(bbsp, absp));    // after this point, dont use absp or bbsp or cbsp anymore
-			BSPMakeBrep(bsp, BSPRipBrep(bsp));                     // just regenerate the brep, ensures no T-intersections
+			bsp = BSPIntersect(move(cbsp), BSPIntersect(move(bbsp), move(absp)));    // after this point, dont use absp or bbsp or cbsp anymore
+			BSPMakeBrep(bsp.get(), BSPRipBrep(bsp.get()));                     // just regenerate the brep, ensures no T-intersections
 			// BSPMakeBrep(bsp, BSPRipBrep(bsp));                  // uncomment this line to test the ability to extract mat settings from the previous faces
-			faces = BSPRipBrep(bsp);                               // brep moved into faces array
+			faces = BSPRipBrep(bsp.get());                               // brep moved into faces array
 
 			// some extra tests if you are in the mood
 			//	delete bsp;  // lets completely start over
@@ -250,7 +250,7 @@ LPSTR lpszCmdLine, int nCmdShow)
 		}
 		else if (drawmode == 1) // draw the cells
 		{
-			std::vector<BSPNode*> stack = { bsp };  // for non-recursive tree traversal
+			std::vector<BSPNode*> stack = { bsp.get() };  // for non-recursive tree traversal
 			while (stack.size())
 			{
 				auto n = stack.back(); stack.pop_back();
@@ -269,8 +269,8 @@ LPSTR lpszCmdLine, int nCmdShow)
 					gldraw(n->convex.verts,n->convex.GenerateTris());
 					glPopMatrix();
 				}
-				stack.push_back(n->under);
-				stack.push_back(n->over);
+				stack.push_back(n->under.get());
+				stack.push_back(n->over.get());
 			}
 		}
 		else if (drawmode == 2)  // draw the tree planes
@@ -282,7 +282,7 @@ LPSTR lpszCmdLine, int nCmdShow)
 			glColor4f(1, 1, 1, 0.5f);
 			glEnable(GL_BLEND);
 			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-			glDraw(bsp, camerapos);
+			glDraw(bsp.get(), camerapos);
 		}
 
 		// Restore state

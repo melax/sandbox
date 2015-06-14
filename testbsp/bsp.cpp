@@ -29,30 +29,25 @@ BSPNode *currentbsp=NULL;
 
 int bspnodecount=0;
 BSPNode::BSPNode(const float3 &n,float d):float4(n,d){
-	under = NULL;
-	over  = NULL;
 	isleaf= 0;
 	flag = 0;
 	bspnodecount++;
 }
 BSPNode::BSPNode(const float4 &p) : float4(p)
 {
-	under=over=NULL;
 	isleaf=0;
 	flag=0;
 	bspnodecount--;
 }
 
 BSPNode::~BSPNode() {
-	delete under;
-	delete over;
 	bspnodecount--;
 }
 
 int BSPCount(BSPNode *n)
 {
 	if(!n) return 0;
-	return 1+BSPCount(n->under)+BSPCount(n->over);
+	return 1+BSPCount(n->under.get())+BSPCount(n->over.get());
 }
 
 struct SortPerm { int i; float v; };
@@ -160,11 +155,11 @@ void DividePolys(const float4 &splitplane,std::vector<Face> && inputfaces,
 }
 
 
-BSPNode *BSPCompile(const std::vector<Face> & inputfaces,WingMesh convex_space,int side) { return BSPCompile(std::vector<Face>(inputfaces), convex_space, side); }
-BSPNode * BSPCompile(std::vector<Face> && inputfaces,WingMesh space,int side) 
+std::unique_ptr<BSPNode> BSPCompile(const std::vector<Face> & inputfaces,WingMesh convex_space,int side) { return BSPCompile(std::vector<Face>(inputfaces), convex_space, side); }
+std::unique_ptr<BSPNode> BSPCompile(std::vector<Face> && inputfaces,WingMesh space,int side) 
 {
     if (inputfaces.size() == 0) {
-		BSPNode *node = new BSPNode();
+        std::unique_ptr<BSPNode> node(new BSPNode);
 		node->convex = space;
 		node->isleaf=side; 
 		return node;
@@ -254,10 +249,9 @@ BSPNode * BSPCompile(std::vector<Face> && inputfaces,WingMesh space,int side)
 		}
 	}
 	// Divide the faces
-	BSPNode *node=new BSPNode();
-	node->xyz() = split.xyz();
-	node->w   = split.w;
-	node->convex   = space;
+    std::unique_ptr<BSPNode> node(new BSPNode);
+    node->plane() = split;
+	node->convex = space;
 
 	DividePolys(float4(split.xyz(), split.w), std::move(inputfaces), under, over, coplanar);
 
@@ -279,37 +273,35 @@ BSPNode * BSPCompile(std::vector<Face> && inputfaces,WingMesh space,int side)
 
 
 
-void BSPDeriveConvex(BSPNode *node,WingMesh cnvx) 
+void BSPDeriveConvex(BSPNode & node, WingMesh cnvx) 
 {
-	assert(node);
 	if (cnvx.edges.size() && cnvx.verts.size())
 	{
 		assert(cnvx.verts.size());
 		assert(cnvx.edges.size());
 		assert(cnvx.faces.size());
 	}
-	node->convex = std::move(cnvx);
-	if(node->isleaf) {
-		return;
-	}
+	node.convex = std::move(cnvx);
+	if(node.isleaf) return;
+
 	// if we are "editing" a bsp then the current plane may become coplanar to one of its parents (boundary of convex) or outside of the current volume (outside the convex)
 	WingMesh cu;
 	WingMesh co;
-	if(node->convex.verts.size())  // non empty
+	if(node.convex.verts.size())  // non empty
 	{
-		int f = node->convex.SplitTest(*node);
+		int f = node.convex.SplitTest(node.plane());
 		if(f==SPLIT)
 		{
-			cu = WingMeshCrop(node->convex, *node);
-			co = WingMeshCrop(node->convex, float4(-node->xyz(), -node->w));
+			cu = WingMeshCrop(node.convex, node.plane());
+			co = WingMeshCrop(node.convex, -node.plane());
 		}
 		else if(f==OVER)
 		{
-			co = node->convex;
+			co = node.convex;
 		}
 		else if(f==UNDER)
 		{
-			cu = node->convex;
+			cu = node.convex;
 		}
 		else
 		{
@@ -318,11 +310,11 @@ void BSPDeriveConvex(BSPNode *node,WingMesh cnvx)
 	}
 
 	// Under SubTree
-	assert(node->under);
-	BSPDeriveConvex(node->under,cu); 
+	assert(node.under);
+	BSPDeriveConvex(*node.under,cu); 
 	// Over  SubTree
-	assert(node->over );
-	BSPDeriveConvex(node->over ,co);
+	assert(node.over);
+	BSPDeriveConvex(*node.over ,co);
 }
 
  
@@ -347,8 +339,8 @@ void BSPTranslate(BSPNode *n,const float3 &offset)
 	for(auto & f : n->brep) {
 		FaceTranslate(f,offset);
 	}
-	BSPTranslate(n->under,offset);
-	BSPTranslate(n->over,offset);
+	BSPTranslate(n->under.get(),offset);
+	BSPTranslate(n->over.get(),offset);
 }
 
 
@@ -362,8 +354,8 @@ void BSPRotate(BSPNode *n,const float4 &r)
 	for (auto & f : n->brep) {
 		FaceRotate(f, r);
 	}
-	BSPRotate(n->under,r);
-	BSPRotate(n->over,r);
+	BSPRotate(n->under.get(),r);
+	BSPRotate(n->over.get(),r);
 }
 
 
@@ -384,8 +376,8 @@ void BSPScale(BSPNode *n,float s)
 		// Scale(f->vertex,s);
 		for(auto & v : f.vertex) v *= s;			
 	}
-	BSPScale(n->under,s);
-	BSPScale(n->over,s);
+	BSPScale(n->under.get(),s);
+	BSPScale(n->over.get(),s);
 }
 
 void NegateFace(Face & f)
@@ -409,29 +401,11 @@ void NegateTreePlanes(BSPNode *root)
 	}
 }
 
-
-
 void NegateTree(BSPNode *root) 
 {
 	NegateTreePlanes(root);  // this flips the faces too
 	for (auto & f : BSPRipBrep(root))
 		FaceEmbed(root, std::move(f)); 
-}
-
-BSPNode *BSPDup(BSPNode *n) 
-{
-	if(!n) {
-		return NULL;
-	}
-	BSPNode* a = new BSPNode();
-	a->xyz() = n->xyz();
-	a->w   = n->w;
-	a->isleaf = n->isleaf;
-	a->convex = (n->convex);
-    a->brep = n->brep;
-	a->under= BSPDup(n->under);
-	a->over = BSPDup(n->over);
-	return a;
 }
 
 int BSPFinite(BSPNode *bsp)

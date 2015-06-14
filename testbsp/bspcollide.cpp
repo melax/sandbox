@@ -79,29 +79,29 @@ int HitCheck(BSPNode *node,int solid,float3 v0,float3 v1,float3 *impact) {
 	int f0 = (dot(v0,node->xyz())+node->w>0)?1:0;  // if v0 above plane
 	int f1 = (dot(v1, node->xyz()) + node->w>0) ? 1 : 0;  // if v1 above plane
 	if(f0==0 && f1==0) {
-		return HitCheck(node->under,1,v0,v1,impact);
+		return HitCheck(node->under.get(),1,v0,v1,impact);
 	}
 	if(f0==1 && f1==1) {
-		return HitCheck(node->over,0,v0,v1,impact);
+		return HitCheck(node->over.get(),0,v0,v1,impact);
 	}
 	float3 vmid = PlaneLineIntersection(*node,v0,v1);
 	if(f0==0) {
 		assert(f1==1);
 		// perhaps we could pass 'solid' instead of '1' here:
-		if(HitCheck(node->under,1,v0,vmid,impact)) {
+		if(HitCheck(node->under.get(),1,v0,vmid,impact)) {
 			return 1;
 		}
 		HitCheckImpactNormal = -node->xyz();
 		HitCheckNode = node;
-		return HitCheck(node->over,0,vmid,v1,impact);
+		return HitCheck(node->over.get(),0,vmid,v1,impact);
 	}
 	assert(f0==1 && f1==0);
-	if(HitCheck(node->over,0,v0,vmid,impact)) {
+	if(HitCheck(node->over.get(),0,v0,vmid,impact)) {
 		return 1;
 	}
 	HitCheckImpactNormal = node->xyz();
 	HitCheckNode = node;
-	return HitCheck(node->under,1,vmid,v1,impact);
+	return HitCheck(node->under.get(),1,vmid,v1,impact);
 }
 
 int HitCheckSolidReEnter(BSPNode *node,float3 v0,float3 v1,float3 *impact) 
@@ -170,10 +170,10 @@ int HitCheckSphere(float r,BSPNode *node,int solid,float3 v0,float3 v1,float3 *i
 	float3 w0,w1,nw0;
 	int hit=0;
 	if(SegmentUnder(float4(node->xyz(),node->w-r),v0,v1,nv0,&w0,&w1,&nw0)) {
-		hit |= HitCheckSphere(r,node->under,1,w0,w1,&v1,nw0);
+		hit |= HitCheckSphere(r,node->under.get(),1,w0,w1,&v1,nw0);
 	}
 	if(SegmentOver( float4(node->xyz(),node->w+r),v0,v1,nv0,&w0,&w1,&nw0)) {
-		hit |= HitCheckSphere(r,node->over,0,w0,w1,&v1,nw0);
+		hit |= HitCheckSphere(r,node->over.get(),0,w0,w1,&v1,nw0);
 	}
 	if(hit) {
 		*impact = v1;
@@ -250,10 +250,10 @@ int HitCheckCylinder(float r,float h,BSPNode *node,int solid,float3 v0,float3 v1
 	float3 w0,w1,nw0;
 	int hit=0;
 	if(SegmentUnder(float4(node->xyz(),node->w+offset_up  ),v0,v1,nv0,&w0,&w1,&nw0)) {
-		hit |= HitCheckCylinder(r,h,node->under,1,w0,w1,&v1,nw0);
+		hit |= HitCheckCylinder(r,h,node->under.get(),1,w0,w1,&v1,nw0);
 	}
 	if(SegmentOver( float4(node->xyz(),node->w+offset_down),v0,v1,nv0,&w0,&w1,&nw0)) {
-		hit |= HitCheckCylinder(r,h,node->over,0,w0,w1,&v1,nw0);
+		hit |= HitCheckCylinder(r,h,node->over.get(),0,w0,w1,&v1,nw0);
 	}
 	if(hit) {
 		*impact = v1;
@@ -422,10 +422,10 @@ int HitCheckConvex(std::vector<float3> &verts,BSPNode *node,int solid,
 	int vrtw0;
 	int hit=0;
 	if(PortionUnder(float4(node->xyz(),node->w),verts,v0,v1,nv0,vrtv0,q0,q1,&w0,&w1,&nw0,&vrtw0,&wq0,&wq1)) {
-		hit |= HitCheckConvex(verts,node->under,1, w0,w1,&v1, wq0,wq1,&q1,nw0,vrtw0);
+		hit |= HitCheckConvex(verts,node->under.get(),1, w0,w1,&v1, wq0,wq1,&q1,nw0,vrtw0);
 	}
 	if(PortionUnder(float4(-node->xyz(),-node->w),verts,v0,v1,nv0,vrtv0,q0,q1,&w0,&w1,&nw0,&vrtw0,&wq0,&wq1)) {
-		hit |= HitCheckConvex(verts,node->over,0, w0,w1,&v1, wq0,wq1,&q1,nw0,vrtw0);
+		hit |= HitCheckConvex(verts,node->over.get(),0, w0,w1,&v1, wq0,wq1,&q1,nw0,vrtw0);
 	}
 	if(hit) {
 		*impact = v1;

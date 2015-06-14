@@ -19,6 +19,7 @@
 #include "geometric.h"
 #include "wingmesh.h"  
 #include <functional>
+#include <memory>
 
 //#define COPLANAR   (0)   <= these found in geometric.h
 //#define UNDER      (1)
@@ -50,8 +51,8 @@ class BSPNode :public float4
   public:
 	float4&         plane() {return *this;}  // hmmmm is-a vs has-a
 	const float4&   plane() const { return *this; }  
-	BSPNode *		under;
-	BSPNode *		over;
+	std::unique_ptr<BSPNode> under;
+	std::unique_ptr<BSPNode> over;
 	int				isleaf;
 	int				flag;      // using this for GC
 	WingMesh 		convex;    // the volume of space occupied by this node
@@ -69,7 +70,7 @@ struct treetraverse  // preorder
 	{
 		std::vector<BSPNode *> stack;
 		BSPNode * operator *() const { return stack.size() ? stack.back() : NULL; }
-		iterator & operator++(){ assert(stack.size()); BSPNode *n = **this; stack.pop_back(); if (n && n->under) stack.push_back(n->under); if (n&&n->over) stack.push_back(n->over);  return *this; }
+		iterator & operator++(){ assert(stack.size()); BSPNode *n = **this; stack.pop_back(); if (n && n->under) stack.push_back(n->under.get()); if (n&&n->over) stack.push_back(n->over.get());  return *this; }
 		bool operator !=(const iterator &b){ return stack != b.stack; }
 	};
 	iterator begin() { iterator b; if (root)b.stack.push_back(root); return b; }
@@ -85,9 +86,9 @@ struct treebacktofront
 	{
 		std::vector<BSPNode *> stack;
 		float3 p;
-		void toleaf(BSPNode *n) { while (n) { stack.push_back(n); n = (dot(float4(p, 1), n->plane()) > 0) ? n->under : n->over; } }
+		void toleaf(BSPNode *n) { while (n) { stack.push_back(n); n = (dot(float4(p, 1), n->plane()) > 0) ? n->under.get() : n->over.get(); } }
 		BSPNode * operator *() const { return stack.size() ? stack.back() : NULL; }
-		iterator & operator++(){ assert(stack.size()); BSPNode *n = **this; stack.pop_back(); assert(n); toleaf((dot(float4(p, 1), n->plane()) > 0) ? n->over : n->under);  return *this; }
+		iterator & operator++(){ assert(stack.size()); BSPNode *n = **this; stack.pop_back(); assert(n); toleaf((dot(float4(p, 1), n->plane()) > 0) ? n->over.get() : n->under.get());  return *this; }
 		bool operator !=(const iterator &b){ return stack != b.stack; }
 	};
 	iterator begin() { iterator b; b.p = p;  b.toleaf(root); return b; }
@@ -130,18 +131,20 @@ void     AssignTex(BSPNode *node,int matid=0);
 void     AssignTex(Face & face);
 
 
-BSPNode *BSPCompile(const std::vector<Face> & inputfaces,WingMesh convex_space,int side=0); 
-BSPNode *BSPCompile(std::vector<Face> && inputfaces,WingMesh convex_space,int side=0); 
+std::unique_ptr<BSPNode> BSPCompile(const std::vector<Face> & inputfaces,WingMesh convex_space,int side=0); 
+std::unique_ptr<BSPNode> BSPCompile(std::vector<Face> && inputfaces,WingMesh convex_space,int side=0); 
+std::unique_ptr<BSPNode> BSPUnion(std::unique_ptr<BSPNode> a, std::unique_ptr<BSPNode> b);
+std::unique_ptr<BSPNode> BSPIntersect(std::unique_ptr<BSPNode> a, std::unique_ptr<BSPNode> b);
+std::unique_ptr<BSPNode> BSPClean(std::unique_ptr<BSPNode> n); 
+
 void     BSPDeriveConvex(BSPNode *node, WingMesh *convex);
 void     BSPMakeBrep(BSPNode *r, std::vector<Face> && faces);  // only uses faces to sample for texture and material
 std::vector<Face> BSPRipBrep(BSPNode *r);
-BSPNode* BSPDup(BSPNode *n);
 void     BSPTranslate(BSPNode *n,const float3 &offset);
 void     BSPRotate(BSPNode *n, const float4 &r);
 void     BSPScale(BSPNode *n,float s);
 void     NegateTree(BSPNode *n);
-BSPNode *BSPUnion(BSPNode *a, BSPNode *b);
-BSPNode *BSPIntersect(BSPNode *a,BSPNode *b);
+
 int      HitCheck(BSPNode *node,int solid,float3 v0,float3 v1,float3 *impact);
 int      HitCheckSolidReEnter(BSPNode *node,float3 v0,float3 v1,float3 *impact); // wont just return v0 if you happen to start in solid
 int      HitCheckCylinder(float r,float h,BSPNode *node,int solid,float3 v0,float3 v1,float3 *impact,const float3 &nv0); 
@@ -157,7 +160,6 @@ std::vector<WingMesh*> ProximityCellsm(std::function<float3(const float3&)> supp
 template<class T> std::vector<WingMesh*> ProximityCells(T collidable, BSPNode *bsp, float padding = 0.0f) { return ProximityCellsm(SupportPointFunc<T>(collidable), bsp, padding); }
 std::vector<WingMesh*> BSPGetSolids(BSPNode *bsp);
 void     BSPPartition(BSPNode *n, const float4 &p, BSPNode * &nodeunder, BSPNode * &nodeover);
-BSPNode *BSPClean(BSPNode *n); 
 int      BSPCount(BSPNode *n);
 int      BSPFinite(BSPNode *bsp);
 inline int maxdir(const std::vector<float3> &a,const float3 &dir) {return maxdir(a.data(),a.size(),dir);}
