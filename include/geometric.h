@@ -62,8 +62,14 @@ inline float4 quatfrommat(const float3x3 &m)
 	return qmul(qp, post);
 }
 
-inline float4x4 MatrixFromRotationTranslation(const float4 & rotationQuat, const float3 & translationVec)    { return{ { qxdir(rotationQuat), 0 }, { qydir(rotationQuat), 0 }, { qzdir(rotationQuat), 0 }, { translationVec, 1 } }; }
-
+inline float4 QuatFromAxisAngle(const float3 & axis, float angle) { return {axis*std::sin(angle/2), std::cos(angle/2)}; }
+inline float4x4 MatrixFromRotation(const float4 & rotationQuat) { return {{qxdir(rotationQuat),0}, {qydir(rotationQuat),0}, {qzdir(rotationQuat),0}, {0,0,0,1}}; }
+inline float4x4 MatrixFromTranslation(const float3 & translationVec) { return {{1,0,0,0}, {0,1,0,0}, {0,0,1,0}, {translationVec,1}}; }
+inline float4x4 MatrixFromRotationTranslation(const float4 & rotationQuat, const float3 & translationVec) { return {{qxdir(rotationQuat),0}, {qydir(rotationQuat),0}, {qzdir(rotationQuat),0}, {translationVec,1}}; }
+inline float4x4 MatrixFromProjectionFrustum(float l, float r, float b, float t, float n, float f) { return {{2*n/(r-l),0,0,0}, {0,2*n/(t-b),0,0}, {(r+l)/(r-l),(t+b)/(t-b),-(f+n)/(f-n),-1}, {0,0,-2*f*n/(f-n),0}}; }
+inline float4x4 MatrixFromVfovAspect(float vfov, float aspect, float n, float f) { float y = n*std::tan(vfov/2), x=y*aspect; return MatrixFromProjectionFrustum(-x,x,-y,y,n,f); }
+inline float4x4 MatrixFromLookVector(const float3 & fwd, const float3 & up) { auto f = normalize(fwd), s = normalize(cross(f, up)), u = cross(s, f); return {{s.x,u.x,-f.x,0},{s.y,u.y,-f.y,0},{s.z,u.z,-f.z,0},{0,0,0,1}}; }
+inline float4x4 MatrixFromLookAt(const float3 & eye, const float3 & center, const float3 & up) { return mul(MatrixFromLookVector(center - eye, up), MatrixFromTranslation(-eye)); }
 
 struct Pose // Value type representing a rigid transformation consisting of a translation and rotation component
 {
