@@ -54,7 +54,6 @@ class BSPNode :public float4
 	std::unique_ptr<BSPNode> under;
 	std::unique_ptr<BSPNode> over;
 	int				isleaf;
-	int				flag;      // using this for GC
 	WingMesh 		convex;    // the volume of space occupied by this node
 	std::vector<Face> brep;
 	explicit		BSPNode(const float4 &p);
@@ -119,6 +118,7 @@ void     FaceExtractMatVals(Face *face,const float3 &v0,const float3 &v1,const f
 void     FaceTranslate(std::vector<Face> & faces, const float3 & offset);
 void     FaceTranslate(Face & face ,const float3 & offset);
 void     FaceRotate(Face & face, const float4 & r);
+void     FaceScale(Face & face, float scaling);
 int      FaceClosestEdge(Face *face,const float3 &sample_point);
 Face *   FaceNewQuad(const float3 &v0,const float3 &v1,const float3 &v2,const float3 &v3);
 Face *   FaceNewTri(const float3 &v0,const float3 &v1,const float3 &v2);
@@ -140,10 +140,10 @@ std::unique_ptr<BSPNode> BSPClean(std::unique_ptr<BSPNode> n);
 void     BSPDeriveConvex(BSPNode *node, WingMesh *convex);
 void     BSPMakeBrep(BSPNode *r, std::vector<Face> && faces);  // only uses faces to sample for texture and material
 std::vector<Face> BSPRipBrep(BSPNode *r);
-void     BSPTranslate(BSPNode *n,const float3 &offset);
-void     BSPRotate(BSPNode *n, const float4 &r);
-void     BSPScale(BSPNode *n,float s);
-void     NegateTree(BSPNode *n);
+void     BSPTranslate(BSPNode & n,const float3 &offset);
+void     BSPRotate(BSPNode & n, const float4 &r);
+void     BSPScale(BSPNode & n,float s);
+void     NegateTree(BSPNode & n);
 
 int      HitCheck(BSPNode *node,int solid,float3 v0,float3 v1,float3 *impact);
 int      HitCheckSolidReEnter(BSPNode *node,float3 v0,float3 v1,float3 *impact); // wont just return v0 if you happen to start in solid

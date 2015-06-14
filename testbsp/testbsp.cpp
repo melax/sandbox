@@ -202,10 +202,10 @@ LPSTR lpszCmdLine, int nCmdShow)
 			auto absp = BSPCompile(af, WingMeshCube(2.0f));        // create spatial structures for our operands
 			auto bbsp = BSPCompile(bf, WingMeshCube(2.0f));
 			auto cbsp = BSPCompile(cf, WingMeshCube(2.0f));
-			BSPTranslate(bbsp.get(), Round(bpos,0.05f));                 // move to current position for this operand
-			BSPTranslate(cbsp.get(), Round(cpos,0.05f));
-			NegateTree(bbsp.get());                                      // turn it inside-out, so intersection will be a subtraction
-			NegateTree(cbsp.get());
+			BSPTranslate(*bbsp, Round(bpos,0.05f));                 // move to current position for this operand
+			BSPTranslate(*cbsp, Round(cpos,0.05f));
+			NegateTree(*bbsp);                                      // turn it inside-out, so intersection will be a subtraction
+			NegateTree(*cbsp);
 			// note that there are 
 			extern float qsnap; qsnap = 0.05f;                     // Important. quantization rules for operands to avoid numerical issues.
 			bsp = BSPIntersect(move(cbsp), BSPIntersect(move(bbsp), move(absp)));    // after this point, dont use absp or bbsp or cbsp anymore

@@ -30,14 +30,12 @@ BSPNode *currentbsp=NULL;
 int bspnodecount=0;
 BSPNode::BSPNode(const float3 &n,float d):float4(n,d){
 	isleaf= 0;
-	flag = 0;
 	bspnodecount++;
 }
 BSPNode::BSPNode(const float4 &p) : float4(p)
 {
 	isleaf=0;
-	flag=0;
-	bspnodecount--;
+	bspnodecount++;
 }
 
 BSPNode::~BSPNode() {
@@ -329,55 +327,31 @@ std::vector<WingMesh*> BSPGetSolids(BSPNode *root)
 
 
 
-void BSPTranslate(BSPNode *n,const float3 &offset)
+void BSPTranslate(BSPNode & n, const float3 & offset)
 {
-	if(!n ) {
-		return;
-	}
-	n->w = n->w - dot(n->xyz(), offset);
-	WingMeshTranslate(n->convex,offset);
-	for(auto & f : n->brep) {
-		FaceTranslate(f,offset);
-	}
-	BSPTranslate(n->under.get(),offset);
-	BSPTranslate(n->over.get(),offset);
+    PlaneTranslate(n.plane(), offset);
+	WingMeshTranslate(n.convex,offset);
+	for(auto & face : n.brep) FaceTranslate(face, offset);
+	if(n.under) BSPTranslate(*n.under, offset);
+    if(n.over) BSPTranslate(*n.over, offset);
 }
 
-
-void BSPRotate(BSPNode *n,const float4 &r)
+void BSPRotate(BSPNode & n, const float4 & r)
 {
-	if(!n ) {
-		return;
-	}
-	n->xyz() = qrot(r, n->xyz());
-	WingMeshRotate(n->convex,r);
-	for (auto & f : n->brep) {
-		FaceRotate(f, r);
-	}
-	BSPRotate(n->under.get(),r);
-	BSPRotate(n->over.get(),r);
+    PlaneRotate(n.plane(), r);
+	WingMeshRotate(n.convex, r);
+	for(auto & face : n.brep) FaceRotate(face, r);
+	if(n.under) BSPRotate(*n.under, r);
+	if(n.over) BSPRotate(*n.over, r);
 }
 
-
-void BSPScale(BSPNode *n,float s)
+void BSPScale(BSPNode & n, float s)
 {
-	if(!n) return;
-	n->w = n->w * s;
-	// if(n->convex) 
-	for(unsigned int i=0;i<n->convex.verts.size();i++){
-		n->convex.verts[i] *= s;
-	}
-	for(unsigned int i=0;i<n->convex.faces.size();i++) {
-		n->convex.faces[i].w *=s;
-	}
-	for(unsigned i=0;i<n->brep.size();i++) {
-		Face & f = n->brep[i];
-		f.w *= s;
-		// Scale(f->vertex,s);
-		for(auto & v : f.vertex) v *= s;			
-	}
-	BSPScale(n->under.get(),s);
-	BSPScale(n->over.get(),s);
+    PlaneScale(n.plane(), s);
+    WingMeshScale(n.convex, s);
+    for(auto & face : n.brep) FaceScale(face, s);
+	if(n.under) BSPScale(*n.under, s);
+	if(n.over) BSPScale(*n.over, s);
 }
 
 void NegateFace(Face & f)
@@ -386,7 +360,7 @@ void NegateFace(Face & f)
     std::reverse(begin(f.vertex), end(f.vertex));
 }
 
-void NegateTreePlanes(BSPNode *root) 
+void NegateTreePlanes(BSPNode * root) 
 {
 	for (auto n : treetraverse(root))
 	{
@@ -401,11 +375,11 @@ void NegateTreePlanes(BSPNode *root)
 	}
 }
 
-void NegateTree(BSPNode *root) 
+void NegateTree(BSPNode & root) 
 {
-	NegateTreePlanes(root);  // this flips the faces too
-	for (auto & f : BSPRipBrep(root))
-		FaceEmbed(root, std::move(f)); 
+	NegateTreePlanes(&root);  // this flips the faces too
+	for (auto & f : BSPRipBrep(&root))
+		FaceEmbed(&root, std::move(f)); 
 }
 
 int BSPFinite(BSPNode *bsp)

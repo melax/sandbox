@@ -174,7 +174,7 @@ float3 FaceCenter(const Face & face)
 
 void FaceTranslate(Face & face, const float3 &offset){
 	for(auto & v :  face.vertex) v += float3(offset);
-	face.w -= dot(face.xyz(), float3(offset));
+    PlaneTranslate(face.plane(), offset);
 	face.ot.x -= dot(offset,face.gu);
 	face.ot.y -= dot(offset,face.gv);
 }
@@ -182,10 +182,17 @@ void FaceTranslate(Face & face, const float3 &offset){
 void FaceRotate(Face & face, const float4 &r)
 {
 	for(auto & v : face.vertex) v = qrot(r,v);
-	face.xyz() = qrot(r, face.xyz());
+    PlaneRotate(face.plane(), r);
 	face.gu = qrot(r,face.gu);
 	face.gv = qrot(r,face.gv);
 	face.ot = qrot(r,face.ot);
+}
+
+void FaceScale(Face & face, float scaling)
+{
+    for(auto & v : face.vertex) v *= scaling;
+    PlaneScale(face.plane(), scaling);
+    // TODO: Does scaling affect face.ot? 
 }
 
 void FaceTranslate(std::vector<Face> & faces,const float3 & offset) {

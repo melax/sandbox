@@ -350,6 +350,8 @@ inline float3x3 Inertia(const float3 *vertices, const int3 *tris, const int coun
 	{ -offd.y, -offd.x, diag.x + diag.y } };
 }
 
-
+inline void PlaneTranslate(float4 & plane, const float3 & translation) { plane.w -= dot(plane.xyz(), translation); }
+inline void PlaneRotate(float4 & plane, const float4 & rotation) { plane.xyz() = qrot(rotation, plane.xyz()); }
+inline void PlaneScale(float4 & plane, float scaling) { plane.w *= scaling; }
 
 #endif //GEOMETRIC_H
