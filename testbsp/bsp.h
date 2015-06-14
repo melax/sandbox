@@ -27,9 +27,8 @@
 //#define PAPERWIDTH (0.0001f)
 
 
-class Face : public float4 
+struct Face : public float4 
 {
-  public:
 	float4&         plane() {return *this;}  
 	const float4&   plane() const { return *this; }  // hmmmm is-a vs has-a
 	int				matid;
@@ -37,7 +36,12 @@ class Face : public float4
 	float3			gu;
 	float3			gv;
 	float3			ot;
-	Face() {matid=0;}
+
+    Face() : matid(0) {}
+    Face(const Face & r) = default;
+    Face(Face && r) : Face() { *this = std::move(r); }
+    Face & operator = (const Face & r) = default;
+    Face & operator = (Face && r) { plane()=r.plane(); matid=r.matid; vertex=move(r.vertex); gu=r.gu; gv=r.gv; ot=r.ot; return *this; }
 };
 
 
@@ -51,7 +55,7 @@ class BSPNode :public float4
 	int				isleaf;
 	int				flag;      // using this for GC
 	WingMesh 		convex;    // the volume of space occupied by this node
-	std::vector<Face *>	brep;
+	std::vector<Face> brep;
 	explicit		BSPNode(const float4 &p);
 	explicit		BSPNode(const float3 &n=float3(0,0,0),float d=0);
 					~BSPNode();
@@ -103,17 +107,17 @@ inline std::pair<float3, float3> Extents(const std::vector<Face*> &faces)
     return bbox;
 }
 
-Face *   FaceDup(Face *face);
-Face *   FaceClip(Face *face,const float4 &clip);
-float    FaceArea(Face *face);
-float3   FaceCenter(Face *face);
-int	     FaceSplitTest(const Face *face,const float4 &splitplane,float epsilon=PAPERWIDTH);
+Face     FaceClip(const Face & face, const float4 & clip);
+Face     FaceClip(Face && face, const float4 & clip);
+float    FaceArea(const Face & face);
+float3   FaceCenter(const Face & face);
+int	     FaceSplitTest(const Face & face,const float4 &splitplane,float epsilon=PAPERWIDTH);
 void     FaceSliceEdge(Face *face,int edge,BSPNode *n);
-void     FaceEmbed(BSPNode *node,Face *face);
+void     FaceEmbed(BSPNode *node, Face && face);
 void     FaceExtractMatVals(Face *face,const float3 &v0,const float3 &v1,const float3 &v2,const float2 &t0,const float2 &t1,const float2 &t2);
-void     FaceTranslate(std::vector<Face *> &faces,const float3 &offset);
-void     FaceTranslate(Face *face,const float3 &offset);
-void     FaceRotate(Face *face,const float4 &r);
+void     FaceTranslate(std::vector<Face> & faces, const float3 & offset);
+void     FaceTranslate(Face & face ,const float3 & offset);
+void     FaceRotate(Face & face, const float4 & r);
 int      FaceClosestEdge(Face *face,const float3 &sample_point);
 Face *   FaceNewQuad(const float3 &v0,const float3 &v1,const float3 &v2,const float3 &v3);
 Face *   FaceNewTri(const float3 &v0,const float3 &v1,const float3 &v2);
@@ -123,15 +127,14 @@ float2   FaceTexCoord(Face *f,const float3 &v); // uv texture coord of point v o
 int      FaceSplitifyEdges(BSPNode *root);
 
 void     AssignTex(BSPNode *node,int matid=0);
-void     AssignTex(Face* face);
+void     AssignTex(Face & face);
 
 
-
-BSPNode *BSPCompile(std::vector<Face *> &inputfaces,WingMesh convex_space,int side=0); 
+BSPNode *BSPCompile(const std::vector<Face> & inputfaces,WingMesh convex_space,int side=0); 
+BSPNode *BSPCompile(std::vector<Face> && inputfaces,WingMesh convex_space,int side=0); 
 void     BSPDeriveConvex(BSPNode *node, WingMesh *convex);
-void     BSPMakeBrep(BSPNode *r, std::vector<Face*> &faces);  // only uses faces to sample for texture and material
-std::vector<Face*> BSPRipBrep(BSPNode *r);
-std::vector<Face*> BSPGetBrep(BSPNode *r);
+void     BSPMakeBrep(BSPNode *r, std::vector<Face> && faces);  // only uses faces to sample for texture and material
+std::vector<Face> BSPRipBrep(BSPNode *r);
 BSPNode* BSPDup(BSPNode *n);
 void     BSPTranslate(BSPNode *n,const float3 &offset);
 void     BSPRotate(BSPNode *n, const float4 &r);

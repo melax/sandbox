@@ -24,25 +24,25 @@ float texscale=1.0f;
 
 float3 safenormalize(const float3 &v) { return (v == float3(0, 0, 0)) ? float3(0, 0, 1) : normalize(v); }
 
-void texplanar(Face *face)
+void texplanar(Face & face)
 {
-	float3 n(face->xyz());
+	float3 n(face.xyz());
 	if(fabsf(n.x)>fabsf(n.y) && fabsf(n.x)>fabsf(n.z)) {
-		face->gu = float3(0,(n.x>0.0f)?1.0f:-1.0f,0);
-		face->gv = float3(0,0,1);
+		face.gu = float3(0,(n.x>0.0f)?1.0f:-1.0f,0);
+		face.gv = float3(0,0,1);
 	}
 	else if(fabsf(n.y)>fabsf(n.z)) {
-		face->gu = float3((n.y>0.0f)?-1.0f:1.0f,0,0);
-		face->gv = float3(0,0,1);
+		face.gu = float3((n.y>0.0f)?-1.0f:1.0f,0,0);
+		face.gv = float3(0,0,1);
 	}
 	else {
-		face->gu = float3(1,0,0);
-		face->gv = float3(0,(n.z>0.0f)?1.0f:-1.0f,0);
+		face.gu = float3(1,0,0);
+		face.gv = float3(0,(n.z>0.0f)?1.0f:-1.0f,0);
 	}
-	face->gu *= texscale;
-	face->gv *= texscale;
+	face.gu *= texscale;
+	face.gv *= texscale;
 }
-void AssignTex(Face* face)
+void AssignTex(Face& face)
 {
 	texplanar(face);
 }
@@ -52,9 +52,9 @@ void AssignTex(BSPNode *node,int matid)
 	if(!node) {
 		return;
 	}
-	for(unsigned int i=0;i<node->brep.size();i++) {
-		Face *face = node->brep[i];
-		face->matid = matid;
+	for(auto & face : node->brep)
+    {
+		face.matid = matid;
 		AssignTex(face);
 	}
 	AssignTex(node->under,matid);
@@ -151,64 +151,45 @@ Face *FaceNewTriTex(const float3 &v0,const float3 &v1,const float3 &v2,const flo
 	return f;
 }
 
-Face *FaceDup(Face *face){
-	Face *newface = new Face();
-	for(unsigned int i=0;i<face->vertex.size();i++) {
-		newface->vertex.push_back(face->vertex[i]);
-	}
-	newface->xyz() = face->xyz();
-	newface->w   = face->w;
-	newface->matid  = face->matid;
-	newface->gu     = face->gu;
-	newface->gv     = face->gv;
-	newface->ot     = face->ot;
-	return newface;	
-}
-
-float FaceArea(Face *face){
+float FaceArea(const Face & face){
 	float area=0;
-	for(unsigned int i=0;i<face->vertex.size();i++) {
-		int i1=(i+1)%face->vertex.size();
-		int i2=(i+2)%face->vertex.size();
-		float3 &vb=face->vertex[0];
-		float3 &v1=face->vertex[i1];
-		float3 &v2=face->vertex[i2];
-		area += dot(face->xyz(), cross(v1 - vb, v2 - v1)) / 2.0f;
+	for(unsigned int i=2;i<face.vertex.size();i++) {
+		const float3 &vb=face.vertex[0];
+		const float3 &v1=face.vertex[i-1];
+		const float3 &v2=face.vertex[i];
+		area += dot(face.xyz(), cross(v1 - vb, v2 - v1)) / 2.0f;
 	}
 	return area;
 
 }
 
-float3 FaceCenter(Face *face)
+float3 FaceCenter(const Face & face)
 {
 	float3 centroid(0,0,0); // ok not really, but ill make a better routine later!
-	for(unsigned int i=0;i<face->vertex.size();i++) {
-		centroid = centroid + face->vertex[i];
+	for(unsigned int i=0;i<face.vertex.size();i++) {
+		centroid = centroid + face.vertex[i];
 	}
-	return centroid/(float)face->vertex.size();
+	return centroid/(float)face.vertex.size();
 }
 
-void FaceTranslate(Face *face,const float3 &offset){
-	for(auto &v :  face->vertex) {
-		v += float3(offset);
-	}
-	face->w -= dot(face->xyz(), float3(offset));
-	face->ot.x   -= dot(offset,face->gu);
-	face->ot.y   -= dot(offset,face->gv);
+void FaceTranslate(Face & face, const float3 &offset){
+	for(auto & v :  face.vertex) v += float3(offset);
+	face.w -= dot(face.xyz(), float3(offset));
+	face.ot.x -= dot(offset,face.gu);
+	face.ot.y -= dot(offset,face.gv);
 }
  
-void FaceRotate(Face *face,const float4 &r)
+void FaceRotate(Face & face, const float4 &r)
 {
-	for (auto &v: face->vertex) 
-		v = qrot(r,v);
-	face->xyz() = qrot(r, face->xyz());
-	face->gu = qrot(r,face->gu);
-	face->gv = qrot(r,face->gv);
-	face->ot = qrot(r,face->ot);
+	for(auto & v : face.vertex) v = qrot(r,v);
+	face.xyz() = qrot(r, face.xyz());
+	face.gu = qrot(r,face.gu);
+	face.gv = qrot(r,face.gv);
+	face.ot = qrot(r,face.ot);
 }
 
-void FaceTranslate(std::vector<Face *> &faces,const float3 &offset) {
-	for(auto &f : faces) {
+void FaceTranslate(std::vector<Face> & faces,const float3 & offset) {
+	for(auto & f : faces) {
 		FaceTranslate(f,offset);
 	}
 }
@@ -236,54 +217,47 @@ int FaceClosestEdge(Face *face,const float3 &sample_point)
 }
 
 
-void FaceSlice(Face *face,const float4 &clip) {
+void FaceSlice(Face & face,const float4 &clip) {
 	int count=0;
-	for(unsigned int i=0;i<face->vertex.size();i++) {
-		unsigned int i2=(i+1)%face->vertex.size();
-		int   vf0 = PlaneTest(clip, face->vertex[i]);
-		int   vf2 = PlaneTest(clip, face->vertex[i2]);
+	for(unsigned int i=0;i<face.vertex.size();i++) {
+		unsigned int i2=(i+1)%face.vertex.size();
+		int   vf0 = PlaneTest(clip, face.vertex[i]);
+		int   vf2 = PlaneTest(clip, face.vertex[i2]);
 		if((vf0==OVER  && vf2==UNDER)||
 		   (vf0==UNDER && vf2==OVER )  )
 		{
 			float3 vmid;
-			vmid = PlaneLineIntersection(clip,face->vertex[i],face->vertex[i2]);
+			vmid = PlaneLineIntersection(clip,face.vertex[i],face.vertex[i2]);
 			assert(!PlaneTest(clip, vmid));
-			face->vertex.insert(face->vertex.begin() + i2, vmid); //  Insert(face->vertex, vmid, i2);
+			face.vertex.insert(face.vertex.begin() + i2, vmid); //  Insert(face.vertex, vmid, i2);
 			i=0;	
 			assert(count<2);
 			count++;
 		}
 	}
 }
-Face *FaceClip(Face *face,const float4 &clip) {
-	int flag = FaceSplitTest(face, clip);
-	if(flag == UNDER || flag==COPLANAR) {
-		return face;
-	}
-	if(flag == OVER) {
-		delete face;
-		return NULL;
-	}
-	assert(flag==SPLIT);
+
+Face FaceClip(const Face & face, const float4 & clip) { return FaceClip(Face(face), clip); }
+Face FaceClip(Face && face,const float4 &clip) {
+	assert(FaceSplitTest(face, clip) == SPLIT);
 	FaceSlice(face,clip);
 	std::vector<float3> tmp;
-	for(unsigned int i=0;i<face->vertex.size();i++){
-		if (PlaneTest(clip, face->vertex[i]) != OVER) {
-			tmp.push_back(face->vertex[i]);
+	for(unsigned int i=0;i<face.vertex.size();i++){
+		if (PlaneTest(clip, face.vertex[i]) != OVER) {
+			tmp.push_back(face.vertex[i]);
 		}
 	}
-	face->vertex.clear();
+	face.vertex.clear();
 	for (unsigned int i = 0; i<tmp.size(); i++){
-		face->vertex.push_back(tmp[i]);
+		face.vertex.push_back(tmp[i]);
 	}
 	return face;
 }
 
-int FaceSplitTest(const Face *face, const float4 &splitplane,float epsilon)
+int FaceSplitTest(const Face & face, const float4 &splitplane,float epsilon)
 {
-	int flag=COPLANAR;  // 0
-	for (const auto &v : face->vertex) 
-		flag |= PlaneTest(splitplane, v, epsilon);
+	int flag = COPLANAR;  // 0
+	for (const auto & v : face.vertex) flag |= PlaneTest(splitplane, v, epsilon);
 	return flag;
 }
 
@@ -297,22 +271,22 @@ void  FaceSliceEdge(Face *face,int e0,BSPNode *n) {
 }
 
 int edgesplitcount=0;
-static void FaceEdgeSplicer(Face *face,int vi0,BSPNode *n)
+static void FaceEdgeSplicer(Face & face,int vi0,BSPNode *n)
 {
 	// the face's edge starting from vertex vi0 is sliced by any incident hypeplane in the bsp
 	if(n->isleaf) return;
-	int vi1 = (vi0+1)%face->vertex.size();
-	float3 v0 = face->vertex[vi0];
-	float3 v1 = face->vertex[vi1];
+	int vi1 = (vi0+1)%face.vertex.size();
+	float3 v0 = face.vertex[vi0];
+	float3 v1 = face.vertex[vi1];
 	assert(magnitude(v0-v1) > QUANTIZEDCHECK );
 	int f0 = PlaneTest(float4(n->xyz(), n->w), v0);
 	int f1 = PlaneTest(float4(n->xyz(), n->w), v1);
 	if(f0==COPLANAR && f1== COPLANAR)
 	{
 		// have to pass down both sides, but we have to make sure we do all subsegments generated by the first side
-		int count = face->vertex.size();
+		int count = face.vertex.size();
 		FaceEdgeSplicer(face,vi0,n->under);
-		int k=vi0 + (face->vertex.size()-count);
+		int k=vi0 + (face.vertex.size()-count);
 		while(k>=vi0)
 		{
 			FaceEdgeSplicer(face,k,n->over);
@@ -337,7 +311,7 @@ static void FaceEdgeSplicer(Face *face,int vi0,BSPNode *n)
 		assert(magnitude(v0-vmid) > QUANTIZEDCHECK);
 		int fmid = PlaneTest(float4(n->xyz(), n->w), vmid);
 		assert(fmid==0);
-		face->vertex.insert(face->vertex.begin() + vi0 + 1, vmid); //  Insert(face->vertex, vmid, vi0 + 1);
+		face.vertex.insert(face.vertex.begin() + vi0 + 1, vmid); //  Insert(face.vertex, vmid, vi0 + 1);
 		if(f0==UNDER)
 		{
 			FaceEdgeSplicer(face,vi0+1,n->over);
@@ -363,7 +337,7 @@ int FaceSplitifyEdges(BSPNode *root)  // tests (possibly splits) all brep edges 
 			continue; // shouldn't happen
 		for (auto &face: n->brep)
 		{
-			int j=face->vertex.size();      // in reverse order since we may end up inserting into this array
+			int j=face.vertex.size();      // in reverse order since we may end up inserting into this array
 			while(j--)                         // for every edge of every brep face...
 				FaceEdgeSplicer(face,j,root);  // starting at root, pass the edge down the (relevant nodes of) tree 
 		}
@@ -379,40 +353,36 @@ void FaceSanityCheck(Face *face)
 		assert(magnitude(face->vertex[i1]-face->vertex[i])>QUANTIZEDCHECK);
 	}
 }
-std::vector<Face *> deadfaces;
-void FaceEmbed(BSPNode *node,Face *face) {
+
+std::vector<Face> deadfaces;
+void FaceEmbed(BSPNode *node, Face && face) {
 	assert(node);
 	if(node->isleaf==OVER) {
-		deadfaces.push_back( face);
+		deadfaces.push_back(std::move(face));
 		return;
 	}
 	if(node->isleaf==UNDER) {
-		node->brep.push_back(face);
+		node->brep.push_back(std::move(face));
 		return;
 	}
 	int flag = FaceSplitTest(face, node->plane());
 	if(flag==UNDER) {
-		FaceEmbed(node->under,face);
+		FaceEmbed(node->under,std::move(face));
 		return;
 	}
 	if(flag==OVER) {
-		FaceEmbed(node->over,face);
+		FaceEmbed(node->over,std::move(face));
 		return;
 	}
 	if(flag==COPLANAR) {
-		FaceEmbed((dot(node->xyz(), face->xyz())>0) ? node->under : node->over, face);
+		FaceEmbed(dot(node->xyz(), face.xyz()) > 0 ? node->under : node->over, std::move(face));
 		return;
 	}
 	assert(flag==SPLIT);
-	//FaceSanityCheck(face);
-	Face *ovr = FaceDup(face);
-	FaceClip(face,(float4)(*node));
-	FaceClip(ovr, float4(-node->xyz(), -node->w));
-	//FaceSanityCheck(face);
-	//FaceSanityCheck(ovr);
+
 	// FIXME:  add FaceSliceEdge calls here!
-	FaceEmbed(node->under,face);
-	FaceEmbed(node->over ,ovr );
+	FaceEmbed(node->over , FaceClip(face, -node->plane()));
+	FaceEmbed(node->under, FaceClip(std::move(face), node->plane()));
 }
 
 
@@ -439,24 +409,23 @@ void FaceEmbed(BSPNode *node,Face *face) {
 */
 
 
-std::vector<Face*> GenerateFacesReverse(const WingMesh &m)
+std::vector<Face> GenerateFacesReverse(const WingMesh &m)
 {
-	std::vector<Face*> flist;
+	std::vector<Face> flist;
 	for(unsigned int i=0;i<m.faces.size();i++)
 	{
-		Face *f = new Face();
-		f->xyz() = -m.faces[i].xyz();
-		f->w     = -m.faces[i].w;
+		Face f;
+		f.plane() = -m.faces[i];
 		extern int currentmaterial;
-		f->matid=currentmaterial;
+		f.matid=currentmaterial;
 		int e0 = m.fback[i];
 		int e=e0;
 		do {
-			f->vertex.push_back(m.verts[m.edges[e].v]);
+			f.vertex.push_back(m.verts[m.edges[e].v]);
 			e = m.edges[e].prev;
 		} while (e!=e0);
 		AssignTex(f);
-		flist.push_back(f);
+		flist.push_back(std::move(f));
 	}
 	return flist;
 }
@@ -477,7 +446,7 @@ std::vector<Face*> GenerateFaces(const WingMesh &m)
 			f->vertex.push_back(m.verts[m.edges[e].v]);
 			e = m.edges[e].next;
 		} while (e!=e0);
-		AssignTex(f);
+		AssignTex(*f);
 		flist.push_back(f);
 	}
 	return flist;
@@ -489,36 +458,36 @@ static void GenerateFaces(BSPNode *root)
 	for (auto n : treetraverse(root))
 		if(n->isleaf==OVER) 
 			for (auto &f : GenerateFacesReverse(n->convex))
-				FaceEmbed(root,f);
+				FaceEmbed(root, std::move(f));
 }
 
 
 
 
 
-static void ExtractMat(Face *face,const Face *src) 
+static void ExtractMat(Face & face,const Face & src) 
 {
-	if (dot(face->xyz(), src->xyz())<0.95f) {
+	if (dot(face.xyz(), src.xyz())<0.95f) {
 		return;
 	}
-	if (FaceSplitTest(face, src->plane(), PAPERWIDTH) != COPLANAR) {
+	if (FaceSplitTest(face, src.plane(), PAPERWIDTH) != COPLANAR) {
 		return;
 	}
 	float3 interior(0,0,0);
-	for(auto &v : face->vertex) 
-		interior += v * (1.0f/face->vertex.size());
+	for(auto &v : face.vertex) 
+		interior += v * (1.0f/face.vertex.size());
 
-	if (!PolyHitCheck(src->vertex, interior + face->xyz(), interior - face->xyz())){
+	if (!PolyHitCheck(src.vertex, interior + face.xyz(), interior - face.xyz())){
 		return;
 	}
 	// src and face coincident
-	face->matid = src->matid;
-	face->gu    = src->gu;
-	face->gv    = src->gv;
-	face->ot    = src->ot;
+	face.matid = src.matid;
+	face.gu    = src.gu;
+	face.gv    = src.gv;
+	face.ot    = src.ot;
 }
 
-static void ExtractMat(BSPNode *n,const Face *poly) {
+static void ExtractMat(BSPNode *n,const Face &poly) {
 	for(unsigned int i=0;i<n->brep.size();i++) {
 		ExtractMat(n->brep[i],poly);		
 	}
@@ -527,7 +496,7 @@ static void ExtractMat(BSPNode *n,const Face *poly) {
 	}
 	int flag = FaceSplitTest(poly, n->plane());
 	if(flag==COPLANAR) {
-		ExtractMat((dot(n->xyz(), poly->xyz())>0) ? n->under : n->over, poly);
+		ExtractMat((dot(n->xyz(), poly.xyz())>0) ? n->under : n->over, poly);
 		return;
 	}
 	if(flag & UNDER) {
@@ -539,25 +508,14 @@ static void ExtractMat(BSPNode *n,const Face *poly) {
 }
 
 
-std::vector<Face*> BSPRipBrep(BSPNode *root)
+std::vector<Face> BSPRipBrep(BSPNode *root)
 {
-	std::vector<Face*> faces;
+	std::vector<Face> faces;
 	for (auto n : treetraverse(root))
 		while(n->brep.size())
 			faces.push_back(Pop(n->brep));
 	return faces;
 }
-
-std::vector<Face*> BSPGetBrep(BSPNode *root)
-{
-	std::vector<Face*> faces;
-	for (auto n : treetraverse(root))
-		for (auto f : n->brep)
-			faces.push_back(f);
-	return faces;
-}
-
-
 
 Face* NeighboringEdgeFace;
 int   NeighboringEdgeId;
@@ -586,7 +544,7 @@ Face *NeighboringEdge(BSPNode *root,Face *face,int eid)
 		{
 			for(unsigned int i=0;i<n->brep.size();i++)
 			{
-				Face *f = n->brep[i];
+				Face *f = &n->brep[i];
 				if(f==face) continue;
 				for(unsigned int j=0;j<f->vertex.size();j++)
 				{
@@ -611,15 +569,15 @@ Face *NeighboringEdge(BSPNode *root,Face *face,int eid)
 	return NULL;
 }
 
-void BSPMakeBrep(BSPNode *r,std::vector<Face*> &faces)
+void BSPMakeBrep(BSPNode *r, std::vector<Face> && faces)
 {
 	GenerateFaces(r);
 	FaceSplitifyEdges(r);
-	for(auto &f : faces) 
+	for(auto & f : faces) 
 		ExtractMat(r,f);
 }
 
-static void BSPClipFace(BSPNode *n,Face* face,const float3 &position,std::vector<Face*> &under,std::vector<Face*> &over,std::vector<Face*> &created)
+static void BSPClipFace(BSPNode *n,Face && face,const float3 &position,std::vector<Face> &under,std::vector<Face> &over)
 {
 	if(n->isleaf==UNDER)
 	{
@@ -634,60 +592,57 @@ static void BSPClipFace(BSPNode *n,Face* face,const float3 &position,std::vector
 	float4 plane(n->xyz(), n->w + dot(position, n->xyz()));
 	int flag = FaceSplitTest(face, plane);
 	if(flag == UNDER) {
-		return BSPClipFace(n->under,face,position,under,over,created);
+		return BSPClipFace(n->under,std::move(face),position,under,over);
 	}
 	if(flag == OVER) {
-		return BSPClipFace(n->over,face,position,under,over,created);
+		return BSPClipFace(n->over,std::move(face),position,under,over);
 	}
 	if(flag==COPLANAR)
 	{
-		return BSPClipFace((dot(n->xyz(), face->xyz())>0) ? n->under : n->over, face, position, under, over, created);
+		return BSPClipFace(dot(n->xyz(), face.xyz()) > 0 ? n->under : n->over, std::move(face), position, under, over);
 	}
 	assert(flag==SPLIT);
 	
-	Face *funder= new Face();
-	Face *fover = new Face();
-	created.push_back(funder);
-	created.push_back(fover);
-	fover->xyz() = funder->xyz() = face->xyz();
-	fover->w  = funder->w = face->w;
-	fover->gu   = funder->gu   = face->gu;
-	fover->gv   = funder->gv   = face->gv;
-	fover->ot   = funder->ot   = face->ot;
-	fover->matid= funder->matid= face->matid;
-	for(unsigned int i=0;i<face->vertex.size();i++){
-		float3& vi = face->vertex[i];
-		float3& vi1= face->vertex[(i+1)%face->vertex.size()];
+	Face funder, fover;
+	fover.xyz() = funder.xyz() = face.xyz();
+	fover.w  = funder.w = face.w;
+	fover.gu   = funder.gu   = face.gu;
+	fover.gv   = funder.gv   = face.gv;
+	fover.ot   = funder.ot   = face.ot;
+	fover.matid= funder.matid= face.matid;
+	for(unsigned int i=0;i<face.vertex.size();i++){
+		float3& vi = face.vertex[i];
+		float3& vi1= face.vertex[(i+1)%face.vertex.size()];
 		int vf  = PlaneTest(float4(plane.xyz(), plane.w), vi);
 		int vf1 = PlaneTest(float4(plane.xyz(), plane.w), vi1);
 		if(vf==COPLANAR) 
 		{
-			funder->vertex.push_back(vi);
-			fover->vertex.push_back(vi);
+			funder.vertex.push_back(vi);
+			fover.vertex.push_back(vi);
 			continue;   // possible loop optimization
 		}
 		else if(vf==UNDER)
 		{
-			funder->vertex.push_back(vi);
+			funder.vertex.push_back(vi);
 		}
 		else 
 		{
 			assert(vf==OVER);
-			fover->vertex.push_back(vi);
+			fover.vertex.push_back(vi);
 		}
 		if(vf != vf1 && vf !=COPLANAR && vf1 != COPLANAR)
 		{
 			float3 vmid = PlaneLineIntersection(plane.xyz(), plane.w, vi, vi1);
-			funder->vertex.push_back(vmid);
-			fover->vertex.push_back(vmid);
+			funder.vertex.push_back(vmid);
+			fover.vertex.push_back(vmid);
 		}
 	}
-	BSPClipFace(n->under,funder,position,under,over,created);
-	BSPClipFace(n->over ,fover ,position,under,over,created);
+	BSPClipFace(n->under,std::move(funder),position,under,over);
+	BSPClipFace(n->over ,std::move(fover) ,position,under,over);
 }
 
-void BSPClipFaces(BSPNode *bsp,std::vector<Face*> &faces,const float3 &position,std::vector<Face*> &under,std::vector<Face*> &over,std::vector<Face*> &created)
+void BSPClipFaces(BSPNode *bsp, std::vector<Face> && faces,const float3 &position,std::vector<Face> &under,std::vector<Face> &over)
 {
 	for(unsigned int i=0;i<faces.size();i++)
-		BSPClipFace(bsp,faces[i],position,under,over,created);
+		BSPClipFace(bsp, std::move(faces[i]), position, under, over);
 }

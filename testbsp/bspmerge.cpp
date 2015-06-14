@@ -98,8 +98,7 @@ void BSPPartition(BSPNode *n, const float4 &p, BSPNode * &nodeunder, BSPNode * &
 		fake.over=nodeover;
 		i=n->brep.size();
 		while(i--){
-			Face *face = n->brep[i];
-			FaceEmbed(&fake,face);
+			FaceEmbed(&fake, std::move(n->brep[i]));
 		}
 		n->brep.clear();
 		fake.under=fake.over=NULL;
@@ -213,7 +212,7 @@ void BSPPartition(BSPNode *n, const float4 &p, BSPNode * &nodeunder, BSPNode * &
 */
 }
 
-void FaceCutting(BSPNode *n,std::vector<Face*> &faces)
+void FaceCutting(BSPNode *n, std::vector<Face> & faces)
 {
 	if(n->isleaf==OVER)
 	{
@@ -221,35 +220,27 @@ void FaceCutting(BSPNode *n,std::vector<Face*> &faces)
 	}
 	if(n->isleaf==UNDER)
 	{
-		for(auto &f : faces)
-		{
-			delete f;
-		}
 		faces.clear();
 		return;
 	}
-	std::vector<Face*> faces_over;
-	std::vector<Face*> faces_under;
-	std::vector<Face*> faces_coplanar;
+	std::vector<Face> faces_over;
+	std::vector<Face> faces_under;
+	std::vector<Face> faces_coplanar;
     while (faces.size())
 	{
-		Face *f;
-		f= Pop(faces);
+		Face f = Pop(faces);
 		int s = FaceSplitTest(f, n->plane());
 		if(s==COPLANAR)
-			faces_coplanar.push_back(f);
+			faces_coplanar.push_back(std::move(f));
 		else if(s==UNDER)
-			faces_under.push_back(f);
+			faces_under.push_back(std::move(f));
 		else if(s==OVER)
-			faces_over.push_back(f);
+			faces_over.push_back(std::move(f));
 		else
 		{
 			assert(s==SPLIT);
-			Face *ovr = FaceDup(f);
-			FaceClip(f,(*n));
-			FaceClip(ovr, float4(-n->xyz(), -n->w));
-			faces_under.push_back(f);
-			faces_over.push_back(ovr);
+			faces_under.push_back(FaceClip(f, n->plane()));
+			faces_over.push_back(FaceClip(std::move(f), -n->plane()));
 		}
 	}
 	FaceCutting(n->under,faces_under);

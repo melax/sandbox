@@ -19,15 +19,15 @@ BSPNode *HitCheckNodeHitOverLeaf=NULL; // global variable storing the BSP over l
 BSPNode *HitCheckNode=NULL; // global variable storing the BSP node plane hit.
 
 
-int PointInsideFace(Face* f,const float3 &s)
+int PointInsideFace(const Face & f,const float3 &s)
 {
 	int inside=1;
-	for(unsigned int j=0;inside && j<f->vertex.size();j++) 
+	for(unsigned int j=0;inside && j<f.vertex.size();j++) 
     {
-			float3 &pp1 = f->vertex[j] ;
-            float3 &pp2 = f->vertex[(j + 1) % f->vertex.size()];
+			const float3 & pp1 = f.vertex[j] ;
+            const float3 & pp2 = f.vertex[(j + 1) % f.vertex.size()];
 			float3 side = cross((pp2-pp1),(s-pp1));
-			inside = (dot(f->xyz(),side) >= 0.0);
+			inside = (dot(f.xyz(),side) >= 0.0);
 	}
 	return inside;
 }
@@ -36,18 +36,18 @@ Face* FaceHit(BSPNode *leaf,const float4 &plane,const float3 &s)
 {
 	for(unsigned int i=0;i<leaf->brep.size();i++)
 	{
-		Face *f = leaf->brep[i];
-		if(*f==plane || *f==-plane ) continue;  // was coplanar
+		Face & f = leaf->brep[i];
+		if(f==plane || f==-plane ) continue;  // was coplanar
 		static int craptest=0;   // sometimes the normal is facing the other way, but that's ok.
 		if(craptest)
 		{ 
 			craptest=0;
-			assert(f->xyz() == plane.xyz());
-			assert(f->w     == plane.w    );
+			assert(f.xyz() == plane.xyz());
+			assert(f.w     == plane.w    );
 		}
 		if(PointInsideFace(f,s)) 
 		{
-			return f;
+			return &f;
 		}
 	}
 	return NULL;

@@ -40,20 +40,20 @@ void InitTex()  // create a checkerboard texture
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, imagedim, imagedim, 0, GL_RGBA, GL_UNSIGNED_BYTE, checker_image);
 }
 
-std::vector<Face*> WingMeshToFaces(const WingMesh &m)
+std::vector<Face> WingMeshToFaces(const WingMesh &m)
 {
-	std::vector<Face*> faces;
+	std::vector<Face> faces;
 	assert(m.unpacked == 0);
     assert(m.fback.size() == m.faces.size());
 	int k=0;
 	for(unsigned int i=0;i<m.faces.size();i++)
 	{
-		Face *face = new Face();
-		faces.push_back(face);
-		face->plane() = m.faces[i];
+		Face face;
+		face.plane() = m.faces[i];
 		//extern void texplanar(Face *face);
 		//texplanar(face);
-		face->vertex = m.GenerateFaceVerts(i); //int e0 = m.fback[i],e=e0; do{ face->vertex.push_back(m.verts[m.edges[e].v]);  e = m.edges[e].next;} while (e!=e0);
+		face.vertex = m.GenerateFaceVerts(i); //int e0 = m.fback[i],e=e0; do{ face->vertex.push_back(m.verts[m.edges[e].v]);  e = m.edges[e].next;} while (e!=e0);
+		faces.push_back(face);
 	}
 	return faces;
 }
@@ -84,7 +84,7 @@ void fdraw(const Face &f)
 		glVertex3fv(v);
 	glEnd();
 }
-void fdraw(const std::vector<Face*> &faces) { for (auto &f : faces) fdraw(*f); }
+void fdraw(const std::vector<Face> &faces) { for (auto &f : faces) fdraw(f); }
 
 void DrawWireframe(const WingMesh &m)
 {
@@ -141,7 +141,7 @@ LPSTR lpszCmdLine, int nCmdShow)
 	auto bf   = WingMeshToFaces(bc);
 	auto cf   = WingMeshToFaces(co);
 	BSPNode *bsp=NULL;
-	std::vector<Face*> faces;
+	std::vector<Face> faces;
 
 
 	GLWin glwin("TestBSP compile and intersect sample");
