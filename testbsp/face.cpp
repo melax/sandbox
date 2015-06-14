@@ -354,11 +354,11 @@ void FaceSanityCheck(Face *face)
 	}
 }
 
-std::vector<Face> deadfaces;
+//std::vector<Face> deadfaces;
 void FaceEmbed(BSPNode *node, Face && face) {
 	assert(node);
 	if(node->isleaf==OVER) {
-		deadfaces.push_back(std::move(face));
+		//deadfaces.push_back(std::move(face));
 		return;
 	}
 	if(node->isleaf==UNDER) {
