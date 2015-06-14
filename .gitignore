@@ -1,0 +1,15 @@
+Debug/
+*_Debug.exe
+*_Debug.ilk
+*_Debug.pdb
+
+Release/
+*_Release.exe
+*_Release.ilk
+*_Release.pdb
+
+/ipch/
+/packages/
+/*.opensdf
+/*.sdf
+/*.suo
