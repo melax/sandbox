@@ -106,48 +106,38 @@ float2 FaceTexCoord(Face *f,const float3 &v)
 	return float2(f->ot.x+dot(v,f->gu),f->ot.y+dot(v,f->gv));
 }
 
-Face *FaceNewQuad(const float3 &v0,const float3 &v1,const float3 &v2,const float3 &v3)
+Face FaceNewQuad(const float3 &v0,const float3 &v1,const float3 &v2,const float3 &v3)
 {
-	Face *f = new Face();
-	f->vertex.push_back(v0);
-	f->vertex.push_back(v1);
-	f->vertex.push_back(v2);
-	f->vertex.push_back(v3);
-	f->xyz() = normalize(cross(v1 - v0, v2 - v1) + cross(v3 - v2, v0 - v3));
-	f->w = -dot(f->xyz(), (v0 + v1 + v2 + v3) / 4.0f);
-	assert(!PlaneTest(float4(f->xyz(), f->w), v0, PAPERWIDTH)); // must be coplanar
-	assert(!PlaneTest(float4(f->xyz(), f->w), v1, PAPERWIDTH));
-	assert(!PlaneTest(float4(f->xyz(), f->w),v2,PAPERWIDTH));
-	assert(!PlaneTest(float4(f->xyz(), f->w), v3, PAPERWIDTH));
-	FaceExtractMatVals(f,v0,v1,v3,float2(0,0),float2(1,0),float2(0,1));
-	f->gu = normalize(f->gu);
-	f->gv = normalize(f->gv);
-	f->ot = float3(0,0,0);
+	Face f;
+    f.vertex = {v0,v1,v2,v3};
+	f.xyz() = normalize(cross(v1 - v0, v2 - v1) + cross(v3 - v2, v0 - v3));
+	f.w = -dot(f.xyz(), (v0 + v1 + v2 + v3) / 4.0f);
+    for(auto & v : f.vertex) assert(!PlaneTest(f.plane(), v, PAPERWIDTH)); // must be coplanar
+	FaceExtractMatVals(&f,v0,v1,v3,float2(0,0),float2(1,0),float2(0,1));
+	f.gu = normalize(f.gu);
+	f.gv = normalize(f.gv);
+	f.ot = float3(0,0,0);
 	return f;
 }
 
-Face *FaceNewTri(const float3 &v0,const float3 &v1,const float3 &v2)
+Face FaceNewTri(const float3 &v0,const float3 &v1,const float3 &v2)
 {
-	Face *f = new Face();
-	f->vertex.push_back(v0);
-	f->vertex.push_back(v1);
-	f->vertex.push_back(v2);
-	f->xyz() = safenormalize(cross(v1 - v0, v2 - v1));
-	f->w = -dot(f->xyz(), (v0 + v1 + v2) / 3.0f);
-	f->gu = safenormalize(v1-v0);
-	f->gv = safenormalize(cross(float3(f->xyz()), f->gu));
+	Face f;
+    f.vertex = {v0,v1,v2};
+	f.xyz() = safenormalize(cross(v1 - v0, v2 - v1));
+	f.w = -dot(f.xyz(), (v0 + v1 + v2) / 3.0f);
+	f.gu = safenormalize(v1-v0);
+	f.gv = safenormalize(cross(f.xyz(), f.gu));
 	return f;
 }
 
-Face *FaceNewTriTex(const float3 &v0,const float3 &v1,const float3 &v2,const float2 &t0,const float2 &t1,const float2 &t2)
+Face FaceNewTriTex(const float3 &v0,const float3 &v1,const float3 &v2,const float2 &t0,const float2 &t1,const float2 &t2)
 {
-	Face *f = new Face();
-	f->vertex.push_back(v0);
-	f->vertex.push_back(v1);
-	f->vertex.push_back(v2);
-	f->xyz() = TriNormal(v0,v1,v2) ;
-	f->w = -dot(f->xyz(), (v0 + v1 + v2) / 3.0f);
-	FaceExtractMatVals(f,v0,v1,v2,t0,t1,t2);
+	Face f;
+    f.vertex = {v0,v1,v2};
+	f.xyz() = TriNormal(v0,v1,v2) ;
+	f.w = -dot(f.xyz(), (v0 + v1 + v2) / 3.0f);
+	FaceExtractMatVals(&f,v0,v1,v2,t0,t1,t2);
 	return f;
 }
 
@@ -437,24 +427,23 @@ std::vector<Face> GenerateFacesReverse(const WingMesh &m)
 	return flist;
 }
 
-std::vector<Face*> GenerateFaces(const WingMesh &m)
+std::vector<Face> GenerateFaces(const WingMesh &m)
 {
-	std::vector<Face*> flist;
+	std::vector<Face> flist;
 	for(unsigned int i=0;i<m.faces.size();i++)
 	{
-		Face *f = new Face();
-		f->xyz() = m.faces[i].xyz();
-		f->w     = m.faces[i].w;
+		Face f;
+		f.plane() = m.faces[i];
 		extern int currentmaterial;
-		f->matid=currentmaterial;
+		f.matid=currentmaterial;
 		int e0 = m.fback[i];
 		int e=e0;
 		do {
-			f->vertex.push_back(m.verts[m.edges[e].v]);
+			f.vertex.push_back(m.verts[m.edges[e].v]);
 			e = m.edges[e].next;
 		} while (e!=e0);
-		AssignTex(*f);
-		flist.push_back(f);
+		AssignTex(f);
+		flist.push_back(std::move(f));
 	}
 	return flist;
 }

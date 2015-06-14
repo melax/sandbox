@@ -120,9 +120,9 @@ void     FaceTranslate(Face & face ,const float3 & offset);
 void     FaceRotate(Face & face, const float4 & r);
 void     FaceScale(Face & face, float scaling);
 int      FaceClosestEdge(Face *face,const float3 &sample_point);
-Face *   FaceNewQuad(const float3 &v0,const float3 &v1,const float3 &v2,const float3 &v3);
-Face *   FaceNewTri(const float3 &v0,const float3 &v1,const float3 &v2);
-Face *   FaceNewTriTex(const float3 &v0,const float3 &v1,const float3 &v2,const float2 &t0,const float2 &t1,const float2 &t2);
+Face     FaceNewQuad(const float3 &v0,const float3 &v1,const float3 &v2,const float3 &v3);
+Face     FaceNewTri(const float3 &v0,const float3 &v1,const float3 &v2);
+Face     FaceNewTriTex(const float3 &v0,const float3 &v1,const float3 &v2,const float2 &t0,const float2 &t1,const float2 &t2);
 float2   FaceTexCoord(Face *f,int i);  // uv texture coords of i'th vertex
 float2   FaceTexCoord(Face *f,const float3 &v); // uv texture coord of point v on face
 int      FaceSplitifyEdges(BSPNode *root);
