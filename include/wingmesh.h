@@ -65,12 +65,13 @@ struct WingMesh
 	std::vector<short>    fback;
 	int unpacked; // flag indicating if any unused elements within arrays
 
-
 	WingMesh() :unpacked(0){}
+    WingMesh(const WingMesh & r) = default;
+    WingMesh(WingMesh && r) : WingMesh() { *this = std::move(r); }
+    WingMesh & operator = (const WingMesh & r) = default;
+    WingMesh & operator = (WingMesh && r) { edges=move(r.edges); verts=move(r.verts); faces=move(r.faces); vback=move(r.vback); fback=move(r.fback); unpacked=r.unpacked; return *this; }
 
-	int     VertDegree(int v) const { int e0 = vback[v], e = e0, k = 0;  if (e != -1) do{ k++; e = edges[edges[e].adj].next; } while (e != e0); return k; }
-
-
+	int VertDegree(int v) const { int e0 = vback[v], e = e0, k = 0;  if (e != -1) do{ k++; e = edges[edges[e].adj].next; } while (e != e0); return k; }
 
 	void SanityCheck() const 
 	{
@@ -833,50 +834,75 @@ inline WingMesh WingMeshCreate(const float3 *verts, const int3 *tris, int n, con
 	return m;
 }
 
-inline WingMesh WingMeshCylinder(int sides, float radius, float height)
+// Adds a face plane and a ring of half-edges to a WingMesh, but does not set adjancency of compute backlists. Call WingMesh::LinkMesh() and WingMesh::InitBackLists() when done.
+inline void WingMeshAddFace(WingMesh & mesh, const short * indices, short n)
 {
     std::vector<float3> verts;
-    std::vector<int3> tris;
+    short faceId = mesh.faces.size(), baseEdge = mesh.edges.size();
+    for(short i=0; i<n; ++i)
+    {
+        verts.push_back(mesh.verts[indices[i]]);
+        mesh.edges.push_back(WingMesh::HalfEdge(baseEdge+i, indices[i], -1, baseEdge+(i+1)%n, baseEdge+(i+n-1)%n, faceId));
+    }  
+    mesh.faces.push_back(PolyPlane(verts));
+}
+
+inline WingMesh WingMeshCylinder(int sides, float radius, float height)
+{
+    WingMesh mesh;
     for(int i=0; i<sides; ++i)
     {
         const float a = i*6.2831853f/sides, c = std::cos(a), s = std::sin(a);
-        verts.push_back({c*radius, s*radius, 0});
-        verts.push_back({c*radius, s*radius, height});
-
-        const int i0 = i*2, i1 = ((i+1)%sides)*2, i2 = ((i+1)%sides)*2+1, i3 = i*2+1;
-        tris.push_back({i0,i1,i2});
-        tris.push_back({i0,i2,i3});
-        
-        if(i0 && i1)
-        {
-            tris.push_back({0,i1,i0});
-            tris.push_back({1,i3,i2});
-        }
+        mesh.verts.push_back({c*radius, s*radius, 0});
+        mesh.verts.push_back({c*radius, s*radius, height});
     }
-    return WingMeshCreate(verts.data(), tris.data(), tris.size());
+
+    for(int i=0; i<sides; ++i)
+    {
+        const short indices[] = {i*2, ((i+1)%sides)*2, ((i+1)%sides)*2+1, i*2+1};
+        WingMeshAddFace(mesh, indices, 4);
+    }
+
+    std::vector<short> bottom, top;
+    for(int i=0; i<sides; ++i)
+    {
+        bottom.push_back((sides-i-1)*2);
+        top.push_back(i*2+1);
+    }
+    WingMeshAddFace(mesh, bottom.data(), bottom.size());
+    WingMeshAddFace(mesh, top.data(), top.size());
+
+    mesh.LinkMesh();
+    mesh.InitBackLists();
+    return mesh;
 }
 
 inline WingMesh WingMeshCone(int sides, float radius, float height)
 {
-    std::vector<float3> verts;
-    std::vector<int3> tris;
+    WingMesh mesh;
     for(int i=0; i<sides; ++i)
     {
         const float a = i*6.2831853f/sides, c = std::cos(a), s = std::sin(a);
-        verts.push_back({c*radius, s*radius, 0});
-        tris.push_back({i,(i+1)%sides,sides});
-        if(i>1) tris.push_back({0,i,i-1});
+        mesh.verts.push_back({c*radius, s*radius, 0});
     }
-    verts.push_back({0,0,height});
-    return WingMeshCreate(verts.data(), tris.data(), tris.size());
+    mesh.verts.push_back({0, 0, height});
+
+    for(int i=0; i<sides; ++i)
+    {
+        const short indices[] = {i, (i+1)%sides, sides};
+        WingMeshAddFace(mesh, indices, 3);
+    }
+
+    std::vector<short> bottom;
+    for(int i=0; i<sides; ++i)
+    {
+        bottom.push_back(sides-i-1);
+    }
+    WingMeshAddFace(mesh, bottom.data(), bottom.size());
+
+    mesh.LinkMesh();
+    mesh.InitBackLists();
+    return mesh;
 }
-
-
-// int       WingMeshToFaces(WingMesh *m,std::vector<Face*> &faces);  // currently in testbsp.cpp 
-
-
-
-
-
 
 #endif
