@@ -783,7 +783,6 @@ inline WingMesh WingMeshBox(const float3 &bmin,const float3 &bmax)
 inline WingMesh WingMeshBox(const float3 &r) { return WingMeshBox(-r, r); }
 inline WingMesh WingMeshCube(const float  r) { return WingMeshBox({ -r, -r, -r }, { r, r, r }); } // r (radius) is half-extent of box
 
-
 inline WingMesh WingMeshCreate(const float3 *verts, const int3 *tris, int n)
 {
 	WingMesh m;
@@ -827,12 +826,49 @@ inline WingMesh WingMeshCreate(const float3 *verts, const int3 *tris, int n)
 	return m;
 }
 
-
 inline WingMesh WingMeshCreate(const float3 *verts, const int3 *tris, int n, const int *hidden_edges, int hidden_edges_count)
 {
 	WingMesh m = WingMeshCreate(verts, tris, n);
 	m.RemoveEdges(hidden_edges, hidden_edges_count);
 	return m;
+}
+
+inline WingMesh WingMeshCylinder(int sides, float radius, float height)
+{
+    std::vector<float3> verts;
+    std::vector<int3> tris;
+    for(int i=0; i<sides; ++i)
+    {
+        const float a = i*6.2831853f/sides, c = std::cos(a), s = std::sin(a);
+        verts.push_back({c*radius, s*radius, 0});
+        verts.push_back({c*radius, s*radius, height});
+
+        const int i0 = i*2, i1 = ((i+1)%sides)*2, i2 = ((i+1)%sides)*2+1, i3 = i*2+1;
+        tris.push_back({i0,i1,i2});
+        tris.push_back({i0,i2,i3});
+        
+        if(i0 && i1)
+        {
+            tris.push_back({0,i1,i0});
+            tris.push_back({1,i3,i2});
+        }
+    }
+    return WingMeshCreate(verts.data(), tris.data(), tris.size());
+}
+
+inline WingMesh WingMeshCone(int sides, float radius, float height)
+{
+    std::vector<float3> verts;
+    std::vector<int3> tris;
+    for(int i=0; i<sides; ++i)
+    {
+        const float a = i*6.2831853f/sides, c = std::cos(a), s = std::sin(a);
+        verts.push_back({c*radius, s*radius, 0});
+        tris.push_back({i,(i+1)%sides,sides});
+        if(i>1) tris.push_back({0,i,i-1});
+    }
+    verts.push_back({0,0,height});
+    return WingMeshCreate(verts.data(), tris.data(), tris.size());
 }
 
 
