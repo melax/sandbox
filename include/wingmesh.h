@@ -549,6 +549,7 @@ inline float3    SupportPoint(const WingMesh *m, const float3& dir) { return m->
 
 inline void WingMeshTranslate(WingMesh & m, const float3 & translation) { for(auto & v : m.verts) v += translation; for(auto & f : m.faces) PlaneTranslate(f, translation); }
 inline void WingMeshRotate(WingMesh & m, const float4 & rotation) { for(auto & v : m.verts) v = qrot(rotation, v); for(auto & f : m.faces) PlaneRotate(f, rotation); }
+inline void WingMeshScale(WingMesh & m, const float3 & scaling) { for(auto & v : m.verts) v = cmul(v, scaling); for(auto & f : m.faces) PlaneScale(f, scaling); }
 inline void WingMeshScale(WingMesh & m, float scaling) { for(auto & v : m.verts) v *= scaling; for(auto & f : m.faces) PlaneScale(f, scaling); }
 
 inline std::vector<int3> WingMeshTris(const WingMesh &m) // generates a list of indexed triangles from the wingmesh's faces

@@ -178,6 +178,12 @@ void FaceRotate(Face & face, const float4 &r)
 	face.ot = qrot(r,face.ot);
 }
 
+void FaceScale(Face & face, const float3 & scaling)
+{
+    for(auto & v : face.vertex) v = cmul(v, scaling);
+    PlaneScale(face.plane(), scaling);
+}
+
 void FaceScale(Face & face, float scaling)
 {
     for(auto & v : face.vertex) v *= scaling;

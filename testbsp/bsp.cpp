@@ -325,33 +325,40 @@ std::vector<WingMesh*> BSPGetSolids(BSPNode *root)
 	return meshes;
 }
 
-
-
-void BSPTranslate(BSPNode & n, const float3 & offset)
+void BSPTranslate(BSPNode & n, const float3 & translation)
 {
-    PlaneTranslate(n.plane(), offset);
-	WingMeshTranslate(n.convex,offset);
-	for(auto & face : n.brep) FaceTranslate(face, offset);
-	if(n.under) BSPTranslate(*n.under, offset);
-    if(n.over) BSPTranslate(*n.over, offset);
+    PlaneTranslate(n.plane(), translation);
+	WingMeshTranslate(n.convex, translation);
+	for(auto & face : n.brep) FaceTranslate(face, translation);
+	if(n.under) BSPTranslate(*n.under, translation);
+    if(n.over) BSPTranslate(*n.over, translation);
 }
 
-void BSPRotate(BSPNode & n, const float4 & r)
+void BSPRotate(BSPNode & n, const float4 & rotation)
 {
-    PlaneRotate(n.plane(), r);
-	WingMeshRotate(n.convex, r);
-	for(auto & face : n.brep) FaceRotate(face, r);
-	if(n.under) BSPRotate(*n.under, r);
-	if(n.over) BSPRotate(*n.over, r);
+    PlaneRotate(n.plane(), rotation);
+	WingMeshRotate(n.convex, rotation);
+	for(auto & face : n.brep) FaceRotate(face, rotation);
+	if(n.under) BSPRotate(*n.under, rotation);
+	if(n.over) BSPRotate(*n.over, rotation);
 }
 
-void BSPScale(BSPNode & n, float s)
+void BSPScale(BSPNode & n, const float3 & scaling)
 {
-    PlaneScale(n.plane(), s);
-    WingMeshScale(n.convex, s);
-    for(auto & face : n.brep) FaceScale(face, s);
-	if(n.under) BSPScale(*n.under, s);
-	if(n.over) BSPScale(*n.over, s);
+    PlaneScale(n.plane(), scaling);
+    WingMeshScale(n.convex, scaling);
+    for(auto & face : n.brep) FaceScale(face, scaling);
+	if(n.under) BSPScale(*n.under, scaling);
+	if(n.over) BSPScale(*n.over, scaling);
+}
+
+void BSPScale(BSPNode & n, float scaling)
+{
+    PlaneScale(n.plane(), scaling);
+    WingMeshScale(n.convex, scaling);
+    for(auto & face : n.brep) FaceScale(face, scaling);
+	if(n.under) BSPScale(*n.under, scaling);
+	if(n.over) BSPScale(*n.over, scaling);
 }
 
 void NegateFace(Face & f)
