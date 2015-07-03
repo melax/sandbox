@@ -23,7 +23,7 @@
 
 // 2014 update, just inlined the needed vector things in the vecmatquat_minimal.h file.
 // original code was from 1998 and wasn't using the best conventions.
-// For example, quaternions are xyzw, not rxyz now.
+// For example, quaternions are xyzw now, not rxyz.
 
 
 #define NOMINMAX

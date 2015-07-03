@@ -20,7 +20,15 @@
 #include <tuple>  // for std::pair
 #include <algorithm> 
 
-struct int3 
+struct int2
+{
+	int x, y;
+	int &operator[](int i){ return (&x)[i]; }
+	const int &operator[](int i)const { return (&x)[i]; }
+};
+inline bool operator==(const int2 &a, const int2 &b)      { return a.x == b.x && a.y == b.y; }
+
+struct int3
 {
 	int x, y, z;
 	int &operator[](int i){ return (&x)[i]; }
