@@ -27,13 +27,11 @@ void glMultMatrix(const float4x4 &m) { glMultMatrixf(&m.x.x); }
 
 
 
-float4 closestplane(const std::vector<float4> &planes, const float3 &v, const float3 &n)
+float4 planemostbelow(const std::vector<float4> &planes, const float3 &v)
 {
 	float4 r = { 0, 0, 0, -std::numeric_limits<float>::max() };
 	for (auto p : planes)
 	{
-		if (dot(n, p.xyz()) < 0)  // to filter non-camera facing planes
-			continue;
 		if (dot(float4(v, 1), p) > dot(float4(v, 1), r))
 			r = p;
 	}
@@ -183,17 +181,17 @@ int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst,LPSTR lpszC
 				planesw.push_back(trackmodel.pose().TransformPlane(p));
 			std::vector<LimitAngular> angulars;
 			std::vector<LimitLinear>  linears;
-			for (auto p0 : depthdata)
+			for (auto v : depthdata)
 			{
-				auto plane = closestplane(planesw, p0, { 0, 0, 0 });  // could pass normal direction of -p0 to avoid backside planes
-				if (plane.w < 0) plane.w = std::min(0.0f, plane.w + dot(plane.xyz(), normalize(p0))*0.2f);  // small hack here (may add jitter)!! add thickness if we are using a backside plane
-
-				auto p1w = p0 - plane.xyz()*dot(plane, float4(p0, 1));               // p1 is on the plane
-				match.push_back(std::pair<float3, float3>(p0, p1w));
-				linears.push_back(ConstrainAlongDirection(NULL, p0, &trackmodel, trackmodel.pose().Inverse()*p1w, plane.xyz(), -50, 50));
+				auto plane = planemostbelow(planesw, v);  
+				HitInfo hit;
+				auto cp = v - plane.xyz()*dot(plane, float4(v, 1));               // cp is closest point on the plane
+				match.push_back(std::pair<float3, float3>(v, cp));
+				if (dot(v, plane.xyz()) > 0 && (hit = ConvexHitCheck(planesw, { 0, 0, 0 }, v)))  // closest plane is  a backface and point is directly behind object
+					linears.push_back(ConstrainAlongDirection(NULL, v, &trackmodel, trackmodel.pose().Inverse()*hit.impact, normalize(v), -50,50));   // push straight backwards
+				else
+					linears.push_back(ConstrainAlongDirection(NULL, v, &trackmodel, trackmodel.pose().Inverse()*cp, plane.xyz(), -50, 50));
 			}
-			// trackmodel.angular_momentum = trackmodel.linear_momentum = { 0, 0, 0 };  // damping should be 1 already
-			// Append(linears , ConstrainPositionNailed(NULL, seesaw->position_start, seesaw, { 0, 0, 0 }));
 			PhysicsUpdate(rigidbodies, linears, angulars, {});
 		}
 		else
