@@ -191,10 +191,8 @@ LPSTR lpszCmdLine, int nCmdShow)
 		glPopAttrib();
 		glMatrixMode(GL_MODELVIEW);  
 
-		glwin.PrintString("Press q to quit.     Spacebar new pointcloud.", 5, 1);
-		char buf[256];
-		sprintf_s(buf, "separation %5.2f", hitinfo.separation );
-		glwin.PrintString(buf, 5, 2);
+		glwin.PrintString({ 3, 1 },"Press q to quit.     Spacebar new pointcloud.");
+		glwin.PrintString({ 3, 2 }, "separation %5.2f", hitinfo.separation);
 
 		glwin.SwapBuffers();
 	}

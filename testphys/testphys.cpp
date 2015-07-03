@@ -194,11 +194,8 @@ int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst,LPSTR lpszC
 		glMatrixMode(GL_PROJECTION); glPopMatrix();
 		glMatrixMode(GL_MODELVIEW);  glPopMatrix();  
 
-		glwin.PrintString("ESC/q quits. SPACE to simulate. r to restart", 5, 0);
-		char buf[256];
-		sprintf_s(buf, "simulation %s", (g_simulate)?"ON":"OFF");
-		glwin.PrintString(buf, 5, 1);
-
+		glwin.PrintString({ 5, 0 },"ESC/q quits. SPACE to simulate. r to restart");
+		glwin.PrintString({ 5, 1 }, "simulation %s", (g_simulate) ? "ON" : "OFF");
 		glwin.SwapBuffers();
 	}
 

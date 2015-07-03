@@ -144,11 +144,9 @@ int main(int argc, char *argv[])
 		glPopAttrib();
 		glMatrixMode(GL_MODELVIEW);  
 
-		glwin.PrintString("Press q to quit.     Spacebar new pointcloud.", 5, 0);
-		glwin.PrintString("w,s or mwheel to increase/decrease vlimit. ", 5, 1);
-		char buf[256];
-		sprintf_s(buf, "vlimit %d tris %d", g_vlimit, g_tris.size());
-		glwin.PrintString(buf, 5, 2);
+		glwin.PrintString({ 5, 0 },"Press q to quit.     Spacebar new pointcloud.");
+		glwin.PrintString({ 5, 1 }, "w,s or mwheel to increase/decrease vlimit. ");
+		glwin.PrintString({ 5, 2 }, "vlimit %d tris %d", g_vlimit, g_tris.size());
 
 		glwin.SwapBuffers();
 	}
