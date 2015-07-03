@@ -143,7 +143,7 @@ class GLWin
 		}
 	}
 
-	void SpitLetters(char *s) 
+	void SpitLetters(const char *s) 
 	{
 		glPushAttrib (GL_LIST_BIT);
 		glListBase(fontOffset);
@@ -226,15 +226,12 @@ class GLWin
 		hWnd=NULL;
 
 	}
-public:
-	void PrintString(char *s,float x,float y) {
+	void PrintString(const char *s,float x,float y) {
 		if(!s) return;
 		glPushAttrib(GL_LIGHTING_BIT|GL_DEPTH_BUFFER_BIT|GL_TEXTURE_BIT);
 			glDisable(GL_TEXTURE_2D);
 			glDisable(GL_LIGHTING);
    			glDisable(GL_DEPTH_TEST);
-			//glRasterPos3f(0,0,-2);
-			//spitletters("Origin");
 			glMatrixMode(GL_PROJECTION);
 			  glPushMatrix();
 				glLoadIdentity();
@@ -246,19 +243,25 @@ public:
 			glMatrixMode(GL_MODELVIEW);
 		glPopAttrib();
 	}
+public:
 
-	void PrintString(char *s,int x,int y)
+	void PrintString(int2 cp, const char *s, ...)
 	{
+		va_list args;
+		va_start(args, s);
+		char buffer[1024];
+		vsnprintf_s<1024>(buffer, sizeof(buffer), s, args);
+		va_end(args);
 		int rows = Height/14;
 		int cols = Width/10;
-		if(y>=rows){ y=rows-1;}
-		if(y<0) { y+= rows;} // caller gives a negative y
-		if(y<0) { y = 0;} // caller gives a too much negative y
-		if(x<0) { x = cols+x-strlen(s)+1;}
-		if(x+(int)strlen(s)>cols) { x=cols-strlen(s);}
-		if(x<0) {x=0;}
-		y=rows-1-y; // invert y so row 0 is at the top and -1 is at the bottom
-		PrintString(s,(float)x/(float)cols,(float)y/(float)rows);
+		if(cp.y>=rows){ cp.y=rows-1;}
+		if(cp.y<0) { cp.y+= rows;} // caller gives a negative y
+		if(cp.y<0) { cp.y = 0;} // caller gives a too much negative y
+		if(cp.x<0) { cp.x = cols+cp.x-strlen(s)+1;}
+		if (cp.x + (int)strlen(s)>cols) { cp.x = cols - strlen(s); }
+		if (cp.x<0) { cp.x = 0; }
+		cp.y=rows-1-cp.y; // invert y so row 0 is at the top and -1 is at the bottom
+		PrintString(buffer,(float)cp.x/(float)cols,(float)cp.y/(float)rows);
 	}
 
 	HWND    hWnd;

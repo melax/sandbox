@@ -292,14 +292,12 @@ LPSTR lpszCmdLine, int nCmdShow)
 		glPopAttrib();
 		glMatrixMode(GL_MODELVIEW);  
 
-		glwin.PrintString("ESC to (q)uit.  Mouse left or wheel to manipulate", 5, 0);
-		char buf[256];
+		glwin.PrintString({ 0, 0 },"ESC to (q)uit.  Mouse left or wheel to manipulate");
 		char * drawmodename[] = { "brep", "cells", "tree" };
-		sprintf_s(buf, "(d)rawmode %s ", drawmodename[drawmode]);
-		glwin.PrintString(buf, 5, 1);
+		glwin.PrintString({ 0, 1 }, "(d)rawmode %s ", drawmodename[drawmode]);
 #       ifdef _DEBUG
 		if (dragmode>=2)
-			glwin.PrintString("DEBUG Version.  Perf may be SLOW.", 2, -1);
+			glwin.PrintString({ 0, -1 },"DEBUG Version.  Perf may be SLOW.");
 #       endif
 
 		glwin.SwapBuffers();

@@ -115,13 +115,11 @@ int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst,
 
 		glLoadIdentity();
 		glColor3f(1,1,0);
-		glwin.PrintString(s,0,-2);  // print returned status string from rendermodel()  current vert and tri count
-		glwin.PrintString("Demo by Stan Melax (c)1998",5,1);
-		glwin.PrintString("Model by Viewpoint Datalabs (c)1996",5,2);
-		char buf[1024];buf[0]='\0';
-		sprintf_s(buf,"FPS: %5.2f   ",FPS);
-		glwin.PrintString(buf,0,-1);
-
+		glwin.PrintString({ 0, -2 },s);  // print returned status string from rendermodel()  current vert and tri count
+		glwin.PrintString({ 5, 1 },"Demo by Stan Melax (c)1998");
+		glwin.PrintString({ 5, 2 },"Model by Viewpoint Datalabs (c)1996");
+		glwin.PrintString({ 0, -1 }, "FPS: %5.2f   ", FPS);
+		
 		glPopMatrix();
 		glFlush();
 		glwin.SwapBuffers();			

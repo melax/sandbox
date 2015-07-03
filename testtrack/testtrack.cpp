@@ -255,10 +255,8 @@ int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst,LPSTR lpszC
 		glMatrixMode(GL_PROJECTION); glPopMatrix();
 		glMatrixMode(GL_MODELVIEW);  glPopMatrix();  
 
-		glwin.PrintString("ESC/q quits. SPACE to toggle tracking.", 5, 0);
-		char buf[256];
-		sprintf_s(buf, "(t)racking %s.  (a)nimating %s.  depthres %d", (enable_tracking) ? "ON" : "OFF", (animating) ? "ON" : "OFF", sample_resolution);
-		glwin.PrintString(buf, 5, 1);
+		glwin.PrintString({ 0, 0 },"ESC/q quits. SPACE to toggle tracking.");
+		glwin.PrintString({ 0, 1 }, "(t)racking %s.  (a)nimating %s.  depthres %d", (enable_tracking) ? "ON" : "OFF", (animating) ? "ON" : "OFF", sample_resolution);
 
 		glwin.SwapBuffers();
 	}
