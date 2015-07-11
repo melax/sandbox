@@ -356,6 +356,56 @@ inline float3x3 Inertia(const float3 *vertices, const int3 *tris, const int coun
 	{ -offd.y, -offd.x, diag.x + diag.y } };
 }
 
+inline float3 Diagonal(const float3x3 &m){ return{ m.x.x, m.y.y, m.z.z }; }
+
+inline float4 Diagonalizer(const float3x3 &A)
+{
+	// A must be a symmetric matrix.
+	// returns orientation of the principle axes.
+	// returns quaternion q such that its corresponding column major matrix Q 
+	// can be used to Diagonalize A
+	// Diagonal matrix D = transpose(Q) * A * (Q);  thus  A == Q*D*QT
+	// The directions of q (cols of Q) are the eigenvectors D's diagonal is the eigenvalues
+	// As per 'col' convention if float3x3 Q = qgetmatrix(q); then Q*v = q*v*conj(q)
+	int maxsteps = 24;  // certainly wont need that many.
+	int i;
+	float4 q(0, 0, 0, 1);
+	for (i = 0; i<maxsteps; i++)
+	{
+		float3x3 Q = qgetmatrix(q); // Q*v == q*v*conj(q)
+		float3x3 D = mul(transpose(Q), A, Q);  // A = Q*D*Q^T
+		float3 offdiag(D[1][2], D[0][2], D[0][1]); // elements not on the diagonal
+		float3 om(fabsf(offdiag.x), fabsf(offdiag.y), fabsf(offdiag.z)); // mag of each offdiag elem
+		int k = (om.x>om.y&&om.x>om.z) ? 0 : (om.y>om.z) ? 1 : 2; // index of largest element of offdiag
+		int k1 = (k + 1) % 3;
+		int k2 = (k + 2) % 3;
+		if (offdiag[k] == 0.0f) break;  // diagonal already
+		float thet = (D[k2][k2] - D[k1][k1]) / (2.0f*offdiag[k]);
+		float sgn = (thet>0.0f) ? 1.0f : -1.0f;
+		thet *= sgn; // make it positive
+		float t = sgn / (thet + ((thet<1.E6f) ? sqrtf(thet*thet + 1.0f) : thet)); // sign(T)/(|T|+sqrt(T^2+1))
+		float c = 1.0f / sqrtf(t*t + 1.0f); //  c= 1/(t^2+1) , t=s/c 
+		if (c == 1.0f) break;  // no room for improvement - reached machine precision.
+		float4 jr(0, 0, 0, 0); // jacobi rotation for this iteration.
+		jr[k] = sgn*sqrtf((1.0f - c) / 2.0f);  // using 1/2 angle identity sin(a/2) = sqrt((1-cos(a))/2)  
+		jr[k] *= -1.0f; // note we want a final result semantic that takes D to A, not A to D
+		jr.w = sqrtf(1.0f - (jr[k] * jr[k]));
+		if (jr.w == 1.0f) break; // reached limits of floating point precision
+		q = qmul(q, jr);
+		q = normalize(q);
+	}
+	float h = 1.0f/sqrtf(2.0f);  // M_SQRT2
+	auto e = [&q, &A]() {return Diagonal(mul(transpose(qgetmatrix(q)), A, qgetmatrix(q))); };  // current ordering of eigenvals of q
+	q = (e().x < e().z)  ? qmul(q, float4( 0, h, 0, h )) : q;  
+	q = (e().y < e().z)  ? qmul(q, float4( h, 0, 0, h )) : q;
+	q = (e().x < e().y)  ? qmul(q, float4( 0, 0, h, h )) : q;   // z,y,x size order so xy spans a planeish spread
+	q = (qzdir(q).z < 0) ? qmul(q, float4( 1, 0, 0, 0 )) : q;
+	q = (qydir(q).y < 0) ? qmul(q, float4( 0, 0, 1, 0 )) : q;
+	q = (q.w < 0) ? -q : q;
+	auto M = mul(transpose(qgetmatrix(q)), A, qgetmatrix(q));   // to test result
+	return q;	
+}
+
 inline void PlaneTranslate(float4 & plane, const float3 & translation) { plane.w -= dot(plane.xyz(), translation); }
 inline void PlaneRotate(float4 & plane, const float4 & rotation) { plane.xyz() = qrot(rotation, plane.xyz()); }
 inline void PlaneScale(float4 & plane, const float3 & scaling) { plane.xyz() = cdiv(plane.xyz(), scaling); plane /= magnitude(plane.xyz()); }
