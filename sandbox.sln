@@ -21,6 +21,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "testtrack", "testtrack\test
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "testrig", "testrig\testrig.vcxproj", "{6D8B8BF8-699D-41F4-8577-2CF859A5F240}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cnn", "cnn\cnn.vcxproj", "{A158D5D9-3085-423B-86B4-A05327ED431D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -63,6 +65,10 @@ Global
 		{6D8B8BF8-699D-41F4-8577-2CF859A5F240}.Debug|Win32.Build.0 = Debug|Win32
 		{6D8B8BF8-699D-41F4-8577-2CF859A5F240}.Release|Win32.ActiveCfg = Release|Win32
 		{6D8B8BF8-699D-41F4-8577-2CF859A5F240}.Release|Win32.Build.0 = Release|Win32
+		{A158D5D9-3085-423B-86B4-A05327ED431D}.Debug|Win32.ActiveCfg = Debug|Win32
+		{A158D5D9-3085-423B-86B4-A05327ED431D}.Debug|Win32.Build.0 = Debug|Win32
+		{A158D5D9-3085-423B-86B4-A05327ED431D}.Release|Win32.ActiveCfg = Release|Win32
+		{A158D5D9-3085-423B-86B4-A05327ED431D}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
