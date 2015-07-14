@@ -398,7 +398,7 @@ inline float4 Diagonalizer(const float3x3 &A)
 	auto e = [&q, &A]() {return Diagonal(mul(transpose(qgetmatrix(q)), A, qgetmatrix(q))); };  // current ordering of eigenvals of q
 	q = (e().x < e().z)  ? qmul(q, float4( 0, h, 0, h )) : q;  
 	q = (e().y < e().z)  ? qmul(q, float4( h, 0, 0, h )) : q;
-	q = (e().x < e().y)  ? qmul(q, float4( 0, 0, h, h )) : q;   // z,y,x size order so xy spans a planeish spread
+	q = (e().x < e().y)  ? qmul(q, float4( 0, 0, h, h )) : q;   // size order z,y,x so xy spans a planeish spread
 	q = (qzdir(q).z < 0) ? qmul(q, float4( 1, 0, 0, 0 )) : q;
 	q = (qydir(q).y < 0) ? qmul(q, float4( 0, 0, 1, 0 )) : q;
 	q = (q.w < 0) ? -q : q;

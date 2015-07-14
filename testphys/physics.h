@@ -235,10 +235,10 @@ public:
 class LimitAngular : public Limit
 {
 public:
-	float3 axis;  // world-space
-	float  torque;  // rotational impulse
-	float  targetspin;
-	float  mintorque;
+	float3 axis;        // world-space
+	float  torque;      // rotational impulse
+	float  targetspin;  // usually this includes any spin required to get things into desired alignment
+	float  mintorque;   // note this is usually -maxtorque when axis is fully constrained or  0 angle range is limited 
 	float  maxtorque;
 	LimitAngular():Limit(NULL,NULL){}
 	LimitAngular(RigidBody *rb0, RigidBody *rb1, const float3 &axis, float targetspin=0, float mintorque=-FLT_MAX, float maxtorque=FLT_MAX) 
@@ -252,15 +252,11 @@ public:
 		float spintotorque = 1.0f / (((rb0) ? dot(axis, mul(rb0->Iinv, axis)) : 0.0f) + ((rb1) ? dot(axis, mul(rb1->Iinv, axis)) : 0.0f));
 		float dtorque = dspin * spintotorque;  // how we have to change the angular impulse
 		dtorque = std::min(dtorque, maxtorque*physics_deltaT - torque); // total torque cannot exceed maxtorque
-		dtorque = std::max(dtorque, mintorque*physics_deltaT - torque); // total torque cannot fall below -maxtorque
+		dtorque = std::max(dtorque, mintorque*physics_deltaT - torque); // total torque cannot fall below mintorque
 		if (rb0)
-		{
-			rb0->angular_momentum += axis*-dtorque;  // apply impulse
-		}
+			rb0->angular_momentum -= axis*dtorque;  // apply impulse
 		if (rb1)
-		{
 			rb1->angular_momentum += axis*dtorque;  // apply impulse
-		}
 		torque += dtorque;
 	}
 };
