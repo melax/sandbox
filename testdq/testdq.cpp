@@ -12,7 +12,6 @@
 #include <glwin.h>
 #include <mesh.h>
 
-//
 // Minimal c++11 implementation of dual quaternion as style agnostic as possible.  
 // Assumes there is a float4 struct defined the obvious xyzw way and usual support quat functions.
 // This implementation just uses std::pair where the second is the dual part.
@@ -23,14 +22,14 @@
 std::pair<float4, float4> dqmul(const std::pair<float4, float4> &a, std::pair<float4, float4> &b){ return{ qmul(a.first, b.first), qmul(a.first, b.second) + qmul(a.second, b.first) }; }
 std::pair<float4, float4> operator*(const std::pair<float4, float4> &q, float s) { return{ q.first*s, q.second*s }; }
 std::pair<float4, float4> operator+(const std::pair<float4, float4> &a, std::pair<float4, float4> &b) { return{ a.first + b.first, a.second + b.second }; }
-std::pair<float4, float4> dqnorm(const std::pair<float4, float4> &q) { auto m = magnitude(q.first); return{ q.first / m, q.second / m }; }
-std::pair<float4, float4> dqinterp(const std::pair<float4, float4> &q0, const std::pair<float4, float4> &q1, float t) { return dqnorm(q0*(1 - t) + q1*t); }
+std::pair<float4, float4> dqnorm(const std::pair<float4, float4> &q) { auto m = magnitude(q.first); return{ q.first / m, q.second / m }; }  // normalize based on non-dual part only
 std::pair<float4, float4> dqmake(const Pose &p) { return dqmul(std::pair<float4, float4>({ 0, 0, 0, 1 }, float4(p.position / 2.0f, 0)), std::pair<float4, float4>(p.orientation, { 0, 0, 0, 0 })); }
+std::pair<float4, float4> dqinterp(const std::pair<float4, float4> &q0, const std::pair<float4, float4> &q1, float t) { return dqnorm(q0*(1 - t) + q1*t); }  // normalized lerp
 Pose dqpose(const std::pair<float4, float4> &q) { return{ qmul(q.second, qconj(q.first)).xyz()*2.0f, q.first }; }
-
+Pose dqinterp(const Pose &p0,const Pose &p1,float t) { return dqpose(dqinterp(dqmake(p0),dqmake(dot(p0.orientation,p1.orientation)<0?Pose(p1.position,-p1.orientation):p1),t)); }
 
 // some typical opengl drawing support routines
-
+//
 void glGridxy(float r, float3 c = { 0, 1, 0 })
 {
 	glColor3fv(c);
@@ -40,7 +39,6 @@ void glGridxy(float r, float3 c = { 0, 1, 0 })
 	{
 		glVertex3fv(float3(t, -4.0f, 0)*r / 4.0f); glVertex3fv(float3(t, 4.0f, 0)*r / 4.0f);
 		glVertex3fv(float3(-4.0f, t, 0)*r / 4.0f); glVertex3fv(float3(4.0f, t, 0)*r / 4.0f);
-
 	}
 	glEnd();
 }
@@ -88,17 +86,14 @@ void glcolorbox(const float3 &r, const Pose &p)   // p = { { 0, 0, 0 }, { 0, 0, 
 }
 void glcolorbox(const float &r, const Pose &p) { glcolorbox({ r, r, r }, p); }
 
-
-
 int main(int argc, char *argv[]) try
 {
 	std::cout << "TestDQ\n";
-
 	Pose camera = { { 0, 0, 8 }, { 0, 0, 0, 1 } };
+	bool showaxis = true;
 	float3 focuspoint(0, 0, 0);
 	float3 mousevec_prev;
 	float4 model_orientation(0, 0, 0, 1);
-	GLWin glwin("TestDQ sample");
 	Pose p0 = { { -3, 0, 0 }, { 0, 0, 0, 1 } };
 	Pose p1 = { {  3, 0, 0 }, { 0, 0, sqrtf(0.5f),sqrtf(0.5f) } };
 	float dt = 0.01f, t = 0;
@@ -107,9 +102,10 @@ int main(int argc, char *argv[]) try
 	for (auto &p : planes)
 		p.w = -0.25f;
 
-	glwin.keyboardfunc = [](int key, int, int)
+	GLWin glwin("Dual Quaternion Pose Interpolation");
+	glwin.keyboardfunc = [&](int key, int, int)
 	{
-
+		showaxis = key == 'a' != showaxis;
 	};
 	while (glwin.WindowUp())
 	{
@@ -117,10 +113,14 @@ int main(int argc, char *argv[]) try
 		if (t > 1.0f)
 			t = 0.0f;
 
-		auto dq0 = dqmake(p0);            // And here we show our dual quaterion usage:
-		auto dq1 = dqmake(p1);            //  convert poses into dual quat form
-		auto dqt = dqinterp(dq0,dq1,t);   //  dual quaternion interpolation 
-		Pose pt  = dqpose(dqt);           //  convert back to our typical pose class.
+		Pose pt  = dqinterp(p0,p1,t);     // And here we show our dual quaterion usage
+
+		// some extras to help visualize the axis of rotation, not the best math to get the result, but oh well
+		float4 aq = qmul(dot(p0.orientation, p1.orientation) < 0 ? -p1.orientation : p1.orientation, qconj(p0.orientation));
+		float3 ad = aq.xyz()*(aq.w < 0 ? -1.0f : 1.0f);
+		float  ah = acosf(aq.w)*2.0f /2.0f;  // half the angle of rotation
+		float3 axis = normalize(ad);  // direction of the axis of rotation
+		float3 axisp = cross(axis, p1.position - p0.position) / tanf(ah);  // origin projected onto the axis of rotation
 
 		// user interaction: 
 		float3 ray = qrot(camera.orientation, normalize(glwin.MouseVector));   // for mouse selection
@@ -148,7 +148,6 @@ int main(int argc, char *argv[]) try
 		camera.position -= focuspoint;
 		camera.position *= powf(1.1f, (float)glwin.mousewheel);
 		camera.position += focuspoint;
-
 		mousevec_prev = glwin.MouseVector;
 
 		// Render the scene
@@ -157,36 +156,49 @@ int main(int argc, char *argv[]) try
 		glClearColor(0.1f, 0.1f, 0.15f, 1);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		glMatrixMode(GL_PROJECTION);
-		glPushMatrix();
-		glLoadIdentity();
-		gluPerspective(glwin.ViewAngle, (double)glwin.Width / glwin.Height, 0.10, 50);
+		glPushMatrix(); glLoadIdentity();
+		gluPerspective(glwin.ViewAngle, (double)glwin.Width / glwin.Height, 0.25, 250);
 		glMatrixMode(GL_MODELVIEW);
 		glPushMatrix(); glLoadIdentity();
 		glMultMatrixf(camera.Inverse().Matrix());
 
 		glDisable(GL_LIGHTING); 
-		glAxis();
+		glAxis();  
 		glGridxy(4.0f);
+		if (showaxis)
+		{
+			glPushAttrib(GL_ALL_ATTRIB_BITS);
+			glLineWidth(3.0f);
+			glBegin(GL_LINES);
+			glColor3f(1, 1, 1);
+			for (auto p : { p0.position, p1.position, pt.position ,axisp})
+				glVertex3fv(p - axis*0.5f), glVertex3fv(p + axis*0.5f);  // note the comma
+			glEnd();
+			glPopAttrib();
+			glColor3f(1, 1, 0);
+			glBegin(GL_LINES);
+			glVertex3fv(axisp + axis*dot(axis, p0.position)), glVertex3fv(axisp + axis*dot(axis, p1.position));
+			glVertex3fv(axisp + axis*dot(axis, p0.position)), glVertex3fv(p0.position);
+			glVertex3fv(axisp + axis*dot(axis, p1.position)), glVertex3fv(p1.position);
+			glVertex3fv(axisp + axis*dot(axis, pt.position)), glVertex3fv(pt.position);
+			glEnd();
+		}
 
-		glEnable(GL_LIGHTING);
-		glEnable(GL_LIGHT0);
-		glEnable(GL_COLOR_MATERIAL);
-		glcolorbox(0.25f, p0);
-		glcolorbox(0.25f, p1);
-		glcolorbox(0.25f, pt);
+		glEnable(GL_LIGHTING); glEnable(GL_LIGHT0); glEnable(GL_COLOR_MATERIAL);
+		for (auto p : { p0, p1, pt })
+			glcolorbox(0.25f, p);
 
 		glPopMatrix();  //should be currently in modelview mode
 		glMatrixMode(GL_PROJECTION);
 		glPopMatrix();
-		glPopAttrib();// Restore state
 		glMatrixMode(GL_MODELVIEW);
+		glPopAttrib();// Restore state
 
-		glwin.PrintString({ 5, 0 }, "Press ESC  to quit.    ");
-		glwin.PrintString({ 0, 1 }, "selected: %s", (selected) ? ((selected==&p0)?"box0":"box1") : "none");
+		glwin.PrintString({ 0, 0 }, "ESC to quit.");
+		glwin.PrintString({ 0, 1 }, "'a' show axis (%s)", showaxis ? "on" : "off");
+		glwin.PrintString({ 0, 2 }, "%selected: %s", glwin.MouseState?"S":"s", (selected) ? ((selected==&p0)?"box0":"box1") : "none");
 		glwin.SwapBuffers();
 	}
-
-
 	std::cout << "\n";
 	return 0;
 }
