@@ -17,10 +17,6 @@
 
 bool g_wireframe = 0;
 
-void glNormal3fv(const float3 &v) { glNormal3fv(&v.x); }
-void glVertex3fv(const float3 &v) { glVertex3fv(&v.x); }
-void glColor3fv (const float3 &v) { glColor3fv(&v.x);  }
-
 
 void InitTex()  // create a checkerboard texture 
 {

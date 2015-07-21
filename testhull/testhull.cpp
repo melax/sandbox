@@ -57,11 +57,6 @@ void OnKeyboard(unsigned char key, int x, int y)
 }
 
 
-void glNormal3fv(const float3 &v) { glNormal3fv(&v.x); }
-void glVertex3fv(const float3 &v) { glVertex3fv(&v.x); }
-void glColor3fv (const float3 &v) { glColor3fv(&v.x);  }
-
-
 
 int main(int argc, char *argv[])
 {

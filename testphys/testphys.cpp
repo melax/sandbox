@@ -21,10 +21,7 @@
 #include "wingmesh.h"
 #include "physics.h"
 
-void glNormal3fv(const float3 &v) { glNormal3fv(&v.x); }
-void glVertex3fv(const float3 &v) { glVertex3fv(&v.x); }
-void glColor3fv (const float3 &v) { glColor3fv(&v.x);  }
-void glMultMatrix(const float4x4 &m) { glMultMatrixf(&m.x.x); }
+
 
 float g_pitch,  g_yaw;
 bool  g_simulate = 0;
@@ -80,7 +77,7 @@ void wmdraw(const WingMesh &m)
 void rbdraw(const RigidBody *rb)
 {
 	glPushMatrix();
-	glMultMatrix(MatrixFromRotationTranslation(rb->orientation, rb->position));
+	glMultMatrixf(MatrixFromRotationTranslation(rb->orientation, rb->position));
 	for (const auto &s : rb->shapes)
 		gldraw(s.verts, s.tris);
 	glPopMatrix();

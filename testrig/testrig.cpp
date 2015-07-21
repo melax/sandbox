@@ -16,8 +16,6 @@
 #include <dxwin.h>
 
 
-template<class T>
-std::vector<T*> Addresses(std::vector<T> &a) { std::vector<T*> p; for (auto &e : a) p.push_back(&e); return p; }
 
 
 struct Joint 

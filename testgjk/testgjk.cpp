@@ -18,9 +18,7 @@
 #include "hull.h"
 #include "gjk.h"
 
-void glNormal3fv(const float3 &v) { glNormal3fv(&v.x); }
-void glVertex3fv(const float3 &v) { glVertex3fv(&v.x); }
-void glColor3fv (const float3 &v) { glColor3fv(&v.x);  }
+
 
 float g_pitch, g_yaw;
 int g_mouseX, g_mouseY;

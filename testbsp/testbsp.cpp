@@ -20,13 +20,6 @@
 #include "wingmesh.h"    
 #include "bsp.h"
 
-void glNormal3fv(const float3 &v)     { glNormal3fv(&v.x); }
-void glVertex3fv(const float3 &v)     { glVertex3fv(&v.x); }
-void glColor3fv (const float3 &v)     { glColor3fv(&v.x);  }
-void glTexCoord2fv(const float2 &v)   { glTexCoord2fv(&v.x); }
-void glTranslatefv(const float3 &v)   { glTranslatef(v.x, v.y, v.z); }
-void glMultMatrixf(const float4x4 &m) { glMultMatrixf(&m.x.x); }
-
 void InitTex()  // create a checkerboard texture 
 {
 	const int imagedim = 16;

@@ -43,7 +43,7 @@ struct int4
 	const int &operator[](int i)const { return (&x)[i]; }
 };
 
-
+struct float2 { float x, y; };
 class float3 {
 public:
 	float x, y, z;
@@ -155,6 +155,7 @@ inline float4 qslerp(const float4 &q0, const float4 &q1, float t)
 inline float4 QuatFromAxisAngle(const float3 &axis, float t) { auto v = normalize(axis)*sinf(t / 2.0f); return{ v.x, v.y, v.z, cosf(t / 2.0f) }; }
 inline std::pair<float3, float> AxisAngleFromQuat(const float4 &q) { auto a = acos(q.w)*2.0f; return std::make_pair(q.xyz() / sinf(a / 2.0f), a); }
 
+struct float4x4 { float4 x, y, z, w; };
 
 //-------- copied from geometric.h -------
 

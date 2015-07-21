@@ -25,6 +25,11 @@
 #define SPLIT      (OVER|UNDER)
 #define PAPERWIDTH (0.0001f)  
 
+// some misc convenience functions
+template<typename F, typename S> auto Transform(const std::vector<S> &src, F f) ->  std::vector<decltype (f(S()))>   { std::vector<decltype (f(S()))>  dst(src.size()); std::transform(src.begin(), src.end(), dst.begin(), f); return dst; }
+template<class T> std::vector<T> & Append(std::vector<T> &a, const T& t){ a.push_back(t); return a; }
+template<class T> std::vector<T> & Append(std::vector<T> &a, const std::vector<T> &b){ a.insert(a.end(), b.begin(), b.end()); return a; }
+template<class T> std::vector<T*>  Addresses(std::vector<T> &a) {  std::vector<T*> p; for (auto &e : a) p.push_back(&e); return p; }  // not sure what was wrong with { Transform(a, [](T &t)->T*{return &t; }); } 
 
 
 inline float4 quatfrommat(const float3x3 &m)

@@ -20,10 +20,7 @@
 #include "wingmesh.h"
 #include "../testphys/physics.h"  // fixme (location)
 
-void glNormal3fv(const float3 &v) { glNormal3fv(&v.x); }
-void glVertex3fv(const float3 &v) { glVertex3fv(&v.x); }
-void glColor3fv (const float3 &v) { glColor3fv(&v.x);  }
-void glMultMatrix(const float4x4 &m) { glMultMatrixf(&m.x.x); }
+
 
 
 
@@ -79,18 +76,18 @@ void wmwire(const WingMesh &m)
 	}
 	glEnd();
 }
-void wmwire(const WingMesh &m, const Pose &pose) { glPushMatrix(); glMultMatrix(pose.Matrix()); wmwire(m); glPopMatrix(); }
+void wmwire(const WingMesh &m, const Pose &pose) { glPushMatrix(); glMultMatrixf(pose.Matrix()); wmwire(m); glPopMatrix(); }
 
 void wmdraw(const WingMesh &m)
 {
 	gldraw(m.verts, m.GenerateTris());
 }
-void wmdraw(const WingMesh &m, const Pose &pose) { glPushMatrix(); glMultMatrix(pose.Matrix()); wmdraw(m); glPopMatrix(); }
+void wmdraw(const WingMesh &m, const Pose &pose) { glPushMatrix(); glMultMatrixf(pose.Matrix()); wmdraw(m); glPopMatrix(); }
 
 void rbdraw(const RigidBody *rb)
 {
 	glPushMatrix();
-	glMultMatrix(MatrixFromRotationTranslation(rb->orientation, rb->position));
+	glMultMatrixf(MatrixFromRotationTranslation(rb->orientation, rb->position));
 	for (const auto &s : rb->shapes)
 		gldraw(s.verts, s.tris);
 	glPopMatrix();
