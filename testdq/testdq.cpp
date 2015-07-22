@@ -117,11 +117,8 @@ int main(int argc, char *argv[]) try
 
 		// some extras to help visualize the axis of rotation, not the best math to get the result, but oh well
 		float4 aq = qmul(dot(p0.orientation, p1.orientation) < 0 ? -p1.orientation : p1.orientation, qconj(p0.orientation));
-		float3 ad = aq.xyz()*(aq.w < 0 ? -1.0f : 1.0f);
-		float  ah = acosf(aq.w)*2.0f /2.0f;  // half the angle of rotation
-		float3 axis = normalize(ad);  // direction of the axis of rotation
-		float3 axisp = cross(axis, p1.position - p0.position) / tanf(ah);  // origin projected onto the axis of rotation
-
+		float3 axis = normalize(aq.xyz()*(aq.w < 0 ? -1.0f : 1.0f));  // direction of the axis of rotation
+		float3 axisp = cross(axis, p1.position - p0.position) / 2.0f * sqrtf(1/dot(aq.xyz(),aq.xyz())-1);  // origin projected onto the axis of rotation
 		// user interaction: 
 		float3 ray = qrot(camera.orientation, normalize(glwin.MouseVector));   // for mouse selection
 		float3 v1 = camera.position + ray*100.0f;
