@@ -14,19 +14,17 @@
 
 // Minimal c++11 implementation of dual quaternion as style agnostic as possible.  
 // Assumes there is a float4 struct defined the obvious xyzw way and usual support quat functions.
-// This implementation just uses std::pair where the second is the dual part.
+// This implementation just uses 4x2 matrix where the second ([1]) column is the dual part.
 // Feel free to convert to your own design/style preferences and struct names.
 // The Pose class is just a position,orientation (vec3,quat) pair defined the obvious way.
 // The functions dqmake/dqpose convert Pose to/from dual quat representation.
 // 
-std::pair<float4, float4> dqmul(const std::pair<float4, float4> &a, std::pair<float4, float4> &b){ return{ qmul(a.first, b.first), qmul(a.first, b.second) + qmul(a.second, b.first) }; }
-std::pair<float4, float4> operator*(const std::pair<float4, float4> &q, float s) { return{ q.first*s, q.second*s }; }
-std::pair<float4, float4> operator+(const std::pair<float4, float4> &a, std::pair<float4, float4> &b) { return{ a.first + b.first, a.second + b.second }; }
-std::pair<float4, float4> dqnorm(const std::pair<float4, float4> &q) { auto m = magnitude(q.first); return{ q.first / m, q.second / m }; }  // normalize based on non-dual part only
-std::pair<float4, float4> dqmake(const Pose &p) { return dqmul(std::pair<float4, float4>({ 0, 0, 0, 1 }, float4(p.position / 2.0f, 0)), std::pair<float4, float4>(p.orientation, { 0, 0, 0, 0 })); }
-std::pair<float4, float4> dqinterp(const std::pair<float4, float4> &q0, const std::pair<float4, float4> &q1, float t) { return dqnorm(q0*(1 - t) + q1*t); }  // normalized lerp
-Pose dqpose(const std::pair<float4, float4> &q) { return{ qmul(q.second, qconj(q.first)).xyz()*2.0f, q.first }; }
-Pose dqinterp(const Pose &p0,const Pose &p1,float t) { return dqpose(dqinterp(dqmake(p0),dqmake(dot(p0.orientation,p1.orientation)<0?Pose(p1.position,-p1.orientation):p1),t)); }
+float4x2 dqmul(const float4x2 &a, float4x2 &b) { return{ qmul(a[0], b[0]), qmul(a[0], b[1]) + qmul(a[1], b[0]) }; }
+float4x2 dqnorm(const float4x2 &d) { return  d / magnitude(d[0]); }  // normalize based on non-dual part only
+float4x2 dqmake(const Pose &p) { return dqmul(float4x2({ 0, 0, 0, 1 }, float4(p.position / 2.0f, 0)), float4x2(p.orientation, { 0, 0, 0, 0 })); }
+Pose     dqpose(const float4x2 &d) { return{ qmul(d[1], qconj(d[0])).xyz()*2.0f, d[0] }; }
+float4x2 dqinterp(const float4x2 &d0, const float4x2 &d1, float t) { return dqnorm(d0*(1 - t) + d1*t); }  // normalized lerp
+Pose     dqinterp(const Pose &p0,const Pose &p1,float t) { return dqpose(dqinterp(dqmake(p0),dqmake(dot(p0.orientation,p1.orientation)<0?Pose(p1.position,-p1.orientation):p1),t)); }
 
 // some typical opengl drawing support routines
 //
