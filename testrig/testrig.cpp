@@ -12,7 +12,7 @@
 #include <minixml.h>
 #include <hull.h>
 #include <wingmesh.h>  // just so i can quickly make a box
-#include "../testphys/physics.h"
+#include <physics.h>
 #include <dxwin.h>
 
 

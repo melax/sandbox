@@ -457,7 +457,7 @@ public:
 		cb.camerap = camera.position;
 		cb.cameraq = camera.orientation;
 		DrawMeshes(cb, meshes);
-		dxswapchain->Present(0, 0);
+		dxswapchain->Present(1, 0);
 	}
 	void RenderStereo(const Pose &camera, const std::vector<Mesh*> &meshes)
 	{

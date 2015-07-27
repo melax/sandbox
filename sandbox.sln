@@ -25,6 +25,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "testdq", "testdq\testdq.vcx
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "testcov", "testcov\testcov.vcxproj", "{3259EC6C-4F5C-4CB6-A6BB-D29099CA2E0F}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "jointdrive", "jointdrive\jointdrive.vcxproj", "{1468EA6D-654B-4C8B-8442-1D123601C08D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -75,6 +77,10 @@ Global
 		{3259EC6C-4F5C-4CB6-A6BB-D29099CA2E0F}.Debug|Win32.Build.0 = Debug|Win32
 		{3259EC6C-4F5C-4CB6-A6BB-D29099CA2E0F}.Release|Win32.ActiveCfg = Release|Win32
 		{3259EC6C-4F5C-4CB6-A6BB-D29099CA2E0F}.Release|Win32.Build.0 = Release|Win32
+		{1468EA6D-654B-4C8B-8442-1D123601C08D}.Debug|Win32.ActiveCfg = Debug|Win32
+		{1468EA6D-654B-4C8B-8442-1D123601C08D}.Debug|Win32.Build.0 = Debug|Win32
+		{1468EA6D-654B-4C8B-8442-1D123601C08D}.Release|Win32.ActiveCfg = Release|Win32
+		{1468EA6D-654B-4C8B-8442-1D123601C08D}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

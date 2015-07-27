@@ -18,7 +18,8 @@
 #include "hull.h"
 #include "gjk.h"
 #include "wingmesh.h"
-#include "../testphys/physics.h"  // fixme (location)
+#include "physics.h"  
+
 
 
 
