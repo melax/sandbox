@@ -48,7 +48,7 @@ int BSPCount(BSPNode *n)
 	return 1+BSPCount(n->under.get())+BSPCount(n->over.get());
 }
 
-struct SortPerm { int i; float v; };
+struct SortPerm { unsigned int i; float v; };
 static int FaceAreaCompare(const void *_a,const void *_b) {
 	SortPerm *a = ((SortPerm *) _a); 
 	SortPerm *b = ((SortPerm *) _b); 
