@@ -84,6 +84,9 @@
   <ItemGroup>
     <ClCompile Include="testtrack.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\include\physics.h" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

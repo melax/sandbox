@@ -267,23 +267,23 @@ class LimitLinear : public Limit
 	float3 position0;  // position of contact on rb0 in rb0 local space
 	float3 position1;  // position of contact on rb1 in rb1 local space
 	float3 normal;     // direction in world in which limit is applied
-	float  targetspeed; 
+	float  targetdist;
 	float  targetspeednobias;
-	float  minforce;
-	float  maxforce;
+	float2 forcelimit;
 	int    friction_master;   // true if a friction limit
+	float  targetspeed; 
 	float  impulsesum;
 	LimitLinear() :Limit(NULL, NULL){}
 	LimitLinear(RigidBody *rb0,RigidBody *rb1,const float3 &position0,const float3 &position1,
-		const float3 &normal = float3(0, 0, 1), float _targetspeed = 0.0f, float _targetspeednobias = 0.0f, const float2 forcerange = { -FLT_MAX, FLT_MAX })
+		const float3 &normal = float3(0, 0, 1), float _targetspeed = 0.0f, float _targetspeednobias = 0.0f, const float2 forcelimit = { -FLT_MAX, FLT_MAX })
 		:Limit(rb0, rb1), position0(position0), position1(position1), normal(normal), targetspeed(_targetspeed), targetspeednobias(_targetspeednobias), 
-		 minforce(std::min(forcerange.x, forcerange.y)), maxforce(std::max(forcerange.x, forcerange.y)), friction_master(0), impulsesum(0)
+		forcelimit({ std::min(forcelimit.x, forcelimit.y), std::max(forcelimit.x, forcelimit.y) }), friction_master(0), impulsesum(0)
 	{}
 	void RemoveBias() { targetspeed = std::min(targetspeed, targetspeednobias); }
 	void Iter()
 	{
 		if(friction_master)
-			minforce = -(  maxforce = std::max( ((rb0)?rb0->friction:0),((rb1)?rb1->friction:0) ) * ((this)+friction_master)->impulsesum / physics_deltaT   );
+			forcelimit.x = -(  forcelimit.y = std::max( ((rb0)?rb0->friction:0),((rb1)?rb1->friction:0) ) * ((this)+friction_master)->impulsesum / physics_deltaT   );
 		float3 r0  = (rb0) ? qrot(rb0->orientation , position0) :  position0;
 		float3 r1  = (rb1) ? qrot(rb1->orientation , position1) :  position1;
 		float3 v0  = (rb0) ? cross(rb0->spin(),r0) + rb0->linear_momentum*rb0->massinv : float3(0,0,0); // instantaneioius linear velocity at point of constraint
@@ -293,8 +293,8 @@ class LimitLinear : public Limit
 		float impulsed =  ((rb0)? rb0->massinv + dot( cross(mul(rb0->Iinv,cross(r0,normal)),r0),normal):0) 
 						+ ((rb1)? rb1->massinv + dot( cross(mul(rb1->Iinv,cross(r1,normal)),r1),normal):0) ;
 		float impulse = impulsen/impulsed;
-		impulse = std::min( maxforce*physics_deltaT-impulsesum,impulse);
-		impulse = std::max( minforce*physics_deltaT-impulsesum,impulse);
+		impulse = std::min( forcelimit.y*physics_deltaT-impulsesum,impulse);
+		impulse = std::max( forcelimit.x*physics_deltaT-impulsesum,impulse);
 		if(rb0) ApplyImpulse(rb0,r0,normal *-impulse ); 
 		if(rb1) ApplyImpulse(rb1,r1,normal * impulse ); 
 		impulsesum += impulse;
