@@ -275,8 +275,8 @@ class LimitLinear : public Limit
 	float  impulsesum;
 	LimitLinear() :Limit(NULL, NULL){}
 	LimitLinear(RigidBody *rb0,RigidBody *rb1,const float3 &position0,const float3 &position1,
-		const float3 &normal = float3(0, 0, 1), float _targetspeed = 0.0f, float _targetspeednobias = 0.0f, const float2 forcelimit = { -FLT_MAX, FLT_MAX })
-		:Limit(rb0, rb1), position0(position0), position1(position1), normal(normal), targetspeed(_targetspeed), targetspeednobias(_targetspeednobias), 
+		const float3 &normal = float3(0, 0, 1), float targetdist = 0.0f, float targetspeednobias = 0.0f, const float2 forcelimit = { -FLT_MAX, FLT_MAX })
+		:Limit(rb0, rb1), position0(position0), position1(position1), normal(normal), targetdist(targetdist), targetspeednobias(targetspeednobias),
 		forcelimit({ std::min(forcelimit.x, forcelimit.y), std::max(forcelimit.x, forcelimit.y) }), friction_master(0), impulsesum(0)
 	{}
 	void RemoveBias() { targetspeed = std::min(targetspeed, targetspeednobias); }
@@ -321,11 +321,11 @@ inline std::vector<LimitAngular> ConstrainAngularDrive( RigidBody *rb0, RigidBod
 
 inline LimitLinear ConstrainAlongDirection(RigidBody *rb0,const float3 &p0,RigidBody *rb1,const float3 &p1,const float3 &axisw,float minforce,float maxforce)
 {
-	return LimitLinear( rb0,rb1,p0,p1,axisw, dot( ((rb1)?rb1->pose()*p1:p1) - ((rb0)?rb0->pose()*p0:p0) ,axisw)/physics_deltaT,0.0f,{minforce,maxforce});
+	return LimitLinear( rb0,rb1,p0,p1,axisw, dot( ((rb1)?rb1->pose()*p1:p1) - ((rb0)?rb0->pose()*p0:p0) ,axisw),0.0f,{minforce,maxforce});
 }
 inline std::vector<LimitLinear> ConstrainPositionNailed( RigidBody *rb0, const float3 &p0, RigidBody *rb1, const float3 &p1)
 {
-	float3 d = (((rb1)?rb1->pose()*p1:p1) - ((rb0)?rb0->pose()*p0:p0) )/physics_deltaT;
+	float3 d = (((rb1)?rb1->pose()*p1:p1) - ((rb0)?rb0->pose()*p0:p0) );
 	return {LimitLinear(rb0,rb1,p0,p1,float3(1,0,0),d.x), LimitLinear(rb0,rb1,p0,p1,float3(0,1,0),d.y), LimitLinear(rb0,rb1,p0,p1,float3(0,0,1),d.z) };
 }
 
@@ -440,38 +440,25 @@ inline std::vector<LimitLinear> ConstrainContacts(const std::vector<PhysContact>
 	for (auto &c : contacts)
 	{
 		RigidBody *rb0 = c.rb0 , *rb1 = c.rb1;
-	
-		float3  n =c.normal;
-		float3 v,vn,r0,v0,r1,v1;
-		r0 = (rb0) ? c.p0w - rb0->position : float3(0,0,0);  
-		v0 = (rb0) ? cross(rb0->spin(), r0) + rb0->linear_momentum*rb0->massinv : float3(0,0,0); // instantaneioius linear velocity at point of collision
-		r1 = (rb1) ? c.p1w - rb1->position : float3(0,0,0);  
-		v1 = (rb1) ? cross(rb1->spin(), r1) + rb1->linear_momentum*rb1->massinv : float3(0,0,0); 
-		v = v0-v1;  // todo would look cleaner if it was v1-v0.
-		vn = n*dot(v,n);
+		float3 r0 = (rb0) ? c.p0w - rb0->position : float3(0,0,0);  
+		float3 v0 = (rb0) ? cross(rb0->spin(), r0) + rb0->linear_momentum*rb0->massinv : float3(0,0,0); // instantaneioius linear velocity at point of collision
+		float3 r1 = (rb1) ? c.p1w - rb1->position : float3(0,0,0);  
+		float3 v1 = (rb1) ? cross(rb1->spin(), r1) + rb1->linear_momentum*rb1->massinv : float3(0,0,0); 
+		float3 v = v0-v1;  // todo would look cleaner if it was v1-v0.  
+		
 		float minsep = physics_driftmax*0.25f;
-		float separation = dot(n,c.p0w-c.p1w);  // todo verify direction here
-		float extra = (minsep-separation);
-		float bouncevel = 0.0f;
-		float targvel = (extra/physics_deltaT)*std::min(1.0f,((extra>0.0f)? physics_biasfactorpositive *physics_deltaT*60 : physics_biasfactornegative*physics_deltaT*60));  // "bias" fudgefactor to move past minseparation
-		if(separation<=0)  // attempt to immediately pull completely out of penetration
-		{
-			targvel += -separation/physics_deltaT * (1.0f - std::min(1.0f, physics_biasfactorpositive*physics_deltaT*60 ));  // ensure we go at least fast enough to stop penetration
-		}
-		if(dot(v,c.normal) < 0 && magnitude(vn) > magnitude(physics_gravity)*physics_falltime_to_ballistic )
-		{
-			// take off any contribution of gravity on the current/recent frames to avoid adding energy to the system.
-			bouncevel = std::max(0.0f, (magnitude(vn)-magnitude(physics_gravity)*physics_falltime_to_ballistic) * physics_restitution);  // ballistic non-resting contact, allow elastic response
-			targvel   = std::max(0.0f,targvel-bouncevel);
-		}
-	
-		linearconstraints.push_back(LimitLinear(rb0, rb1, c.p0, c.p1, -c.normal, -(targvel + bouncevel), -bouncevel, { 0, FLT_MAX }));
-					float3 tangent  = Orth(-c.normal);
-					float3 binormal = cross(c.normal,tangent);
-					LimitLinear fb(rb0,rb1,c.p0,c.p1,   binormal,0,0,{0,0});  fb.friction_master=-1;
-					LimitLinear ft(rb0,rb1,c.p0,c.p1,   tangent ,0,0,{0,0});  ft.friction_master=-2;
-					linearconstraints.push_back(fb);
-					linearconstraints.push_back(ft);
+		float separation = dot(c.normal,c.p0w-c.p1w);  // todo verify direction here   note gjk separation isn't good to use right now, to be fixed
+		float bouncevel = std::max(0.0f, (-dot(c.normal, v) - magnitude(physics_gravity)*physics_falltime_to_ballistic) * physics_restitution);  // ballistic non-resting contact, allow elastic response
+
+		linearconstraints.push_back(LimitLinear(rb0, rb1, c.p0, c.p1, -c.normal, std::min((separation-minsep)*physics_biasfactorpositive,separation) , -bouncevel, { 0, FLT_MAX }));  // could also add (-bouncevel*physics_deltaT) to targetdist too
+		auto q = RotationArc({ 0,0,1 }, -c.normal);   // to get orthogonal axes on the plane
+		float3 normal = qzdir(q);
+		float3 tangent = qxdir(q); //  Orth(-c.normal);
+		float3 binormal = qydir(q); //  cross(c.normal, tangent);
+		LimitLinear fb(rb0,rb1,c.p0,c.p1,   binormal,0,0,{0,0});  fb.friction_master=-1;
+		LimitLinear ft(rb0,rb1,c.p0,c.p1,   tangent ,0,0,{0,0});  ft.friction_master=-2;
+		linearconstraints.push_back(fb);
+		linearconstraints.push_back(ft);
 	}
 	return linearconstraints;
 }
@@ -539,6 +526,9 @@ inline void PhysicsUpdate(std::vector<RigidBody*> &rigidbodies, std::vector<Limi
 	auto collionconstraints = CollisionConstraints(rigidbodies, wgeom);
 	for (const auto & c : collionconstraints)
 		Linears.push_back(c);  // currently uses aux variables on the rigidbodies (orientation,angularmomentum, Iinv) to calculate bounce velocity etc.
+
+	for (auto &ln : Linears)
+		ln.targetspeed = ln.targetdist / physics_deltaT;
 
 	for(int s=0;s<physics_iterations;s++)  // iteration steps
 	{
