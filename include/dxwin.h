@@ -61,6 +61,7 @@ public:
 	float3                  OldMouseVector;
 	int                     MouseState;     // true iff left button down
 	float 	                ViewAngle;
+	int                     vsync = 1;
 	std::function<void(int, int, int)> keyboardfunc;
 
 
@@ -388,7 +389,7 @@ public:
 		hWnd=NULL;
 	}
 
-	DXWin(const char *title) : Width(1024), Height(1024), MouseX(0), MouseY(0), MouseState(0), mousewheel(0), ViewAngle(60.0f) //, keyboardfunc([](int, int, int){})
+	DXWin(const char *title, int2 dim = { 1920,1080 }) : Width(dim.x), Height(dim.y), MouseX(0), MouseY(0), MouseState(0), mousewheel(0), ViewAngle(60.0f) //, keyboardfunc([](int, int, int){})
 	{
 		hWnd = CreateDXWindow(title);
 		if (hWnd == NULL) throw("failed to create d3d11 window");
@@ -453,11 +454,11 @@ public:
 		dxcontext->ClearRenderTargetView(dxrendertargetview, clearcolor);
 		dxcontext->ClearDepthStencilView(dxdepthstencilview, D3D11_CLEAR_DEPTH, 1.0f, 0); // Clear depth buffer to 1.0 (max depth)
 		DXWin::ConstantBuffer cb;
-		cb.Projection = transpose(MatrixPerspectiveFovAspect(ViewAngle*3.14f / 180.0f, (float)1 / 1, 0.05f, 50.0f));
+		cb.Projection = transpose(MatrixPerspectiveFovAspect(ViewAngle*3.14f / 180.0f, (float)Width / Height, 0.05f, 50.0f));
 		cb.camerap = camera.position;
 		cb.cameraq = camera.orientation;
 		DrawMeshes(cb, meshes);
-		dxswapchain->Present(1, 0);
+		dxswapchain->Present(vsync, 0);
 	}
 	void RenderStereo(const Pose &camera, const std::vector<Mesh*> &meshes)
 	{
