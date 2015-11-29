@@ -415,8 +415,9 @@ inline void FindShapeWorldContacts(std::vector<PhysContact> &contacts_out, const
 	for (auto rb : rigidbodies) for (auto &shape : rb->shapes)   // foreach rigidbody shape
 	{
 		if(!(rb->collide&1)) continue;
+		float distance_range = std::max(physics_driftmax, magnitude(rb->linear_momentum) *physics_deltaT / rb->mass);  // dont need to create potential contacts if beyond this range
 		for (auto  cell : cells)
-			for(auto &c : ContactPatch(SupportFunc(rb,shape), SupportFunc(*cell), physics_driftmax) ) 
+			for(auto &c : ContactPatch(SupportFunc(rb,shape), SupportFunc(*cell), distance_range) )
 				contacts_out.push_back(PhysContact(rb, NULL, c));  
 	}
 }

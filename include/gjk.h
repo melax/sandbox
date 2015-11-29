@@ -694,10 +694,10 @@ inline Patch ContactPatch(CA s0, CB s1, float max_separation)  // return 0 if s1
 	float3 rollaxes[4] = { tangent, bitangent, -tangent, -bitangent };
 	for (auto &raxis : rollaxes)
 	{
-		const float contactpatchjiggle = 2.0f;// rotations in degrees   ideally this should be a shear
-		float4 jiggle = normalize(float4(raxis*sinf(3.14f / 180.0f*(contactpatchjiggle)), 1));
+		const float contactpatchjiggle = 4.0f;// rotations in degrees   ideally this should be a shear
+		float4 jiggle = normalize(float4(raxis*sinf(3.14f / 180.0f*(contactpatchjiggle) / 2.0f), 1));   // divide by 2 since generating a quaternion
 		float3 pivot = hitinfo[0].p0w;
-		Pose ar = Pose(n*0.1f, float4(0, 0, 0, 1))  * Pose(-pivot, float4(0, 0, 0, 1)) * Pose(float3(0, 0, 0), jiggle) * Pose(pivot, float4(0, 0, 0, 1));
+		Pose ar = Pose(n*0.2f, float4(0, 0, 0, 1))  * Pose(-pivot, float4(0, 0, 0, 1)) * Pose(float3(0, 0, 0), jiggle) * Pose(pivot, float4(0, 0, 0, 1));
 		hitinfo[hc] = Separated(SupportFuncTrans(s0, ar.position, ar.orientation), s1, 1);
 		hitinfo[hc].normal = n;// all parallel to the initial separating plane;
 		hitinfo[hc].p0w = ar.Inverse() * hitinfo[hc].p0w;  // contact back into unadjusted space
