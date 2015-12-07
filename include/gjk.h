@@ -477,6 +477,20 @@ namespace gjk_implementation
 				break;
 			}
 			isseparated = NextMinkSimplex[last.count](next,last,w);
+			if (next.v == float3(0, 0, 0) && next.count == 2)  // origin landed collinear to a line
+			{
+				last = next;
+				auto n = Orth(next.W[0].p- next.W[1].p);
+				next.W[next.count++] = PointOnMinkowski(A, B, n);
+				isseparated = 0;
+			}
+			if (next.v == float3(0, 0, 0) && next.count == 3)  // origin landed coplanar to a triangle
+			{
+				last = next;
+				auto n = TriNormal(next.W[0].p, next.W[1].p, next.W[2].p);
+				next.W[next.count++] = PointOnMinkowski(A, B, n);
+				isseparated = 0;
+			}
 			if(!isseparated)
 			{
 				Expandable expd(next);
@@ -486,7 +500,7 @@ namespace gjk_implementation
 				if(dot(separationplane.xyz(),last.v)>0) separationplane.xyz() *=-1.0f;
 
 				if (enable_epa)
-					separationplane = convex_hull_implementation::ExpandingPolytopeAlgorithm({ last.W[0].p,last.W[1].p,last.W[2].p ,last.W[3].p }, [&](float3 v) {return A(v) - B(-v); });
+					separationplane = convex_hull_implementation::ExpandingPolytopeAlgorithm({ next.W[0].p,next.W[1].p,next.W[2].p ,next.W[3].p }, [&](float3 v) {return A(v) - B(-v); }) *-1.0f;  // flip!!??
 
 				Contact hitinfo;
 				hitinfo.normal = separationplane.xyz();
