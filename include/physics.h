@@ -412,7 +412,6 @@ inline  std::function<float3(const float3&)> SupportFunc(RigidBody *rb,const Sha
 
 inline void FindShapeWorldContacts(std::vector<PhysContact> &contacts_out, const std::vector<RigidBody*>& rigidbodies, const std::vector<std::vector<float3> *> & cells)
 {
-	enable_epa = true;
 	for (auto rb : rigidbodies) for (auto &shape : rb->shapes)   // foreach rigidbody shape
 	{
 		if(!(rb->collide&1)) continue;
@@ -449,7 +448,7 @@ inline std::vector<LimitLinear> ConstrainContacts(const std::vector<PhysContact>
 		float3 v = v0-v1;  // todo would look cleaner if it was v1-v0.  
 		
 		float minsep = physics_driftmax*0.25f;
-		float separation = dot(c.normal,c.p0w-c.p1w);  // todo verify direction here   note gjk separation isn't good to use right now, to be fixed
+		float separation = c.separation; //  verify direction here 
 		float bouncevel = std::max(0.0f, (-dot(c.normal, v) - magnitude(physics_gravity)*physics_falltime_to_ballistic) * physics_restitution);  // ballistic non-resting contact, allow elastic response
 
 		linearconstraints.push_back(LimitLinear(rb0, rb1, c.p0, c.p1, -c.normal, std::min((separation-minsep)*physics_biasfactorpositive,separation) , -bouncevel, { 0, FLT_MAX }));  // could also add (-bouncevel*physics_deltaT) to targetdist too

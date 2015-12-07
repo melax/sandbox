@@ -22,7 +22,6 @@
 #include "vecmatquat.h"
 #include "geometric.h"           // a collection of useful utilities such as intersection and projection
 
-static bool enable_epa = false;
 
 namespace gjk_implementation
 {
@@ -362,84 +361,6 @@ namespace gjk_implementation
 		return hitinfo;   // hitinfo evaluates to 'true' since the separation is > 0.
 	}
 
-	class MTri
-	{
-	public: 
-		int w[3];
-		float3 v;
-		MTri(){w[0]=w[1]=w[2]=-1;}
-		MTri(int w0,int w1,int w2,const float3 &_v){w[0]=w0;w[1]=w1;w[2]=w2;v=_v;}
-		MTri(int w0,int w1,int w2,const std::vector<MKPoint> &W){w[0]=w0;w[1]=w1;w[2]=w2;
-															 v=PlaneProjectOf(W[w0].p,W[w1].p,W[w2].p,float3(0,0,0));
-								float3 b = BaryCentric(W[w0].p,W[w1].p,W[w2].p,v);
-									if(b.x<0 || b.y<0 || b.z<0 || b.x>1.0f || b.y>1.0f || b.z>1.0f) v=(W[w0].p + W[w1].p+W[w2].p)/3.0f;}
-	};
-
-	class Expandable
-	{
-	 public:
-		std::vector<MKPoint> W;
-		std::vector<MTri> tris;
-		void expandit(MinkSimplex &dst, std::function<float3(const float3&)> A, std::function<float3(const float3&)>B);
-		Expandable(const MinkSimplex &src);
-	};
-
-	inline Expandable::Expandable(const MinkSimplex &src)
-	{
-		int i;
-		assert(src.count==4);
-		for(i=0;i<4;i++)
-		{
-			W.push_back(src.W[i]);
-		}
-		tris.push_back(MTri(0,1,2,W));
-		tris.push_back(MTri(1,0,3,W));
-		tris.push_back(MTri(2,1,3,W));
-		tris.push_back(MTri(0,2,3,W));
-	}
-
-	inline void Expandable::expandit(MinkSimplex &dst, std::function<float3(const float3&)> A, std::function<float3(const float3&)>B )
-	{
-		float prevdist = 0.0f;
-		int done=0;
-		while(1)
-		{
-			int closest=0;
-			for(unsigned i=0;i<tris.size();i++)
-			{
-				if(magnitude(tris[i].v)<magnitude(tris[closest].v)) 
-				{
-					closest=i;
-				}
-			}
-			float3 v = tris[closest].v;
-			if(dot(v,v) <= prevdist)
-			{
-				done=1;
-			}
-			prevdist = dot(v,v);
-			MKPoint w = PointOnMinkowski(A,B,v); 
-			if(w== W[tris[closest].w[0]] ||w== W[tris[closest].w[1]] ||w== W[tris[closest].w[2]] )
-			{
-				done=1;
-			}
-			if(done ||  dot(w.p,v) < dot(v,v) + 0.0001) {
-				//done
-				dst.count=3;
-				dst.v = v;
-				dst.W[0] = W[tris[closest].w[0]];
-				dst.W[1] = W[tris[closest].w[1]];
-				dst.W[2] = W[tris[closest].w[2]];
-				return;
-			}
-			int wi=W.size();
-			W.push_back(w);
-			tris.push_back(MTri(tris[closest].w[0],tris[closest].w[1],wi, W ));
-			tris.push_back(MTri(tris[closest].w[1],tris[closest].w[2],wi, W ));
-			tris.push_back(MTri(tris[closest].w[2],tris[closest].w[0],wi, W ));
-			tris.erase(begin(tris) + closest);
-		}
-	}
 
 
 	inline Contact Separated(std::function<float3(const float3&)> A, std::function<float3(const float3&)>B, int findclosest)
@@ -463,7 +384,6 @@ namespace gjk_implementation
 		// todo: add the use of the lower bound distance for termination conditions
 		while((dot(w.p,v) < dot(v,v) - 0.00001f) && iter++<100) 
 		{
-			int isseparated;
 			last=next;  // not ideal, a swapbuffer would be better
 			v=last.v;
 			w=PointOnMinkowski(A,B,-v);
@@ -476,55 +396,40 @@ namespace gjk_implementation
 			{
 				break;
 			}
-			isseparated = NextMinkSimplex[last.count](next,last,w);
-			if (next.v == float3(0, 0, 0) && next.count == 2)  // origin landed collinear to a line
+			NextMinkSimplex[last.count](next,last,w);
+			if(next.v==float3(0,0,0))  // origin inside the simplex
 			{
-				last = next;
-				auto n = Orth(next.W[0].p- next.W[1].p);
-				next.W[next.count++] = PointOnMinkowski(A, B, n);
-				isseparated = 0;
-			}
-			if (next.v == float3(0, 0, 0) && next.count == 3)  // origin landed coplanar to a triangle
-			{
-				last = next;
-				auto n = TriNormal(next.W[0].p, next.W[1].p, next.W[2].p);
-				next.W[next.count++] = PointOnMinkowski(A, B, n);
-				isseparated = 0;
-			}
-			if(!isseparated)
-			{
-				Expandable expd(next);
-				expd.expandit(last,A,B);
-				float4 separationplane(0,0,0,0);
-				separationplane.xyz() = TriNormal(last.W[0].p,last.W[1].p,last.W[2].p);
-				if(dot(separationplane.xyz(),last.v)>0) separationplane.xyz() *=-1.0f;
+				if (next.count == 2)  // origin landed collinear to a line, rare but yes this can happen with carefully aligned programmer art
+				{
+					last = next;
+					auto n = Orth(next.W[0].p- next.W[1].p);
+					next.W[next.count++] = PointOnMinkowski(A, B, n);
+				}
+				if (next.count == 3)  // origin landed coplanar to a triangle
+				{
+					last = next;
+					auto n = TriNormal(next.W[0].p, next.W[1].p, next.W[2].p);
+					next.W[next.count++] = PointOnMinkowski(A, B, n);   // make it a tetrahedron to kickstart EPA for finding minimal penetration depth and corresponding normal
+				}
 
-				if (enable_epa)
-					separationplane = convex_hull_implementation::ExpandingPolytopeAlgorithm({ next.W[0].p,next.W[1].p,next.W[2].p ,next.W[3].p }, [&](float3 v) {return A(v) - B(-v); }) *-1.0f;  // flip!!??
+				float4 minpenetrationplane = convex_hull_implementation::ExpandingPolytopeAlgorithm({ next.W[0].p,next.W[1].p,next.W[2].p ,next.W[3].p }, [&](float3 v) {return A(v) - B(-v); }) ;  
 
 				Contact hitinfo;
-				hitinfo.normal = separationplane.xyz();
-				hitinfo.dist   = separationplane.w;
-				float3 b = BaryCentric(last.W[0].p,last.W[1].p,last.W[2].p,last.v);
-				last.W[0].t=b.x;
-				last.W[1].t=b.y;
-				last.W[2].t=b.z;
-				last.pa = b.x * last.W[0].a + b.y * last.W[1].a + b.z*last.W[2].a;
-				last.pb = b.x * last.W[0].b + b.y * last.W[1].b + b.z*last.W[2].b;
-				hitinfo.p0w   =  last.pa;
-				hitinfo.p1w   =  last.pb;
-				hitinfo.impact=  (last.pa+last.pb )*0.5f;
-				if(!enable_epa)
-					separationplane.w = -dot(separationplane.xyz(), hitinfo.impact);
-				hitinfo.separation = -magnitude(last.pa - last.pb); //  dot(separationplane.normal,w.p-v);
-			 
+				hitinfo.normal = -minpenetrationplane.xyz();  // flip!!??
+				hitinfo.dist   = -minpenetrationplane.w;  // negate this too to be consistent
+				hitinfo.separation = minpenetrationplane.w; // based on convention order of A and B and what is used in the non-penetration case (separation>0)
+				float4 b= inverse(float4x4({ next.W[0].p,1 }, { next.W[1].p,1 }, { next.W[2].p,1 }, { next.W[3].p,1 })).w;         // just take last column since its equiv to mul(M,[0001])
+				hitinfo.p0w = mul(float4x4({ next.W[0].a,1 }, { next.W[1].a,1 }, { next.W[2].a,1 }, { next.W[3].a,1 }), b).xyz();  // this point in A that's closest to B will be inside B too
+				hitinfo.p1w = mul(float4x4({ next.W[0].b,1 }, { next.W[1].b,1 }, { next.W[2].b,1 }, { next.W[3].b,1 }), b).xyz();  // should be about the same as the above point
+				hitinfo.impact=  (hitinfo.p0w + hitinfo.p1w)*0.5f;
+		 
 				fillhitv(hitinfo,last);
 				assert(hitinfo);
 				return hitinfo;
 			}
 			if(dot(next.v,next.v)>=dot(last.v, last.v))   // i.e. if magnitude(w.p)>magnitude(v) 
 			{
-				break;  // numerical screw up, 
+				break;  // numerical robustness, just return last. 
 			}
 		}
 		assert(iter<100);

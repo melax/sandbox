@@ -112,9 +112,6 @@ LPSTR lpszCmdLine, int nCmdShow)
 		case 'm':
 			minkowdraw = !minkowdraw;
 			break;
-		case 'e':
-			enable_epa = !enable_epa;
-			break;
 		default:
 			std::cout << "unassigned key (" << (int)key << "): '" << key << "'\n";
 			break;
@@ -294,7 +291,6 @@ LPSTR lpszCmdLine, int nCmdShow)
 		glwin.PrintString({ 3, 2 }, "(w)ireframe %s    separation %5.3f  %5.3f",wire?"on":"off", hitinfo.separation,hitinfo.dist);
 		glwin.PrintString({ 3, 3 }, "(s)election mode: %s", smode ? "move verts" : "camera nav");
 		glwin.PrintString({ 3, 4 }, "selection %d", (selected)? selected-&g_verts[0] : -1);
-		glwin.PrintString({ 3, 5 }, "(E)PA: %s", (enable_epa) ? "on":"off");
 		glwin.SwapBuffers();
 	}
 
