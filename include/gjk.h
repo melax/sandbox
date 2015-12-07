@@ -22,6 +22,7 @@
 #include "vecmatquat.h"
 #include "geometric.h"           // a collection of useful utilities such as intersection and projection
 
+static bool enable_epa = false;
 
 namespace gjk_implementation
 {
@@ -483,6 +484,10 @@ namespace gjk_implementation
 				float4 separationplane(0,0,0,0);
 				separationplane.xyz() = TriNormal(last.W[0].p,last.W[1].p,last.W[2].p);
 				if(dot(separationplane.xyz(),last.v)>0) separationplane.xyz() *=-1.0f;
+
+				if (enable_epa)
+					separationplane = convex_hull_implementation::ExpandingPolytopeAlgorithm({ last.W[0].p,last.W[1].p,last.W[2].p ,last.W[3].p }, [&](float3 v) {return A(v) - B(-v); });
+
 				Contact hitinfo;
 				hitinfo.normal = separationplane.xyz();
 				hitinfo.dist   = separationplane.w;
@@ -495,7 +500,8 @@ namespace gjk_implementation
 				hitinfo.p0w   =  last.pa;
 				hitinfo.p1w   =  last.pb;
 				hitinfo.impact=  (last.pa+last.pb )*0.5f;
-				separationplane.w = -dot(separationplane.xyz(), hitinfo.impact);
+				if(!enable_epa)
+					separationplane.w = -dot(separationplane.xyz(), hitinfo.impact);
 				hitinfo.separation = -magnitude(last.pa - last.pb); //  dot(separationplane.normal,w.p-v);
 			 
 				fillhitv(hitinfo,last);

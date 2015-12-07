@@ -232,7 +232,84 @@ namespace convex_hull_implementation
 		if(dot(verts[p3]-verts[p0],cross(verts[p1]-verts[p0],verts[p2]-verts[p0])) <0) {std::swap(p2,p3);}
 		return {p0,p1,p2,p3};
 	}
-
+	inline float4 ExpandingPolytopeAlgorithm(std::vector<float3> verts,std::function<float3(float3)> maxdir )
+	{
+		float4 plane = { 0,0,0,-FLT_MAX };
+		float epsilon =  0.001f;  // sorry
+		std::vector<Tri> tris;
+		assert(verts.size() == 4);
+		float3 center = (verts[0] + verts[1] + verts[2] + verts[3]) / 4.0f;  // a valid interior point
+		if (dot(cross(verts[2] - verts[0], verts[1] - verts[0]), verts[3] - verts[0]) > 0.0f)
+			std::swap(verts[2], verts[3]);
+		tris.push_back(Tri(2,3,1, tris.size(), { 2,3,1 }));
+		tris.push_back(Tri(3,2,0, tris.size(), { 3,2,0 }));
+		tris.push_back(Tri(0,1,3, tris.size(), { 0,1,3 }));
+		tris.push_back(Tri(1,0,2, tris.size(), { 1,0,2 }));
+		while(1)
+		{
+			float4 face( 0,0,0,-FLT_MAX );  // the plane on the face
+			int c = -1;
+			for (auto &t : tris)
+			{
+				assert(t.id >= 0);
+				assert(t.vmax < 0);
+				float3 n = TriNormal( verts[(t.v)[0]], verts[(t.v)[1]], verts[(t.v)[2]]);
+				float  d = -dot(n, verts[t.v[0]]);
+				if (d > face.w)
+				{
+					face = { n,d };
+					c = t.id;
+				}
+			}
+			float3 v = maxdir(face.xyz());
+			float4 p(face.xyz(), -dot(face.xyz(), v));
+			if (p.w > plane.w)
+				plane = p;
+			for (auto e:verts)
+				if (v == e)
+					return plane;
+			if (plane.w >= face.w - epsilon)
+				return plane;
+			int vid = verts.size();
+			verts.push_back(v);
+			unsigned int j = tris.size();
+			int newstart = j;
+			while (j--)
+			{
+				if (tris[j].dead())
+					continue;
+				int3 t = tris[j].v;
+				if (above(verts.data(), t, verts[vid], 0.01f*epsilon))
+				{
+					extrude(tris, j, vid);
+				}
+			}
+			// now check for those degenerate cases where we have a flipped triangle or a really skinny triangle
+			j = tris.size();
+			while (j--)
+			{
+				if (tris[j].dead()) continue;
+				if (!hasvert(tris[j].v, vid)) break;
+				int3 nt = tris[j].v;
+				if (above(verts.data(), nt, center, 0.01f*epsilon) || magnitude(cross(verts[nt[1]] - verts[nt[0]], verts[nt[2]] - verts[nt[1]]))< epsilon*epsilon*0.1f)
+				{
+					int nb = tris[j].n[0];
+					assert(nb >= 0); assert(!tris[nb].dead()); assert(!hasvert(tris[nb].v, vid)); assert(tris[nb].id<(int)j);
+					extrude(tris, nb, vid);
+					j = tris.size();
+				}
+			}
+			j = tris.size();
+			while (j--)  // compress, remove non-tris
+			{
+				if (!tris[j].dead()) continue;
+				swapn(tris, j, tris.size() - 1);  // this routine fixes neighbor's neighbor indices
+				tris.pop_back();
+			}
+		}
+	
+		return plane;
+	}
 	inline std::vector<int3> calchull(float3 *verts,int verts_count, int vlimit)   
 	{
 		if(verts_count <4) return std::vector<int3>();
