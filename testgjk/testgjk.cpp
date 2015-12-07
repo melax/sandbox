@@ -20,13 +20,11 @@
 
 
 
-float g_pitch, g_yaw;
-int g_mouseX, g_mouseY;
-
+std::vector<float3> g_verts;
 std::vector<float3> a_verts;
-std::vector<int3> a_tris;
+std::vector<int3>   a_tris;
 std::vector<float3> b_verts;
-std::vector<int3> b_tris;
+std::vector<int3>   b_tris;
 int g_vcount = 10;
 
 inline float randf(){ return static_cast<float>(rand()) / static_cast<float>(RAND_MAX); }
@@ -34,14 +32,21 @@ inline float randf(){ return static_cast<float>(rand()) / static_cast<float>(RAN
 float3 vrand(){ return {randf(),randf(),randf()}; }
 int max_element(const int3& v) { return std::max(std::max(v.x, v.y),v.z); }
 
-std::pair<std::vector<float3>, std::vector<int3>> RandConvex()
+void ReInit()
 {
-	std::vector<float3> verts;
-	auto position = (vrand() - float3(0.5f, 0.5f, 0.5f))*2.0f;
-	for (int i = 0; i < g_vcount; i++)
-		verts.push_back(position+  vrand() - float3(0.5f, 0.5f, 0.5f));
-	auto tris = calchull(verts, g_vcount);
-	return std::make_pair(verts, tris);
+	g_verts.resize(0);
+	for (int s = 0; s < 2; s++)
+	{
+		auto position = (vrand() - float3(0.5f, 0.5f, 0.5f))*2.0f;
+		for (int i = 0; i < g_vcount; i++)
+			g_verts.push_back(position + vrand() - float3(0.5f, 0.5f, 0.5f));
+	}
+	float3 com;
+	for (auto v : g_verts)
+		com += v;
+	com *= (1.0f / g_verts.size());
+	for (auto &v : g_verts)
+		v -= com ;
 }
 void gldraw(std::vector<float3> &verts, std::vector<int3> &tris)
 {
@@ -56,32 +61,21 @@ void gldraw(std::vector<float3> &verts, std::vector<int3> &tris)
 	glEnd();
 }
 
-void Init()
+void ReGen()
 {
-	std::tie(a_verts, a_tris) = RandConvex();
-	std::tie(b_verts, b_tris) = RandConvex();
-}
-
-
-void OnKeyboard(unsigned char key, int x, int y)
-{
-	switch (std::tolower(key))
+	a_verts.resize(0);
+	b_verts.resize(0);
+	for (int i = 0; i < g_vcount; i++)
 	{
-	case ' ':
-		Init();
-		break;
-	case 27:   // ESC
-	case 'q':
-		exit(0);
-		break;
-	case 'w':
-	case 's':
-		break;
-	default:
-		std::cout << "unassigned key (" << (int)key << "): '" << key << "'\n";
-		break;
+		a_verts.push_back(g_verts[i]);
+		b_verts.push_back(g_verts[i + g_vcount]);
 	}
+	a_tris = calchull(a_verts, g_vcount);
+	b_tris = calchull(b_verts, g_vcount);
 }
+
+
+
 
 
 
@@ -89,21 +83,75 @@ void OnKeyboard(unsigned char key, int x, int y)
 int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst,
 LPSTR lpszCmdLine, int nCmdShow)
 {
-	std::cout << "TestMath\n";
-
-	Init();
-
+	std::cout << "TestGJK\n";
+	Pose camera;
+	float3 *selected = NULL;
+	float3 mousevec_prev;
+	ReInit();
+	float camdist = 2.0f;
 	GLWin glwin("TestGJK sample");
-	glwin.keyboardfunc = OnKeyboard;
+	bool smode = false,wire=false,minkowdraw=false;
+	glwin.keyboardfunc = [&](unsigned char key, int x, int y) -> void
+	{
+		switch (std::tolower(key))
+		{
+		case ' ':
+			ReInit();
+			selected = NULL;
+			break;
+		case 27:   // ESC
+		case 'q':
+			exit(0);
+			break;
+		case 'w':
+			wire = !wire;
+			break;
+		case 's':
+			smode = !smode;
+			break;
+		case 'm':
+			minkowdraw = !minkowdraw;
+			break;
+		case 'e':
+			enable_epa = !enable_epa;
+			break;
+		default:
+			std::cout << "unassigned key (" << (int)key << "): '" << key << "'\n";
+			break;
+		}
+	};
 	while (glwin.WindowUp())
 	{
-		if (glwin.MouseState)  // on mouse drag 
+		ReGen();
+
+		auto hitinfo = Separated(a_verts, b_verts, 1);
+
+		if (!smode)
+			selected = NULL;
+		else if (!glwin.MouseState)
 		{
-			g_yaw   += (glwin.MouseX - g_mouseX) * 0.3f;  // poor man's trackball
-			g_pitch += (glwin.MouseY - g_mouseY) * 0.3f;
+			float3 v = qrot(camera.orientation,glwin.MouseVector);  // assumes camera at 0,0,0 looking down -z axis
+			float3 p = camera.position;
+			selected = &(*std::max_element(g_verts.begin(), g_verts.end(), [&v,&p](const float3&a, const float3&b)->bool {return dot(v, normalize(a - p)) < dot(v, normalize(b-p)); }));
 		}
-		g_mouseX = glwin.MouseX;
-		g_mouseY = glwin.MouseY;
+
+		if (glwin.MouseState)
+		{
+			if (!smode || !selected)
+			{
+				camera.orientation = qmul(camera.orientation, qconj(VirtualTrackBall(float3(0, 0, 1), float3(0, 0, 0), mousevec_prev, glwin.MouseVector))); // equation is non-typical we are orbiting the camera, not rotating the object
+			}
+			else
+			{
+				*selected += (qrot(camera.orientation, glwin.MouseVector) - qrot(camera.orientation, mousevec_prev))  * magnitude(*selected - camera.position);
+				*selected = camera.position + (*selected - camera.position) * powf(1.1f, (float)glwin.mousewheel);
+				glwin.mousewheel = 0;
+			}
+		}
+
+		camdist *= powf(1.1f, (float)glwin.mousewheel);
+		camera.position = qzdir(camera.orientation) * camdist;
+		mousevec_prev = glwin.MouseVector;
 
 
 		glPushAttrib(GL_ALL_ATTRIB_BITS);
@@ -117,14 +165,11 @@ LPSTR lpszCmdLine, int nCmdShow)
 		glMatrixMode(GL_PROJECTION);
 		glPushMatrix();
 		glLoadIdentity();
-		gluPerspective(60, (double)glwin.Width/ glwin.Height, 0.01, 10);
+		gluPerspective(glwin.ViewAngle, (double)glwin.Width/ glwin.Height, 0.01, 10);
 
 		glMatrixMode(GL_MODELVIEW);
 		glPushMatrix();
-		gluLookAt(0, -2, 1, 0, 0, 0, 0, 0, 1);
-
-		glRotatef(g_pitch, 1, 0, 0);
-		glRotatef(g_yaw, 0, 0, 1);
+		glMultMatrixf(camera.Inverse().Matrix());
 
 		glEnable(GL_DEPTH_TEST);
 		//glEnable(GL_TEXTURE_2D);
@@ -139,10 +184,12 @@ LPSTR lpszCmdLine, int nCmdShow)
 		for (auto &v : b_verts)
 			glVertex3fv(v);
 		glEnd();
-
-
-		auto hitinfo = Separated(a_verts, b_verts, 1);
-
+		glPointSize(5);
+		glBegin(GL_POINTS);
+		glColor3f(0, 1.0f, 1.0f);
+		if (selected)
+			glVertex3fv(*selected);
+		glEnd();
 		glPointSize(5);
 		glBegin(GL_POINTS);
 		glColor3f(1, 0.5f, 0.5f);
@@ -163,24 +210,78 @@ LPSTR lpszCmdLine, int nCmdShow)
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 		glEnable(GL_LIGHTING);
 		glEnable(GL_LIGHT0);
-		gldraw(a_verts, a_tris);
-		gldraw(b_verts, b_tris);
 
-		glEnable(GL_BLEND);
-		glDisable(GL_LIGHTING);
-		glBegin(GL_QUADS);
-		auto q = RotationArc(float3(0, 0, 1), hitinfo.normal);
-		glColor4f(((hitinfo)?0.6f:0), 0.0f, 1.0f, 0.50);
-		glVertex3fv(hitinfo.impact + qxdir(q));
-		glVertex3fv(hitinfo.impact + qydir(q));
-		glVertex3fv(hitinfo.impact - qxdir(q));
-		glVertex3fv(hitinfo.impact - qydir(q));
-		glColor4f(((hitinfo)?0.6f:0), 1.0f, 0.0f, 0.50);
-		glVertex3fv(hitinfo.impact - qydir(q));
-		glVertex3fv(hitinfo.impact - qxdir(q));
-		glVertex3fv(hitinfo.impact + qydir(q));
-		glVertex3fv(hitinfo.impact + qxdir(q));
-		glEnd();
+		if (minkowdraw)
+		{
+			glPushAttrib(GL_ALL_ATTRIB_BITS);
+			glDisable(GL_CULL_FACE);
+			glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, 1);
+			std::vector<float3> verts;
+			for (auto a : a_verts) for (auto b : b_verts)
+			{
+				verts.push_back(a - b);
+			}
+			auto tris = calchull(verts, (int)verts.size());
+			glPolygonMode(GL_FRONT_AND_BACK, wire ? GL_LINE : GL_FILL);
+			gldraw(verts, tris);
+			glPopAttrib();
+
+			glDisable(GL_LIGHTING);  // draw origin;
+			glBegin(GL_LINES);
+			for (int i = 0; i < 3; i++)
+			{
+				float3 v(0, 0, 0);
+				v[i] = 1.0f;
+				glColor3fv(v);
+				glVertex3fv(-v); glVertex3fv(v);
+			}
+			glEnd();
+
+			glEnable(GL_BLEND);
+			glDisable(GL_LIGHTING);
+			glBegin(GL_QUADS);
+			auto q = RotationArc(float3(0, 0, 1), hitinfo.normal);
+			glColor4f(((hitinfo) ? 0.6f : 0), 0.0f, 1.0f, 0.50);
+			glVertex3fv(hitinfo.normal*-hitinfo.dist + qxdir(q));
+			glVertex3fv(hitinfo.normal*-hitinfo.dist + qydir(q));
+			glVertex3fv(hitinfo.normal*-hitinfo.dist - qxdir(q));
+			glVertex3fv(hitinfo.normal*-hitinfo.dist - qydir(q));
+			glColor4f(((hitinfo) ? 0.6f : 0), 1.0f, 0.0f, 0.50);
+			glVertex3fv(hitinfo.normal*-hitinfo.dist - qydir(q));
+			glVertex3fv(hitinfo.normal*-hitinfo.dist - qxdir(q));
+			glVertex3fv(hitinfo.normal*-hitinfo.dist + qydir(q));
+			glVertex3fv(hitinfo.normal*-hitinfo.dist + qxdir(q));
+			glEnd();
+
+
+		}
+		else   // draw the two convex hulls and separation plane
+		{
+			glPushAttrib(GL_ALL_ATTRIB_BITS);
+			glPolygonMode(GL_FRONT_AND_BACK, wire?GL_LINE: GL_FILL);
+			gldraw(a_verts, a_tris);
+			gldraw(b_verts, b_tris);
+			glPopAttrib();
+
+			glEnable(GL_BLEND);
+			glDisable(GL_LIGHTING);
+			glBegin(GL_QUADS);
+			auto q = RotationArc(float3(0, 0, 1), hitinfo.normal);
+			glColor4f(((hitinfo)?0.6f:0), 0.0f, 1.0f, 0.50);
+			glVertex3fv(hitinfo.impact + qxdir(q));
+			glVertex3fv(hitinfo.impact + qydir(q));
+			glVertex3fv(hitinfo.impact - qxdir(q));
+			glVertex3fv(hitinfo.impact - qydir(q));
+			glColor4f(((hitinfo)?0.6f:0), 1.0f, 0.0f, 0.50);
+			glVertex3fv(hitinfo.impact - qydir(q));
+			glVertex3fv(hitinfo.impact - qxdir(q));
+			glVertex3fv(hitinfo.impact + qydir(q));
+			glVertex3fv(hitinfo.impact + qxdir(q));
+			glEnd();
+
+		}
+
+
 
 		// Restore state
 		glPopMatrix();  //should be currently in modelview mode
@@ -189,9 +290,11 @@ LPSTR lpszCmdLine, int nCmdShow)
 		glPopAttrib();
 		glMatrixMode(GL_MODELVIEW);  
 
-		glwin.PrintString({ 3, 1 },"Press q to quit.     Spacebar new pointcloud.");
-		glwin.PrintString({ 3, 2 }, "separation %5.2f", hitinfo.separation);
-
+		glwin.PrintString({ 3, 1 },"Press q to quit.     Spacebar new pointclouds.");
+		glwin.PrintString({ 3, 2 }, "(w)ireframe %s    separation %5.3f  %5.3f",wire?"on":"off", hitinfo.separation,hitinfo.dist);
+		glwin.PrintString({ 3, 3 }, "(s)election mode: %s", smode ? "move verts" : "camera nav");
+		glwin.PrintString({ 3, 4 }, "selection %d", (selected)? selected-&g_verts[0] : -1);
+		glwin.PrintString({ 3, 5 }, "(E)PA: %s", (enable_epa) ? "on":"off");
 		glwin.SwapBuffers();
 	}
 
