@@ -90,7 +90,7 @@ LPSTR lpszCmdLine, int nCmdShow)
 	ReInit();
 	float camdist = 2.0f;
 	GLWin glwin("TestGJK sample");
-	bool smode = false,wire=false,minkowdraw=false;
+	bool emode = false,wire=false,minkowdraw=false;
 	glwin.keyboardfunc = [&](unsigned char key, int x, int y) -> void
 	{
 		switch (std::tolower(key))
@@ -106,10 +106,10 @@ LPSTR lpszCmdLine, int nCmdShow)
 		case 'w':
 			wire = !wire;
 			break;
-		case 's':
-			smode = !smode;
+		case 'e':
+			emode = !emode;
 			break;
-		case 'm':
+		case 'd':
 			minkowdraw = !minkowdraw;
 			break;
 		default:
@@ -123,7 +123,7 @@ LPSTR lpszCmdLine, int nCmdShow)
 
 		auto hitinfo = Separated(a_verts, b_verts, 1);
 
-		if (!smode)
+		if (!emode)
 			selected = NULL;
 		else if (!glwin.MouseState)
 		{
@@ -134,7 +134,7 @@ LPSTR lpszCmdLine, int nCmdShow)
 
 		if (glwin.MouseState)
 		{
-			if (!smode || !selected)
+			if (!emode || !selected)
 			{
 				camera.orientation = qmul(camera.orientation, qconj(VirtualTrackBall(float3(0, 0, 1), float3(0, 0, 0), mousevec_prev, glwin.MouseVector))); // equation is non-typical we are orbiting the camera, not rotating the object
 			}
@@ -232,6 +232,9 @@ LPSTR lpszCmdLine, int nCmdShow)
 				glColor3fv(v);
 				glVertex3fv(-v); glVertex3fv(v);
 			}
+			glColor3f(1, 1, 1);
+			glVertex3fv({ 0, 0, 0 });
+			glVertex3fv(hitinfo.normal * hitinfo.separation * 2.0f);
 			glEnd();
 
 			glEnable(GL_BLEND);
@@ -239,15 +242,15 @@ LPSTR lpszCmdLine, int nCmdShow)
 			glBegin(GL_QUADS);
 			auto q = RotationArc(float3(0, 0, 1), hitinfo.normal);
 			glColor4f(((hitinfo) ? 0.6f : 0), 0.0f, 1.0f, 0.50);
-			glVertex3fv(hitinfo.normal*-hitinfo.dist + qxdir(q));
-			glVertex3fv(hitinfo.normal*-hitinfo.dist + qydir(q));
-			glVertex3fv(hitinfo.normal*-hitinfo.dist - qxdir(q));
-			glVertex3fv(hitinfo.normal*-hitinfo.dist - qydir(q));
-			glColor4f(((hitinfo) ? 0.6f : 0), 1.0f, 0.0f, 0.50);
-			glVertex3fv(hitinfo.normal*-hitinfo.dist - qydir(q));
-			glVertex3fv(hitinfo.normal*-hitinfo.dist - qxdir(q));
-			glVertex3fv(hitinfo.normal*-hitinfo.dist + qydir(q));
-			glVertex3fv(hitinfo.normal*-hitinfo.dist + qxdir(q));
+			glVertex3fv(hitinfo.normal*hitinfo.separation + qxdir(q));
+			glVertex3fv(hitinfo.normal*hitinfo.separation + qydir(q));
+			glVertex3fv(hitinfo.normal*hitinfo.separation - qxdir(q));
+			glVertex3fv(hitinfo.normal*hitinfo.separation - qydir(q));
+			glColor4f(((hitinfo) ? 0.6f: 0), 1.0f, 0.0f, 0.50);
+			glVertex3fv(hitinfo.normal*hitinfo.separation - qydir(q));
+			glVertex3fv(hitinfo.normal*hitinfo.separation - qxdir(q));
+			glVertex3fv(hitinfo.normal*hitinfo.separation + qydir(q));
+			glVertex3fv(hitinfo.normal*hitinfo.separation + qxdir(q));
 			glEnd();
 
 
@@ -287,10 +290,10 @@ LPSTR lpszCmdLine, int nCmdShow)
 		glPopAttrib();
 		glMatrixMode(GL_MODELVIEW);  
 
-		glwin.PrintString({ 3, 1 },"Press q to quit.     Spacebar new pointclouds.");
+		glwin.PrintString({ 3, 1 }, "(q) to quit.     Spacebar new pointclouds.");
 		glwin.PrintString({ 3, 2 }, "(w)ireframe %s    separation %5.3f  %5.3f",wire?"on":"off", hitinfo.separation,hitinfo.dist);
-		glwin.PrintString({ 3, 3 }, "(s)election mode: %s", smode ? "move verts" : "camera nav");
-		glwin.PrintString({ 3, 4 }, "selection %d", (selected)? selected-&g_verts[0] : -1);
+		glwin.PrintString({ 3, 3 }, "(e)dit mode: %s %d", emode ? "geo edit.  current vert:" : "camera navigation.        ", (selected)? selected-&g_verts[0] : -1);
+		glwin.PrintString({ 3, 4 }, "(d)rawing: %s",minkowdraw?"full minkowski surface":"convex colliders");
 		glwin.SwapBuffers();
 	}
 

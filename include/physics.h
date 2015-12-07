@@ -415,7 +415,7 @@ inline void FindShapeWorldContacts(std::vector<PhysContact> &contacts_out, const
 	for (auto rb : rigidbodies) for (auto &shape : rb->shapes)   // foreach rigidbody shape
 	{
 		if(!(rb->collide&1)) continue;
-		float distance_range = std::max(physics_driftmax, 0.0f); //  magnitude(rb->linear_momentum) *physics_deltaT / rb->mass);  // dont need to create potential contacts if beyond this range
+		float distance_range = std::max(physics_driftmax, magnitude(rb->linear_momentum) *physics_deltaT / rb->mass);  // dont need to create potential contacts if beyond this range
 		for (auto  cell : cells)
 			for(auto &c : ContactPatch(SupportFunc(rb,shape), SupportFunc(*cell), distance_range) )
 				contacts_out.push_back(PhysContact(rb, NULL, c));  
@@ -450,7 +450,6 @@ inline std::vector<LimitLinear> ConstrainContacts(const std::vector<PhysContact>
 		float minsep = physics_driftmax*0.25f;
 		float separation = c.separation; //  verify direction here 
 		float bouncevel = std::max(0.0f, (-dot(c.normal, v) - magnitude(physics_gravity)*physics_falltime_to_ballistic) * physics_restitution);  // ballistic non-resting contact, allow elastic response
-
 		linearconstraints.push_back(LimitLinear(rb0, rb1, c.p0, c.p1, -c.normal, std::min((separation-minsep)*physics_biasfactorpositive,separation) , -bouncevel, { 0, FLT_MAX }));  // could also add (-bouncevel*physics_deltaT) to targetdist too
 		auto q = RotationArc({ 0,0,1 }, -c.normal);   // to get orthogonal axes on the plane
 		float3 normal = qzdir(q);

@@ -626,6 +626,7 @@ inline Patch ContactPatch(CA s0, CB s1, float max_separation)  // return 0 if s1
 		hitinfo[hc] = Separated(SupportFuncTrans(s0, ar.position, ar.orientation), s1, 1);
 		hitinfo[hc].normal = n;// all parallel to the initial separating plane;
 		hitinfo[hc].p0w = ar.Inverse() * hitinfo[hc].p0w;  // contact back into unadjusted space
+		hitinfo[hc].separation = dot(n, hitinfo[hc].p0w - hitinfo[hc].p1w);
 		bool match = false;
 		for (int j = 0; !match && j<hc; j++)
 			match = magnitude(hitinfo[hc].p0w - hitinfo[j].p0w) < 0.05f || magnitude(hitinfo[hc].p1w - hitinfo[j].p1w) < 0.05f;
