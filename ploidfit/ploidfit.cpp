@@ -54,12 +54,14 @@ float3 vrand() // output range is from -1 to 1
 float3 vrand(const float3 &scale) { return cmul(scale, vrand()); }
 float3 vsqrt(const float3 &v)     { return{ sqrtf(v.x), sqrtf(v.y), sqrtf(v.z) }; }
 
-std::vector<float3> RandomParabolicCloud(float3 range = float3(1.5f, 1.0f, 0.25f), int n = 15)
+std::vector<float3> RandomParabolicCloud(float3 range = float3(1.5f, 1.0f, 0.25f))
 {
-	float2 k = vrand().xy()*4.0f;   // we randomize the curvatures used to generate the point cloud.
+	float3 k = vrand()*4.0f;   // we randomize the curvatures used to generate the point cloud.
 	Pose randpose({ 1, 1, 1 }, normalize(float4(vrand(), 1.0f)));  // randomly pose the initial data to show that we are indeed normalizing a potentially generic point cloud 
-	std::vector<float3> points(n);
-	std::transform(points.begin(), points.end(), points.begin(), [&randpose, &range,&k](const float3)->float3 {auto v = vrand().xy() ; return randpose*cmul(range, float3(v, v.x*v.x*k.x + v.y*v.y*k.y)); });
+	std::vector<float3> points;
+	for (float y = -0.5f; y <= 0.5f; y += 0.25f) for (float x = -0.5f; x <= 0.5f; x += 0.25f)
+		points.push_back(vrand()*0.1f+ float3(x,y,0.0f));
+	std::transform(points.begin(), points.end(), points.begin(), [&randpose, &range,&k](const float3 v)->float3 { return randpose*cmul(range, float3(v.xy(), v.x*v.x*k.x + v.y*v.y*k.y +k.z*v.x*v.y)); });
 	return points;
 }
 
@@ -143,7 +145,6 @@ int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst, LPSTR lpsz
 	float3 focuspoint(0, 0, 0);
 	float3 mousevec_prev;
 	float4 model_orientation(0, 0, 0, 1);
-	float dt = 0.01f, t = 0;
 	float3 *selected = NULL;
 	bool moving_enabled = 0;  // to move vertices with Left mouse drag
 	float boxr = 0.025f;
@@ -161,9 +162,6 @@ int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst, LPSTR lpsz
 	};
 	while (glwin.WindowUp())
 	{
-		t = t + dt;  // advance our global time    t is in 0..1
-		if (t > 1.0f)
-			t = 0.0f;
 
 		// user interaction: 
 		float3 ray = qrot(camera.orientation, normalize(glwin.MouseVector));   // for mouse selection
