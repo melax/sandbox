@@ -29,6 +29,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "jointdrive", "jointdrive\jo
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "clothsimd", "clothsimd\clothsimd.vcxproj", "{A5B757A6-2197-4CA5-A439-8EF0EB3EB9ED}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ploidfit", "ploidfit\ploidfit.vcxproj", "{1FC1901A-F611-4B9E-8A34-60409E14FCA0}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -117,6 +119,14 @@ Global
 		{A5B757A6-2197-4CA5-A439-8EF0EB3EB9ED}.Release|Win32.Build.0 = Release|Win32
 		{A5B757A6-2197-4CA5-A439-8EF0EB3EB9ED}.Release|x64.ActiveCfg = Release|x64
 		{A5B757A6-2197-4CA5-A439-8EF0EB3EB9ED}.Release|x64.Build.0 = Release|x64
+		{1FC1901A-F611-4B9E-8A34-60409E14FCA0}.Debug|Win32.ActiveCfg = Debug|Win32
+		{1FC1901A-F611-4B9E-8A34-60409E14FCA0}.Debug|Win32.Build.0 = Debug|Win32
+		{1FC1901A-F611-4B9E-8A34-60409E14FCA0}.Debug|x64.ActiveCfg = Debug|x64
+		{1FC1901A-F611-4B9E-8A34-60409E14FCA0}.Debug|x64.Build.0 = Debug|x64
+		{1FC1901A-F611-4B9E-8A34-60409E14FCA0}.Release|Win32.ActiveCfg = Release|Win32
+		{1FC1901A-F611-4B9E-8A34-60409E14FCA0}.Release|Win32.Build.0 = Release|Win32
+		{1FC1901A-F611-4B9E-8A34-60409E14FCA0}.Release|x64.ActiveCfg = Release|x64
+		{1FC1901A-F611-4B9E-8A34-60409E14FCA0}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

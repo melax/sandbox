@@ -411,6 +411,12 @@ inline float4 Diagonalizer(const float3x3 &A)
 	return q;	
 }
 
+inline float Diagonalizer(const float2x2 &m)  // returns angle that rotates m into diagonal matrix d where d01==d10==0 and d00>d11 (the eigenvalues)
+{
+	float d = m.y.y - m.x.x;
+	return atan2f(d + sqrtf(d*d + 4.0f*m.x.y*m.y.x), 2.0f * m.x.y);
+}
+
 inline void PlaneTranslate(float4 & plane, const float3 & translation) { plane.w -= dot(plane.xyz(), translation); }
 inline void PlaneRotate(float4 & plane, const float4 & rotation) { plane.xyz() = qrot(rotation, plane.xyz()); }
 inline void PlaneScale(float4 & plane, const float3 & scaling) { plane.xyz() = cdiv(plane.xyz(), scaling); plane /= magnitude(plane.xyz()); }
