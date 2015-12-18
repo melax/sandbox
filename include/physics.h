@@ -30,7 +30,7 @@
 
 const float   physics_deltaT = (1.0f / 60.0f);
 const float   physics_restitution = 0.4f;  // coefficient of restitution
-const float3  physics_gravity(0, 0, -10.0f);
+float3  physics_gravity(0, 0, -10.0f);
 const float   physics_coloumb = 0.6f; // used as default friction value and for static geometry    
 const float   physics_biasfactorjoint = 0.3f;
 const float   physics_biasfactorpositive = 0.3f;
@@ -51,6 +51,7 @@ struct Shape // rigidbody has an array of shapes.  all meshes are stored in the 
 {
 	std::vector<float3> verts;
 	std::vector<int3> tris;
+	std::vector<float4> planes;
 	Shape(std::vector<float3> verts, std::vector<int3> tris) : verts(verts), tris(tris){}
 };
 

@@ -19,9 +19,10 @@
 #include <assert.h>
 #include <functional>
 
+
 #include "vecmatquat.h"
 #include "geometric.h"           // a collection of useful utilities such as intersection and projection
-
+#include "hull.h"
 
 namespace gjk_implementation
 {

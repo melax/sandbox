@@ -172,7 +172,8 @@ inline void XMLSaveFile(const xmlNode &elem, FILE *fp)
 }
 inline void XMLSaveFile(const xmlNode &elem, const char *filename)
 {
-	FILE *fp = fopen(filename, "w");
+	FILE *fp=NULL;
+	fopen_s(&fp, filename, "w");
 	assert(fp);
 	if (&elem != NULL)
 		XMLSaveFile(elem, fp);
