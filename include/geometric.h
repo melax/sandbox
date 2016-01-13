@@ -31,6 +31,9 @@ template<class T> std::vector<T> & Append(std::vector<T> &a, const T& t){ a.push
 template<class T> std::vector<T> & Append(std::vector<T> &a, const std::vector<T> &b){ a.insert(a.end(), b.begin(), b.end()); return a; }
 template<class T> std::vector<T*>  Addresses(std::vector<T> &a) {  std::vector<T*> p; for (auto &e : a) p.push_back(&e); return p; }  // not sure what was wrong with { Transform(a, [](T &t)->T*{return &t; }); } 
 
+inline int2   asint2(const float2 &v) { return{ (int  )v.x, (int  )v.y }; }
+inline float2 asfloat2(const int2 &v) { return{ (float)v.x, (float)v.y }; }
+
 
 inline float4 quatfrommat(const float3x3 &m)
 {
@@ -91,6 +94,8 @@ struct Pose // Value type representing a rigid transformation consisting of a tr
 	Pose        operator * (const Pose & pose) const        { return{ *this * pose.position, qmul(orientation, pose.orientation) }; }
 	float4      TransformPlane(const float4 &p)             { float3 n = qrot(orientation, p.xyz()); return float4(n, p.w - dot(position, n)); }
 };
+inline std::ostream & operator << (std::ostream & out, const Pose& p) { return out << p.position << " " << p.orientation; }
+inline std::istream & operator >> (std::istream & in,        Pose& p) { return in  >> p.position        >> p.orientation; }
 
 
 inline float3 PlaneLineIntersection(const float3 &n, const float d, const float3 &p0, const float3 &p1)   // returns the point where the line p0-p2 intersects the plane n&d

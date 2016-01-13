@@ -179,7 +179,6 @@ int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst, LPSTR lpsz
 	float4 model_orientation(0, 0, 0, 1);
 	float dt = 0.01f, t = 0;
 	float3 *selected = NULL;
-	bool moving_enabled = 0;  // to move vertices with Left mouse drag
 	float boxr = 0.025f;
 	std::vector<float4> planes = { { 1, 0, 0, 0 }, { 0, 1, 0, 0 }, { 0, 0, 1, 0 }, { -1, 0, 0, 0 }, { 0, -1, 0, 0 }, { 0, 0, -1, 0 } };
 	for (auto &p : planes)
@@ -190,7 +189,6 @@ int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst, LPSTR lpsz
 	glwin.keyboardfunc = [&](int key, int, int)
 	{
 		show_ellipsoid_normals = key == 'n' != show_ellipsoid_normals;
-		moving_enabled = key == 'm' != moving_enabled;  // user vertex dragging
 		if (key == ' ')
 			points = RandomPointCloud();
 	};
@@ -206,7 +204,7 @@ int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst, LPSTR lpsz
 		if (!glwin.MouseState)  // note that we figure out what is being selected only when the mouse is up
 		{
 			selected = NULL;
-			for (float3 &p : points) if (moving_enabled)
+			for (float3 &p : points) 
 			{
 				if (auto h = ConvexHitCheck(planes, Pose(p, { 0, 0, 0, 1 }), camera.position, v1))
 				{
@@ -274,9 +272,7 @@ int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst, LPSTR lpsz
 		glPopAttrib();// Restore state
 
 		glwin.PrintString({ 0, 0 }, "ESC to quit.  Space for new pointcloud.");
-		glwin.PrintString({ 0, 1 },"vertex [m]otion: %s", moving_enabled ? "(enabled) select drag with mouse" : "(disabled)");
-		if(selected)
-			glwin.PrintString({ 0, 2 }, "%s: %d", glwin.MouseState ? "moving" : "selected",  selected - points.data());
+		glwin.PrintString({ 0, 1 }, (!selected) ? ((glwin.MouseState)?"rotate cloud":"") : "%s: %d", glwin.MouseState ? "moving" : "selected",  selected - points.data());
 		if (show_ellipsoid_normals)
 			glwin.PrintString({ 0, 3 }, "[n] to disable useless showing of vertex normals.");
 		glwin.SwapBuffers();

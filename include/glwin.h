@@ -13,6 +13,9 @@
 //
 //
 
+#pragma once
+#ifndef GLWIN_H
+#define GLWIN_H
 
 #include <functional>
 
@@ -382,5 +385,8 @@ inline void glTexCoord2fv(const float2   &v) { glTexCoord2fv(&v.x);      }
 inline void glColor3fv   (const float3   &c) { glColor3fv(&c.x);         }
 inline void glTranslatefv(const float3   &v) { glTranslatef(v.x,v.y,v.z);}
 inline void glMultMatrixf(const float4x4 &m) { glMultMatrixf(&m.x.x);    }
+
+
+#endif // GLWIN_H
 
 

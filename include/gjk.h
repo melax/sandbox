@@ -3,7 +3,7 @@
 // by stan melax 2007   open source
 //
 // Just a basic gjk implementation using some wisdom described in Gino's papers on the algorithm. 
-// Essecntially take two convex shapes in the form of a supportmap function/lambda and returns separating plane.
+// Essentially take two convex shapes in the form of a supportmap function/lambda and returns separating plane.
 // Implementation is inline for convenience
 // 
 // 2014 update:  just a bit of code and style cleanup in case anyone is interested in trying/testing/using this
