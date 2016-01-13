@@ -45,24 +45,24 @@ struct WingMesh
 {
 	struct HalfEdge
 	{
-		short id;
-		short v;
-		short adj;
-		short next;
-		short prev;
-		short face;
+		int id;
+		int v;
+		int adj;
+		int next;
+		int prev;
+		int face;
 		HalfEdge(){ id = v = adj = next = prev = face = -1; }
-		HalfEdge(short _id, short _v, short _adj, short _next, short _prev, short _face) :id(_id), v(_v), adj(_adj), next(_next), prev(_prev), face(_face){}
+		HalfEdge(int _id, int _v, int _adj, int _next, int _prev, int _face) :id(_id), v(_v), adj(_adj), next(_next), prev(_prev), face(_face){}
 
 		HalfEdge &Next(){ assert(next >= 0 && id >= 0); return this[next - id]; }  // convenience for getting next halfedge 
 		HalfEdge &Prev(){ assert(prev >= 0 && id >= 0); return this[prev - id]; }
-		HalfEdge &Adj(){ assert(adj >= 0 && id >= 0); return this[adj - id]; }
+		HalfEdge &Adj() { assert(adj  >= 0 && id >= 0); return this[adj  - id]; }
 	};
 	std::vector<HalfEdge> edges;
 	std::vector<float3>   verts;
 	std::vector<float4>   faces;
-	std::vector<short>    vback;
-	std::vector<short>    fback;
+	std::vector<int>      vback;
+	std::vector<int>      fback;
 	int unpacked; // flag indicating if any unused elements within arrays
 
 	WingMesh() :unpacked(0){}
@@ -155,22 +155,22 @@ struct WingMesh
 		// Computes adjacency information for edges.
 		// Assumes all edges have valid prev,next, and vertex.
 		unsigned int i;
-		std::vector<short> edgesv;
+		std::vector<int> edgesv;
 		edgesv.reserve(edges.size());  // edges indexes sorted into ascending edge's vertex index order
-		for (i = 0; i < edges.size(); i++) edgesv.push_back((short)i);
-		std::sort(edgesv.begin(), edgesv.end(), [this](const short &a, const short &b){ return this->edges[a].v < this->edges[b].v; });
-		std::vector<short> veback;
+		for (i = 0; i < edges.size(); i++) edgesv.push_back((int)i);
+		std::sort(edgesv.begin(), edgesv.end(), [this](const int &a, const int &b){ return this->edges[a].v < this->edges[b].v; });
+		std::vector<int> veback;
 		veback.resize(verts.size());
 		i = edges.size();
 		while (i--)
-			veback[edges[edgesv[i]].v] = (short)i;
+			veback[edges[edgesv[i]].v] = (int)i;
 		for (i = 0; i < edges.size(); i++)
 		{
 			WingMesh::HalfEdge &e = edges[i];
 			assert(e.id == i);
 			if (e.adj != -1) continue;
-			short a = e.v;
-			short b = edges[e.next].v;
+			int a = e.v;
+			int b = edges[e.next].v;
 			unsigned int k = veback[b];
 			while (k < edges.size() && edges[edgesv[k]].v == b)
 			{
@@ -809,9 +809,9 @@ inline WingMesh WingMeshCreate(const float3 *verts, const int3 *tris, int n)
 		e0.id = e1.prev = e2.next = k + 0;
 		e1.id = e2.prev = e0.next = k + 1;
 		e2.id = e0.prev = e1.next = k + 2;
-		e0.v = (short)tris[i][0];
-		e1.v = (short)tris[i][1];
-		e2.v = (short)tris[i][2];
+		e0.v = tris[i][0];
+		e1.v = tris[i][1];
+		e2.v = tris[i][2];
 		m.edges.push_back(e0);
 		m.edges.push_back(e1);
 		m.edges.push_back(e2);
@@ -836,11 +836,11 @@ inline WingMesh WingMeshCreate(const float3 *verts, const int3 *tris, int n, con
 }
 
 // Adds a face plane and a ring of half-edges to a WingMesh, but does not set adjancency of compute backlists. Call WingMesh::LinkMesh() and WingMesh::InitBackLists() when done.
-inline void WingMeshAddFace(WingMesh & mesh, const short * indices, short n)
+inline void WingMeshAddFace(WingMesh & mesh, const int * indices, int n)
 {
     std::vector<float3> verts;
-    short faceId = mesh.faces.size(), baseEdge = mesh.edges.size();
-    for(short i=0; i<n; ++i)
+    int faceId = mesh.faces.size(), baseEdge = mesh.edges.size();
+    for(int i=0; i<n; ++i)
     {
         verts.push_back(mesh.verts[indices[i]]);
         mesh.edges.push_back(WingMesh::HalfEdge(baseEdge+i, indices[i], -1, baseEdge+(i+1)%n, baseEdge+(i+n-1)%n, faceId));
@@ -860,11 +860,11 @@ inline WingMesh WingMeshCylinder(int sides, float radius, float height)
 
     for(int i=0; i<sides; ++i)
     {
-        const short indices[] = {i*2, ((i+1)%sides)*2, ((i+1)%sides)*2+1, i*2+1};
+        const int indices[] = {i*2, ((i+1)%sides)*2, ((i+1)%sides)*2+1, i*2+1};
         WingMeshAddFace(mesh, indices, 4);
     }
 
-    std::vector<short> bottom, top;
+    std::vector<int> bottom, top;
     for(int i=0; i<sides; ++i)
     {
         bottom.push_back((sides-i-1)*2);
@@ -890,11 +890,11 @@ inline WingMesh WingMeshCone(int sides, float radius, float height)
 
     for(int i=0; i<sides; ++i)
     {
-        const short indices[] = {i, (i+1)%sides, sides};
+        const int indices[] = {i, (i+1)%sides, sides};
         WingMeshAddFace(mesh, indices, 3);
     }
 
-    std::vector<short> bottom;
+    std::vector<int> bottom;
     for(int i=0; i<sides; ++i)
     {
         bottom.push_back(sides-i-1);

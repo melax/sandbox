@@ -94,7 +94,7 @@ int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst,LPSTR lpszC
 
 	std::vector<RigidBody*> rigidbodies;
 	rigidbodies.push_back(new RigidBody({ AsShape(WingMeshCube(1.1f)) }, { 1.5f, 0.0f, 1.5f }));
-	rigidbodies.push_back(new RigidBody({ AsShape(WingMeshCube(1.1)) }, { -1.5f, 0.0f, 1.5f }));
+	rigidbodies.push_back(new RigidBody({ AsShape(WingMeshCube(1.1f)) }, { -1.5f, 0.0f, 1.5f }));
 	rigidbodies.back()->orientation = normalize(float4(0.1f, 0.01f, 0.3f, 1.0f));
 	auto seesaw = new RigidBody({ AsShape(WingMeshBox( { 3, 0.5f, 0.1f })) }, { 0, -2.5, 0.25f });
 	rigidbodies.push_back(seesaw);

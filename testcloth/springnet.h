@@ -385,11 +385,11 @@ class SpringNetwork
 		// Sets up the sparse matrices corresponding to connections.
 		// Note the indices (s.iab,s.iba) are also stored with spring to avoid looking them up each time a spring is applied
 		// All 3 matrices A,dFdX, and dFdV are contstructed identically so the block array layout will be the same for each.
-		s.iab = A.blocks.size();   // added 'ab' blocks will have this index.
+		s.iab = (short)A.blocks.size();   // added 'ab' blocks will have this index.
 		A.blocks.push_back(float3Nx3N::Block(s.a,s.b)); 
 		dFdX.blocks.push_back(float3Nx3N::Block(s.a,s.b));
 		dFdV.blocks.push_back(float3Nx3N::Block(s.a,s.b));
-		s.iba = A.blocks.size();   // added 'ba' blocks will have this index.
+		s.iba = (short)A.blocks.size();   // added 'ba' blocks will have this index.
 		A.blocks.push_back(float3Nx3N::Block(s.b,s.a)); 
 		dFdX.blocks.push_back(float3Nx3N::Block(s.b,s.a));
 		dFdV.blocks.push_back(float3Nx3N::Block(s.b,s.a));

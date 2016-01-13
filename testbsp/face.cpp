@@ -22,7 +22,6 @@ float qsnap=0.25f;
 int currentmaterial = 0;
 float texscale=1.0f;
 
-float3 safenormalize(const float3 &v) { return (v == float3(0, 0, 0)) ? float3(0, 0, 1) : normalize(v); }
 
 void texplanar(Face & face)
 {

@@ -39,8 +39,6 @@ const float   physics_falltime_to_ballistic = 0.2f;
 const float   physics_driftmax = 0.03f;
 const float   physics_damping = 0.15f;  // 1 means critically damped,  0 means no damping
 
-inline float3 safenormalize(const float3 &v) { return (v == float3(0, 0, 0)) ? float3(0, 0, 1) : normalize(v); }
-inline float  clamp(float a, float mn = 0.0f, float mx = 1.0f) { return std::min(std::max(a, mn), mx); }
 
 
 class Spring;

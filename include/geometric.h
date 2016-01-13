@@ -34,6 +34,9 @@ template<class T> std::vector<T*>  Addresses(std::vector<T> &a) {  std::vector<T
 inline int2   asint2(const float2 &v) { return{ (int  )v.x, (int  )v.y }; }
 inline float2 asfloat2(const int2 &v) { return{ (float)v.x, (float)v.y }; }
 
+inline float3 safenormalize(const float3 &v) { return (v == float3(0, 0, 0)) ? float3(0, 0, 1) : normalize(v); }
+template<class T> inline T  clamp(T a, const T mn = T(0), const T mx = T(1)) { return std::min(std::max(a, mn), mx); }
+
 
 inline float4 quatfrommat(const float3x3 &m)
 {
