@@ -37,7 +37,7 @@ Face* FaceHit(BSPNode *leaf,const float4 &plane,const float3 &s)
 	for(unsigned int i=0;i<leaf->brep.size();i++)
 	{
 		Face & f = leaf->brep[i];
-		if(f==plane || f==-plane ) continue;  // was coplanar
+		if(f.plane()==plane || f.plane()==-plane ) continue;  // was coplanar
 		static int craptest=0;   // sometimes the normal is facing the other way, but that's ok.
 		if(craptest)
 		{ 
