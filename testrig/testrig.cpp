@@ -51,8 +51,7 @@ int main(int argc, const char *argv[]) try
 	rbscalemass(&rbs[0], 3.0f);
 	rbscalemass(&rbs[1], 5.0f);
 
-	DXWin mywin("DX testing articulated rigged model");
-	//OVRWin mywin("VR testing articulated rigged model");
+	DXWin mywin("DX testing articulated rigged model", { 800,600 });
 	std::vector<Mesh> meshes;
 	for (auto &rb : rbs)
 	{
@@ -113,11 +112,11 @@ int main(int argc, const char *argv[]) try
 					v1 = h.impact;
 					selected = &rb;
 					spoint = h.impact;
-					rbpoint = rb.pose().Inverse()*h.impact;
+					rbpoint = rb.pose().inverse()*h.impact;
 				}
 			}
 		}
-		spoint = camera.position + ray * magnitude(spoint - camera.position)*powf(1.025f, (float)mywin.mousewheel);
+		spoint = camera.position + ray * length(spoint - camera.position)*powf(1.025f, (float)mywin.mousewheel);
 		mesh_cube.pose.position = spoint;
 		if (!mywin.MouseState)
 			selected = NULL;

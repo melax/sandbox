@@ -14,10 +14,20 @@
 
 #include <string>
 #include <iostream>
+#include <fstream>
+#include <vector>
+
+// some misc convenience functions
+template<typename F, typename S> auto Transform(std::vector<S> &src, F f) { std::vector<std::result_of_t<F(S)>> dst(src.size()); std::transform(src.begin(), src.end(), dst.begin(), f); return dst; }
+template<typename F, typename S> auto Transform(const std::vector<S> &src, F f) { std::vector<std::result_of_t<F(S)>> dst(src.size()); std::transform(src.begin(), src.end(), dst.begin(), f); return dst; }
+template<class T> std::vector<T> & Append(std::vector<T> &a, const T& t) { a.push_back(t); return a; }
+template<class T> std::vector<T> & Append(std::vector<T> &a, const std::vector<T> &b) { a.insert(a.end(), b.begin(), b.end()); return a; }
+template<class T> std::vector<T*>  Addresses(std::vector<T> &a) { return Transform(a, [](T &t)->T* {return &t; }); }
+
 
 // fixme: basepathname and fileprefix are just two attempts to implemement the same thing
 
-std::string basepathname(std::string fname) { return std::string(fname.begin(), fname.begin() + fname.find_last_of('.')); } // FIXME  stl string newb  not sure if correct if no '.' exists
+inline std::string basepathname(std::string fname) { return std::string(fname.begin(), fname.begin() + fname.find_last_of('.')); } // FIXME  stl string newb  not sure if correct if no '.' exists
 inline bool fileexists(std::string filename) { std::ifstream i(filename, std::ifstream::in);  return i.is_open(); }
 
 inline const char* strstp(const char *s, char c) { while (*s && *s != c) s++; return s; }  // pointer to first c in string s or end of string if not found

@@ -28,7 +28,8 @@
 #include <assert.h>
 #include <vector>
 
-#include "vecmatquat.h"
+#include "linalg.h"
+using namespace linalg::aliases;   // typedefs for float3 etc
 
 //-------  vec3n large vector library -----------
 
@@ -335,7 +336,7 @@ class SpringNetwork
 	std::vector<int4>  quads;
 
 	Spring &CreateSpring(int type,int a,int b,float restlen){springs.push_back( Spring(type,a,b,restlen));return AddBlocks(springs.back());}
-	Spring &CreateSpring(int type,int a,int b){return CreateSpring(type,a,b,magnitude(X[b]-X[a]));}
+	Spring &CreateSpring(int type,int a,int b){return CreateSpring(type,a,b,length(X[b]-X[a]));}
 	//void    UpdateLimits() { BoxLimits(X.data(),X.size(),(float3&)bmin,(float3&)bmax);}
 	void    Wake(){awake=sleepcount;}
 	float3* GetPoints(){ return X.data(); }
@@ -404,14 +405,14 @@ class SpringNetwork
 		//assert(dFdX.blocks[s.a].c==s.a);  // delete this assert, no bugs here
 		//assert(dFdX.blocks[s.a].r==s.a);
 		float3 extent = X[s.b] - X[s.a];
-		float  length = magnitude(extent);
-		float3 dir    = (length==0)?float3(0,0,0): extent * 1.0f/length;
+		float  len    = length(extent);
+		float3 dir    = (len==0)?float3(0,0,0): extent * 1.0f/len;
 		float3 vel    = V[s.b] - V[s.a];
 		float  k      = spring_k[s.type];
-		float3 f =  dir * ((k * (length-s.restlen) ) +  damp_spring * dot(vel,dir));  // spring force + damping force
+		float3 f =  dir * ((k * (len-s.restlen) ) +  damp_spring * dot(vel,dir));  // spring force + damping force
 		F[s.a] += f;
 		F[s.b] -= f;
-		float3x3 dfdx = dfdx_spring(dir,length,s.restlen,k) + dfdx_damp(dir,length,vel,s.restlen,damp_spring);
+		float3x3 dfdx = dfdx_spring(dir,len,s.restlen,k) + dfdx_damp(dir,len,vel,s.restlen,damp_spring);
 		dFdX.blocks[s.a].m   -= dfdx;  // diagonal chunk dFdX[a,a] 
 		dFdX.blocks[s.b].m   -= dfdx;  // diagonal chunk dFdX[b,b]
 		dFdX.blocks[s.iab].m += dfdx;  // off-diag chunk dFdX[a,b]
@@ -590,7 +591,7 @@ inline SpringNetwork SpringNetworkCreateRectangular(int w, int h, float size)
 		points.push_back(float3(0, 0, 0) + (float3(-0.5f, -0.5f, -0.0f) + float3((float)j / (w - 1.0f), (float)i / (w - 1.0f), 0)) * size);
 		//points.push_back(float3(0,0,0)+(float3(0,-0.5f,-0.0f)+float3(0,(float)j/(w-1.0f),0.0f-(float)i/(w-1.0f))) * size);
 	}
-	float r = magnitude(points[0] - points[1])*cloth_pretension; // spring restlength 
+	float r = length(points[0] - points[1])*cloth_pretension; // spring restlength 
 
 	for (i = 0; i<h; i++) for (j = 0; j<w; j++)
 	if (i<h - 1)        springs.push_back(SpringNetwork::Spring(SPRING_STRUCT, i*w + j, (i + 1)*w + j, r));     // structural

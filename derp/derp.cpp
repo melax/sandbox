@@ -1,5 +1,5 @@
 //
-//    Dual Quaternion 
+//    DERP:  Dual quaternion intERPolation
 //
 //  A minimal demo illustrating screw-motion pose interpolation using dual quaternion math
 //  left mouse moves the camera or, if selected, changes the orientation of one of the two endpoints.
@@ -20,7 +20,7 @@
 // The functions dqmake/dqpose convert Pose to/from dual quat representation.
 // 
 float4x2 dqmul(const float4x2 &a, float4x2 &b) { return{ qmul(a[0], b[0]), qmul(a[0], b[1]) + qmul(a[1], b[0]) }; }
-float4x2 dqnorm(const float4x2 &d) { return  d / magnitude(d[0]); }  // normalize based on non-dual part only
+float4x2 dqnorm(const float4x2 &d) { return  d / length(d[0]); }  // normalize based on non-dual part only
 float4x2 dqmake(const Pose &p) { return dqmul(float4x2({ 0, 0, 0, 1 }, float4(p.position / 2.0f, 0)), float4x2(p.orientation, { 0, 0, 0, 0 })); }
 Pose     dqpose(const float4x2 &d) { return{ qmul(d[1], qconj(d[0])).xyz()*2.0f, d[0] }; }
 float4x2 dqinterp(const float4x2 &d0, const float4x2 &d1, float t) { return dqnorm(d0*(1 - t) + d1*t); }  // normalized lerp
@@ -61,7 +61,7 @@ void glAxis()
 void glcolorbox(const float3 &r, const Pose &p)   // p = { { 0, 0, 0 }, { 0, 0, 0, 1 } })
 {
 	glPushMatrix();
-	glMultMatrixf(p.Matrix());
+	glMultMatrixf(p.matrix());
 	glBegin(GL_QUADS);
 	for (int m : {0, 1}) for (int i : {0, 1, 2})
 	{
@@ -82,15 +82,13 @@ void glcolorbox(const float3 &r, const Pose &p)   // p = { { 0, 0, 0 }, { 0, 0, 
 	glEnd();
 	glPopMatrix();
 }
-void glcolorbox(const float &r, const Pose &p) { glcolorbox({ r, r, r }, p); }
 
 int main(int argc, char *argv[]) try
 {
-	std::cout << "TestDQ\n";
+	std::cout << "DerpDemo\n";
 	Pose camera = { { 0, 0, 8 }, { 0, 0, 0, 1 } };
 	bool showaxis = true;
 	float3 focuspoint(0, 0, 0);
-	float3 mousevec_prev;
 	float4 model_orientation(0, 0, 0, 1);
 	Pose p0 = { { -3, 0, 0 }, { 0, 0, 0, 1 } };
 	Pose p1 = { {  3, 0, 0 }, { 0, 0, sqrtf(0.5f),sqrtf(0.5f) } };
@@ -100,7 +98,7 @@ int main(int argc, char *argv[]) try
 	for (auto &p : planes)
 		p.w = -0.25f;
 
-	GLWin glwin("Dual Quaternion Pose Interpolation");
+	GLWin glwin("DERP: Dual quaternion intERPolation");
 	glwin.keyboardfunc = [&](int key, int, int)
 	{
 		showaxis = key == 'a' != showaxis;
@@ -135,15 +133,14 @@ int main(int argc, char *argv[]) try
 		else // if (glwin.MouseState)  
 		{
 			if (selected)
-				selected->orientation = qmul(VirtualTrackBall(camera.position, selected->position, qrot(camera.orientation, mousevec_prev), qrot(camera.orientation, glwin.MouseVector)), selected->orientation);
+				selected->orientation = qmul(VirtualTrackBall(camera.position, selected->position, qrot(camera.orientation, glwin.OldMouseVector), qrot(camera.orientation, glwin.MouseVector)), selected->orientation);
 			else
-				camera.orientation = qmul(camera.orientation, qconj(VirtualTrackBall(float3(0, 0, 1), float3(0, 0, 0), mousevec_prev, glwin.MouseVector))); // equation is non-typical we are orbiting the camera, not rotating the object
+				camera.orientation = qmul(camera.orientation, qconj(VirtualTrackBall(float3(0, 0, 1), float3(0, 0, 0), glwin.OldMouseVector, glwin.MouseVector))); // equation is non-typical we are orbiting the camera, not rotating the object
 		}
-		camera.position = focuspoint + qzdir(camera.orientation)*magnitude(camera.position - focuspoint);
+		camera.position = focuspoint + qzdir(camera.orientation)*length(camera.position - focuspoint);
 		camera.position -= focuspoint;
 		camera.position *= powf(1.1f, (float)glwin.mousewheel);
 		camera.position += focuspoint;
-		mousevec_prev = glwin.MouseVector;
 
 		// Render the scene
 		glPushAttrib(GL_ALL_ATTRIB_BITS); 
@@ -155,7 +152,7 @@ int main(int argc, char *argv[]) try
 		gluPerspective(glwin.ViewAngle, (double)glwin.Width / glwin.Height, 0.25, 250);
 		glMatrixMode(GL_MODELVIEW);
 		glPushMatrix(); glLoadIdentity();
-		glMultMatrixf(camera.Inverse().Matrix());
+		glMultMatrixf(camera.inverse().matrix());
 
 		glDisable(GL_LIGHTING); 
 		glAxis();  
@@ -181,7 +178,7 @@ int main(int argc, char *argv[]) try
 
 		glEnable(GL_LIGHTING); glEnable(GL_LIGHT0); glEnable(GL_COLOR_MATERIAL);
 		for (auto p : { p0, p1, pt })
-			glcolorbox(0.25f, p);
+			glcolorbox(float3(0.25f), p);
 
 		glPopMatrix();  //should be currently in modelview mode
 		glMatrixMode(GL_PROJECTION);

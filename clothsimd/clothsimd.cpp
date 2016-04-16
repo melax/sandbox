@@ -28,7 +28,7 @@
 // responsibility to update it.
 
 
-#include "vecmatquat.h"
+#include "linalg.h"
 #include "mesh.h"
 #include "dxwin.h"
 
@@ -381,7 +381,7 @@ void ConstraintNetwork::PhysicsToGraphics()
 		mesh.verts[i * 4 + s].position.y = ((float*)(&this->position[i].y))[s];
 		mesh.verts[i * 4 + s].position.z = ((float*)(&this->position[i].z))[s];
 		//float3 n = {  ((float*)(&this->normal[i].x))[s], ((float*)(&this->normal[i].y))[s], ((float*)(&this->normal[i].z))[s] };
-		mesh.verts[i * 4 + s].orientation = { 0,0,0,1 }; // RotationArc({ 0,0,1 }, n);
+		mesh.verts[i * 4 + s].orientation = { 0,0,0,1 }; // quat_from_to({ 0,0,1 }, n);
 		mesh.verts[i * 4 + s].texcoord = { i%mesh_width / (mesh_width-1.0f) , i / mesh_width / (mesh_width-1.0f) };
 	}
 	//__m256 *vertices = reinterpret_cast<__m256 *>(this->vertices);    // each vertex fits nicely into a __m256

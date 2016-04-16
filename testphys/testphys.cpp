@@ -14,7 +14,9 @@
 #include <vector>
 
 // in project properties, add "../include" to the vc++ directories include path
-#include "vecmatquat.h"   
+#include "linalg.h"   
+using namespace linalg::aliases;  // float3, int2, float3x3 etc
+
 #include "glwin.h"  // minimal opengl for windows setup wrapper
 #include "hull.h"
 #include "gjk.h"
@@ -31,9 +33,9 @@ bool  g_simulate = 0;
 void InitTex()  // create a checkerboard texture 
 {
 	const int imagedim = 16;
-	ubyte3 checker_image[imagedim * imagedim];
+	byte3 checker_image[imagedim * imagedim];
 	for (int y = 0; y < imagedim; y++) for (int x = 0; x < imagedim; x++)
-		checker_image[y * imagedim + x] = ((x/4 + y/4) % 2) ? ubyte3(191, 255, 255) : ubyte3(63, 127, 127);
+		checker_image[y * imagedim + x] = ((x/4 + y/4) % 2) ? byte3(191, 255, 255) : byte3(63, 127, 127);
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1); 
 	glEnable(GL_TEXTURE_2D); glBindTexture(GL_TEXTURE_2D, 0);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
@@ -48,7 +50,7 @@ void gldraw(const std::vector<float3> &verts, const std::vector<int3> &tris)
 	for (auto t : tris)
 	{
 		auto n = TriNormal(verts[t[0]], verts[t[1]], verts[t[2]]);
-		glNormal3fv(n); auto vn = vabs(n);
+		glNormal3fv(n); auto vn = abs(n);
 		int k = argmax(&vn.x, 3);
 		for (int j = 0; j < 3; j++)
 		{
@@ -140,15 +142,14 @@ int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst,LPSTR lpszC
 	};
 
 	InitTex();
-	int2 mouseprev;
+
 	while (glwin.WindowUp())
 	{
 		if (glwin.MouseState)  // on mouse drag 
 		{
-			g_yaw   += (glwin.MouseX - mouseprev.x) * 0.3f;  // poor man's trackball
-			g_pitch += (glwin.MouseY - mouseprev.y) * 0.3f;
+			g_yaw   += (glwin.mousepos.x - glwin.mousepos_previous.x) * 0.3f;  // poor man's trackball
+			g_pitch += (glwin.mousepos.y - glwin.mousepos_previous.y) * 0.3f;
 		}
-		mouseprev = { glwin.MouseX, glwin.MouseY };
 
 		if (g_simulate)
 		{

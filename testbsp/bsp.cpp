@@ -269,7 +269,20 @@ std::unique_ptr<BSPNode> BSPCompile(std::vector<Face> && inputfaces,WingMesh spa
 	return node;
 }
 
-
+std::unique_ptr<BSPNode> BSPDup(BSPNode *n) 
+{
+	if (!n) {
+		return NULL;
+	}
+	BSPNode* a = new BSPNode();
+	a->plane() = n->plane();
+	a->isleaf = n->isleaf;
+	a->convex = n->convex;
+	a->brep   = n->brep;
+	a->under = BSPDup(n->under.get());
+	a->over  = BSPDup(n->over.get());
+	return std::unique_ptr<BSPNode>(a);
+}
 
 void BSPDeriveConvex(BSPNode & node, WingMesh cnvx) 
 {
@@ -382,11 +395,12 @@ void NegateTreePlanes(BSPNode * root)
 	}
 }
 
-void NegateTree(BSPNode & root) 
+BSPNode & NegateTree(BSPNode & root)
 {
 	NegateTreePlanes(&root);  // this flips the faces too
 	for (auto & f : BSPRipBrep(&root))
 		FaceEmbed(&root, std::move(f)); 
+	return root;
 }
 
 int BSPFinite(BSPNode *bsp)

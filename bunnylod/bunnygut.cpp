@@ -20,13 +20,12 @@
 #include <GL/gl.h>
 #pragma warning(disable : 4244)
 
-#include "../include/vecmatquat_minimal.h"
+#include "../include/linalg.h"    // typical 3D math routines following hlsl style for the most part
+using namespace linalg::aliases;
+#include "../include/geometric.h"
+#include "../include/glwin.h"
 #include "progmesh.h"
 #include "rabdata.h"
-
-void glNormal3fv(const float3& v){ glNormal3fv(&v.x); }  // to conveniently just use the float3 struct
-void glVertex3fv(const float3& v){ glVertex3fv(&v.x); }
-void glColor3fv (const float3& v){ glColor3fv (&v.x); }
 
 extern float DeltaT;  // change in time since last frame
 int   render_num;   // number of vertices to draw with
@@ -109,7 +108,7 @@ void DrawModelTriangles() {
 			// the purpose of the demo is to show polygons
 			// therefore just use 1 face normal (flat shading)
 			float3 nrml = cross(v1-v0,v2-v1);  
-			if(0<magnitude(nrml)) {
+			if(0<length(nrml)) {
 				glNormal3fv(normalize(nrml));
 			}
 			glVertex3fv(v0);
@@ -266,11 +265,7 @@ char *RenderModel() {
 	glEnable(GL_LIGHT0);
 	glColor3f(1,1,1);
 	glPushMatrix();
-	glTranslatef(model_position.x,model_position.y,model_position.z);
-	// Rotate by float4: model_orientation
-	float3 axis; float angle;
-	std::tie(axis, angle) = AxisAngleFromQuat(model_orientation);
-	glRotatef(angle*180.0f / 3.14f, axis.x, axis.y, axis.z);
+	glMultMatrixf(Pose(model_position, model_orientation).matrix());
 	DrawModelTriangles();
 	StatusDraw();
 	glPopMatrix();

@@ -2,10 +2,7 @@
 //
 // Collection of useful 3d geometric routines such as projections, intersection, etc.
 //
-// this module doesn't implement any geometric types, i.e. no 'classes' or 'structs'.
-//
-// note:  these evolved over the years.
-// todo:  still doing some reorg to make naming more consistent and pick the best and minimal set of routines here
+// note:  still doing some reorg to make naming more consistent and pick the best and minimal set of routines here
 //
 
 #pragma once
@@ -15,27 +12,57 @@
 #include <algorithm>   // for std::max_element() used by maxdir and supportmap funcs
 #include <limits>      // for std::numeric_limits used by Extents()
 #include <vector>
-#include "vecmatquat.h"
+#include <iosfwd>      // since we define some << and >> stream io operators 
+#include <functional>
+#include <assert.h>
 
+#include "linalg.h"
+using namespace linalg::aliases; // usual defined aliases (int3,float3,float4x4 etc.) in the global namespace
+#include "misc.h"   // for my std::transform wrapper Transform that creates and returns by value
 // still reorganizing little geometry functions, putting these here for now:
 
-#define COPLANAR   (0)
-#define UNDER      (1)
-#define OVER       (2)
-#define SPLIT      (OVER|UNDER)
-#define PAPERWIDTH (0.0001f)  
 
-// some misc convenience functions
-template<typename F, typename S> auto Transform(const std::vector<S> &src, F f) ->  std::vector<decltype (f(S()))>   { std::vector<decltype (f(S()))>  dst(src.size()); std::transform(src.begin(), src.end(), dst.begin(), f); return dst; }
-template<class T> std::vector<T> & Append(std::vector<T> &a, const T& t){ a.push_back(t); return a; }
-template<class T> std::vector<T> & Append(std::vector<T> &a, const std::vector<T> &b){ a.insert(a.end(), b.begin(), b.end()); return a; }
-template<class T> std::vector<T*>  Addresses(std::vector<T> &a) {  std::vector<T*> p; for (auto &e : a) p.push_back(&e); return p; }  // not sure what was wrong with { Transform(a, [](T &t)->T*{return &t; }); } 
+struct rect_iteration  // nice programming convenience, but adds some loop overhead the compiler doesn't see through
+{
+	struct iterator
+	{
+		int2 coord; int dims_x;
+		int2 operator * () const { return coord; }
+		bool operator != (const iterator & r) const { return coord.y != r.coord.y; }
+		void operator ++ () { coord.y += !(++coord.x %= dims_x); }
+	};
+
+	int2 dims;
+	rect_iteration(const int2 & dims) : dims(dims) {}
+	iterator begin() const { return{ { 0,0 }, dims.x }; }
+	iterator end() const { return{ { 0,dims.y }, dims.x }; }
+};
+struct vol_iteration
+{
+	struct iterator
+	{
+		int3 coord; int2 dims;
+		int3 operator * () const { return coord; }
+		bool operator != (const iterator & r) const { return coord.z != r.coord.z; }
+		void operator ++ () { coord.z += ((coord.y += !(++coord.x %= dims.x)) == dims.y); coord.y %= dims.y; }
+	};
+
+	int3 dims;
+	vol_iteration(const int3 & dims) : dims(dims) {}
+	iterator begin() const { return{ { 0,0,0 }, dims.xy() }; }
+	iterator end() const { return{ { 0,0,dims.z }, dims.xy() }; }
+};
 
 inline int2   asint2(const float2 &v) { return{ (int  )v.x, (int  )v.y }; }
 inline float2 asfloat2(const int2 &v) { return{ (float)v.x, (float)v.y }; }
 
 inline float3 safenormalize(const float3 &v) { return (v == float3(0, 0, 0)) ? float3(0, 0, 1) : normalize(v); }
-template<class T> inline T  clamp(T a, const T mn = T(0), const T mx = T(1)) { return std::min(std::max(a, mn), mx); }
+
+// template <class T> T clamp(T a, const T mn = T(0), const T mx = T(1)) { return std::min(std::max(a, mn), mx); }  // templating this messed up the within_range and clamp for linalg types
+inline int   clamp(int   a, const int   mn = int  (0), const int   mx = int  (1)) { return std::min(std::max(a, mn), mx); }
+inline float clamp(float a, const float mn = float(0), const float mx = float(1)) { return std::min(std::max(a, mn), mx); }
+
+template<class T, int M> bool within_range(const linalg::vec<T, M> & v, const linalg::vec<T, M> & mn, const linalg::vec<T, M> & mx) { return v == linalg::clamp(v, mn, mx); }
 
 
 inline float4 quatfrommat(const float3x3 &m)
@@ -90,13 +117,25 @@ struct Pose // Value type representing a rigid transformation consisting of a tr
 	Pose(const float3 & p, const float4 & q) : position(p), orientation(q) {}
 	Pose() : Pose({ 0, 0, 0 }, { 0, 0, 0, 1 }) {}
 
-	Pose        Inverse() const                             { auto q = qconj(orientation); return{ qrot(q, -position), q }; }
-	float4x4    Matrix() const                              { return MatrixFromRotationTranslation(orientation, position); }
+	Pose        inverse() const                             { auto q = qconj(orientation); return{ qrot(q, -position), q }; }
+	float4x4    matrix() const                              { return MatrixFromRotationTranslation(orientation, position); }
 
 	float3      operator * (const float3 & point) const     { return position + qrot(orientation, point); }
 	Pose        operator * (const Pose & pose) const        { return{ *this * pose.position, qmul(orientation, pose.orientation) }; }
 	float4      TransformPlane(const float4 &p)             { float3 n = qrot(orientation, p.xyz()); return float4(n, p.w - dot(position, n)); }
 };
+
+namespace linalg
+{
+	// Implement stream operators for vector types, and specifically interpret byte-sized integers as integers instead of characters
+	template<class T, int M> std::ostream & operator << (std::ostream & out, const vec<      T, M> & v) { for (int i = 0; i < M; ++i) out << (i ? " " : "") << v[i]; return out; }
+	template<         int M> std::ostream & operator << (std::ostream & out, const vec< int8_t, M> & v) { for (int i = 0; i < M; ++i) out << (i ? " " : "") << (int)v[i]; return out; }
+	template<         int M> std::ostream & operator << (std::ostream & out, const vec<uint8_t, M> & v) { for (int i = 0; i < M; ++i) out << (i ? " " : "") << (int)v[i]; return out; }
+	template<class T, int M> std::istream & operator >> (std::istream & in, vec<      T, M> & v) { for (int i = 0; i < M; ++i) in >> v[i]; return in; }
+	template<         int M> std::istream & operator >> (std::istream & in, vec< int8_t, M> & v) { for (int i = 0, x; i < M; ++i) if (in >> x) v[i] = (int8_t)x; return in; }
+	template<         int M> std::istream & operator >> (std::istream & in, vec<uint8_t, M> & v) { for (int i = 0, x; i < M; ++i) if (in >> x) v[i] = (uint8_t)x; return in; }
+}
+
 inline std::ostream & operator << (std::ostream & out, const Pose& p) { return out << p.position << " " << p.orientation; }
 inline std::istream & operator >> (std::istream & in,        Pose& p) { return in  >> p.position        >> p.orientation; }
 
@@ -110,11 +149,7 @@ inline float3 PlaneLineIntersection(const float3 &n, const float d, const float3
 }
 inline float3 PlaneLineIntersection(const float4 &plane, const float3 &p0, const float3 &p1) { return PlaneLineIntersection(plane.xyz(), plane.w, p0, p1); } // returns the point where the line p0-p2 intersects the plane n&d
 
-inline int PlaneTest(const float4 &plane, const float3 &v, float epsilon = PAPERWIDTH) {
-	float a = dot(v, plane.xyz()) + plane.w;
-	int   flag = (a>epsilon) ? OVER : ((a<-epsilon) ? UNDER : COPLANAR);
-	return flag;
-}
+
 
 inline float LineProjectTime(const float3 &p0, const float3 &p1, const float3 &a)
 {
@@ -153,7 +188,7 @@ inline float3 BaryCentric(const float3 &v0, const float3 &v1, const float3 &v2, 
 	float3x3 m(v0, v1, v2);
 	if (determinant(m) == 0)
 	{
-		int k = (magnitude(v1 - v2)>magnitude(v0 - v2)) ? 1 : 0;
+		int k = (length(v1 - v2)>length(v0 - v2)) ? 1 : 0;
 		float t = LineProjectTime(v2, m[k], s);
 		return float3((1 - k)*t, k*t, 1 - t);
 	}
@@ -165,6 +200,7 @@ inline bool tri_interior(const float3& v0, const float3& v1, const float3& v2, c
 	return (b.x >= 0.0f && b.y >= 0.0f && b.z >= 0.0f);
 }
 
+inline float3 ProjectOntoPlane(const float4 &plane, const float3 &v) { return v - plane.xyz()*dot(plane, { v,1 }); }
 
 inline  float3 PlaneProjectOf(const float3 &v0, const float3 &v1, const float3 &v2, const float3 &point)
 {
@@ -173,7 +209,7 @@ inline  float3 PlaneProjectOf(const float3 &v0, const float3 &v1, const float3 &
 	float cpm2 = dot(cp, cp);
 	if (cpm2 == 0.0f)
 	{
-		return LineProject(v0, (magnitude(v1 - v0)>magnitude(v2 - v0)) ? v1 : v2, point);
+		return LineProject(v0, (length(v1 - v0)>length(v2 - v0)) ? v1 : v2, point);
 	}
 	return point - cp * (dot(cp, point) + dtcpm) / cpm2;
 }
@@ -182,16 +218,32 @@ inline  float3 PlaneProjectOf(const float3 &v0, const float3 &v1, const float3 &
 
 inline int maxdir(const float3 *p, int count, const float3 &dir)  // returns index
 {
+	assert(count > 0);
 	if (count == 0)
 		return -1;
 	return std::max_element(p, p + count, [dir](const float3 &a, const float3 &b){return dot(a, dir) < dot(b, dir); }) - p;
 }
+inline int maxdir_index(const std::vector<float3> &points, const float3 &dir)  // returns index
+{
+	return maxdir(points.data(), points.size(), dir);
+}
+inline float3 maxdir_value(const std::vector<float3> &points, const float3 &dir)  // returns index
+{
+	return points[maxdir_index(points, dir)];
+}
+
 inline float3 TriNormal(const float3 &v0, const float3 &v1, const float3 &v2)  // normal of the triangle with vertex positions v0, v1, and v2
 {
 	float3 cp = cross(v1 - v0, v2 - v1);
-	float m = magnitude(cp);
+	float m = length(cp);
 	if (m == 0) return float3(0, 0, 1);
 	return cp*(1.0f / m);
+}
+
+inline float4 plane_of(const float3 &v0, const float3 &v1, const float3 &v2)  // plane of triangle with vertex positions v0, v1, and v2
+{
+	auto n = TriNormal(v0, v1, v2);
+	return{ n, -dot(n,v0) };
 }
 inline float4 PolyPlane(const std::vector<float3>& verts)
 {
@@ -246,7 +298,7 @@ inline HitInfo ConvexHitCheck(const std::vector<float4>& planes, float3 v0, cons
 }
 inline HitInfo ConvexHitCheck(const std::vector<float4>& planes, const Pose &pose, float3 v0, const float3 &v1)
 {
-	auto h = ConvexHitCheck(planes, pose.Inverse()*v0, pose.Inverse()*v1);
+	auto h = ConvexHitCheck(planes, pose.inverse()*v0, pose.inverse()*v1);
 	return { h.hit, pose*h.impact, qrot(pose.orientation, h.normal) };
 }
 
@@ -260,18 +312,18 @@ inline int argmax(const float a[], int count)  // returns index
 
 inline float3 Orth(const float3& v)
 {
-	float3 absv = vabs(v);
+	float3 absv = abs(v);
 	float3 u(1, 1, 1);
 	u[argmax(&absv[0], 3)] = 0.0f;
 	return normalize(cross(u, v));
 }
-inline float4 RotationArc(const float3 &v0_, const float3 &v1_)
+inline float4 quat_from_to(const float3 &v0_, const float3 &v1_)  // shortest arc quat from game programming gems 1 section 2.10
 {
 	auto v0 = normalize(v0_);  // Comment these two lines out if you know its not needed.
 	auto v1 = normalize(v1_);  // If vector is already unit length then why do it again?
 	auto  c = cross(v0, v1);
 	auto  d = dot(v0, v1);
-	if (d <= -1.0f) { float3 a = Orth(v0); return float4(a.x, a.y, a.z, 0); } // 180 about any orthogonal axis axis
+	if (d <= -1.0f) { float3 a = Orth(v0); return float4(a.x, a.y, a.z, 0); } // 180 about any orthogonal axis 
 	auto  s = sqrtf((1 + d) * 2);
 	return{ c.x / s, c.y / s, c.z / s, s / 2.0f };
 }
@@ -285,16 +337,16 @@ inline float4 VirtualTrackBall(const float3 &cop, const float3 &cor, const float
 	// Pretend there is a sphere around cor.    Take rotation
 	// between apprx points where dir1 and dir2 intersect sphere.  
 	float3 nrml = cor - cop; // compute plane 
-	float fudgefactor = 1.0f / (magnitude(nrml) * 0.25f); // since trackball proportional to distance from cop
+	float fudgefactor = 1.0f / (length(nrml) * 0.25f); // since trackball proportional to distance from cop
 	nrml = normalize(nrml);
 	float dist = -dot(nrml, cor);
 	float3 u = ( PlaneLineIntersection(nrml, dist, cop, cop + dir1) - cor) * fudgefactor;
-	float m = magnitude(u);
+	float m = length(u);
 	u = (m > 1) ? u / m : u - (nrml * sqrtf(1 - m*m));
 	float3 v = ( PlaneLineIntersection(nrml, dist, cop, cop + dir2) - cor) * fudgefactor;
-	m = magnitude(v);
+	m = length(v);
 	v = (m>1) ? v / m : v - (nrml * sqrtf(1 - m*m));
-	return RotationArc(u, v);
+	return quat_from_to(u, v);
 }
 
 
@@ -305,8 +357,8 @@ inline std::pair<linalg::vec<T, N>, linalg::vec<T, N> > Extents(const std::vecto
 	linalg::vec<T, N> bmin(std::numeric_limits<T>::max()), bmax(std::numeric_limits<T>::lowest());
 	for (auto v : verts)
 	{
-		bmin = cmin(bmin, v);
-		bmax = cmax(bmax, v);
+		bmin = min(bmin, v);
+		bmax = max(bmax, v);
 	}
 	return std::make_pair(bmin, bmax);  // typical useage:   std::tie(mymin,mymax) = Extents(myverts);  
 }
@@ -385,7 +437,7 @@ inline float4 Diagonalizer(const float3x3 &A)
 	float4 q(0, 0, 0, 1);
 	for (i = 0; i<maxsteps; i++)
 	{
-		float3x3 Q = qgetmatrix(q); // Q*v == q*v*conj(q)
+		float3x3 Q = qmat(q); // Q*v == q*v*conj(q)
 		float3x3 D = mul(transpose(Q), A, Q);  // A = Q*D*Q^T
 		float3 offdiag(D[1][2], D[0][2], D[0][1]); // elements not on the diagonal
 		float3 om(fabsf(offdiag.x), fabsf(offdiag.y), fabsf(offdiag.z)); // mag of each offdiag elem
@@ -408,14 +460,14 @@ inline float4 Diagonalizer(const float3x3 &A)
 		q = normalize(q);
 	}
 	float h = 1.0f/sqrtf(2.0f);  // M_SQRT2
-	auto e = [&q, &A]() {return Diagonal(mul(transpose(qgetmatrix(q)), A, qgetmatrix(q))); };  // current ordering of eigenvals of q
+	auto e = [&q, &A]() {return Diagonal(mul(transpose(qmat(q)), A, qmat(q))); };  // current ordering of eigenvals of q
 	q = (e().x < e().z)  ? qmul(q, float4( 0, h, 0, h )) : q;  
 	q = (e().y < e().z)  ? qmul(q, float4( h, 0, 0, h )) : q;
 	q = (e().x < e().y)  ? qmul(q, float4( 0, 0, h, h )) : q;   // size order z,y,x so xy spans a planeish spread
 	q = (qzdir(q).z < 0) ? qmul(q, float4( 1, 0, 0, 0 )) : q;
 	q = (qydir(q).y < 0) ? qmul(q, float4( 0, 0, 1, 0 )) : q;
 	q = (q.w < 0) ? -q : q;
-	auto M = mul(transpose(qgetmatrix(q)), A, qgetmatrix(q));   // to test result
+	auto M = mul(transpose(qmat(q)), A, qmat(q));   // to test result
 	return q;	
 }
 
@@ -427,7 +479,29 @@ inline float Diagonalizer(const float2x2 &m)  // returns angle that rotates m in
 
 inline void PlaneTranslate(float4 & plane, const float3 & translation) { plane.w -= dot(plane.xyz(), translation); }
 inline void PlaneRotate(float4 & plane, const float4 & rotation) { plane.xyz() = qrot(rotation, plane.xyz()); }
-inline void PlaneScale(float4 & plane, const float3 & scaling) { plane.xyz() = cdiv(plane.xyz(), scaling); plane /= magnitude(plane.xyz()); }
+inline void PlaneScale(float4 & plane, const float3 & scaling) { plane.xyz() = plane.xyz() / scaling; plane /= length(plane.xyz()); }
 inline void PlaneScale(float4 & plane, float scaling) { plane.w *= scaling; }
+
+inline std::vector<int2> boxedges() { std::vector<int2> a; for (int i = 0; i<8; i++) for (int j = 0; j<i; j++) if (!((i^j) & ((i^j) - 1))) a.push_back({ i,j }); return a; } // the 12 indexed edges of box or cube 
+
+
+inline std::vector<float3x2> DeIndex(const std::vector<float3> &v, const std::vector<int2> &t) { return Transform(t, [&v](int2 t) {return float3x2(v[t[0]], v[t[1]]        );}); }  // return 3x2 is pair of vertices m[0] and m[1].  eg line segment
+inline std::vector<float3x3> DeIndex(const std::vector<float3> &v, const std::vector<int3> &t) { return Transform(t, [&v](int3 t) {return float3x3(v[t[0]], v[t[1]],v[t[2]]);}); }  // return 3x3 is pair of vertices m[0] and m[1].  eg triangle
+
+inline std::pair<Pose, float3> PrincipalAxes(const std::vector<float3> &points)  // returns principal axes as a pose and population's variance along pose's local x,y,z
+{
+	float3   com(0, 0, 0);
+	float3x3 cov;
+	for (auto p : points)
+		com += p;
+	com /= (float)points.size();
+	for (auto p : points)
+		cov += outerprod(p - com, p - com);
+	cov /= (float)points.size();
+	auto q = Diagonalizer(cov);
+	return std::make_pair<Pose, float3>({ com, q }, Diagonal(mul(transpose(qmat(q)), cov, qmat(q))));
+}
+
+
 
 #endif //GEOMETRIC_H

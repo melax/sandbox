@@ -37,8 +37,9 @@
 
 #pragma comment(lib,"winmm.lib")  // for the timing functions fps deltat
 
-#include "../include/vecmatquat_minimal.h"    // typical 3D math routines following hlsl style for the most part
-//#include "../include/geometric.h"
+#include "../include/linalg.h"    // typical 3D math routines following hlsl style for the most part
+using namespace linalg::aliases;
+#include "../include/geometric.h"
 #include "../include/glwin.h"                 // a minimial opengl on windows wrapper, just a header, no lib/dll.
 
 // Functions and Variables from bunny module
@@ -85,6 +86,7 @@ void CalcFPSDeltaT()
 	FPS = (float)rv;
 	last = current;
 }
+
 
 
 

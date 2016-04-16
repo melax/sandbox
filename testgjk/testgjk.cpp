@@ -13,7 +13,9 @@
 #include <vector>
 
 // in project properties, add "../include" to the vc++ directories include path
-#include "vecmatquat.h"   
+#include "linalg.h"   
+using namespace linalg::aliases;
+
 #include "glwin.h"  // minimal opengl for windows setup wrapper
 #include "hull.h"
 #include "gjk.h"
@@ -140,7 +142,7 @@ LPSTR lpszCmdLine, int nCmdShow)
 			}
 			else
 			{
-				*selected += (qrot(camera.orientation, glwin.MouseVector) - qrot(camera.orientation, mousevec_prev))  * magnitude(*selected - camera.position);
+				*selected += (qrot(camera.orientation, glwin.MouseVector) - qrot(camera.orientation, mousevec_prev))  * length(*selected - camera.position);
 				*selected = camera.position + (*selected - camera.position) * powf(1.1f, (float)glwin.mousewheel);
 				glwin.mousewheel = 0;
 			}
@@ -166,7 +168,7 @@ LPSTR lpszCmdLine, int nCmdShow)
 
 		glMatrixMode(GL_MODELVIEW);
 		glPushMatrix();
-		glMultMatrixf(camera.Inverse().Matrix());
+		glMultMatrixf(camera.inverse().matrix());
 
 		glEnable(GL_DEPTH_TEST);
 		//glEnable(GL_TEXTURE_2D);
@@ -240,7 +242,7 @@ LPSTR lpszCmdLine, int nCmdShow)
 			glEnable(GL_BLEND);
 			glDisable(GL_LIGHTING);
 			glBegin(GL_QUADS);
-			auto q = RotationArc(float3(0, 0, 1), hitinfo.normal);
+			auto q = quat_from_to(float3(0, 0, 1), hitinfo.normal);
 			glColor4f(((hitinfo) ? 0.6f : 0), 0.0f, 1.0f, 0.50);
 			glVertex3fv(hitinfo.normal*hitinfo.separation + qxdir(q));
 			glVertex3fv(hitinfo.normal*hitinfo.separation + qydir(q));
@@ -266,7 +268,7 @@ LPSTR lpszCmdLine, int nCmdShow)
 			glEnable(GL_BLEND);
 			glDisable(GL_LIGHTING);
 			glBegin(GL_QUADS);
-			auto q = RotationArc(float3(0, 0, 1), hitinfo.normal);
+			auto q = quat_from_to(float3(0, 0, 1), hitinfo.normal);
 			glColor4f(((hitinfo)?0.6f:0), 0.0f, 1.0f, 0.50);
 			glVertex3fv(hitinfo.impact + qxdir(q));
 			glVertex3fv(hitinfo.impact + qydir(q));

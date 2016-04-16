@@ -15,7 +15,9 @@
 #include <vector>
 
 // in project properties, add "../include" to the vc++ directories include path
-#include "vecmatquat.h"   
+#include "linalg.h"   
+using namespace linalg::aliases; 
+
 #include "glwin.h"         // minimal opengl for windows setup wrapper
 #include "wingmesh.h"    
 #include "bsp.h"
@@ -23,9 +25,9 @@
 void InitTex()  // create a checkerboard texture 
 {
 	const int imagedim = 16;
-	ubyte4 checker_image[imagedim * imagedim];
+	byte4 checker_image[imagedim * imagedim];
 	for (int y = 0; y < imagedim; y++) for (int x = 0; x < imagedim; x++)
-		checker_image[y * imagedim + x] = ((x / 4 + y / 4) % 2) ? ubyte4(255, 255, 255,255) : ubyte4(191, 191, 191,255);
+		checker_image[y * imagedim + x] = ((x / 4 + y / 4) % 2) ? byte4(255, 255, 255,255) : byte4(191, 191, 191,255);
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 	glEnable(GL_TEXTURE_2D); glBindTexture(GL_TEXTURE_2D, 0);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
@@ -58,7 +60,8 @@ void gldraw(const std::vector<float3> &verts, const std::vector<int3> &tris)
 	for (auto t : tris)
 	{
 		auto n = TriNormal(verts[t[0]], verts[t[1]], verts[t[2]]);
-		glNormal3fv(n); auto vn = vabs(n);
+		glNormal3fv(n); 
+		auto vn = abs(n);
 		int k = argmax(&vn.x, 3);
 		for (int j = 0; j < 3; j++)
 		{
@@ -99,7 +102,7 @@ void glDraw(BSPNode *root, const float3 &camera_position)
 		WingMesh &wm = n->under->convex;
 		int fid = std::find_if(wm.faces.begin(), wm.faces.end(), [&n](const float4 &p){return n->plane() == p || n->plane() == -p; }) - wm.faces.begin();
 		assert(fid < (int)wm.faces.size());
-		auto q = RotationArc(wm.faces[fid].xyz(), float3(0, 0, 1));
+		auto q = quat_from_to(wm.faces[fid].xyz(), float3(0, 0, 1));
 		glBegin(GL_POLYGON);
 		float3 both[2] = { n->xyz(), -n->xyz() };
 		float3 c = float3(0.5f, 0.5f, 0.5f) + rainbow[argmax(&both[0][0],6)] * 0.5f;
@@ -176,7 +179,7 @@ LPSTR lpszCmdLine, int nCmdShow)
 				auto bhit = ConvexHitCheck(bc.faces, { bpos, { 0, 0, 0, 1 } }, v0, v1);
 				v1 = bhit.impact;                                                         // shorten selection ray if necessary so we pick closest
 				auto chit = ConvexHitCheck(co.faces, { cpos, { 0, 0, 0, 1 } }, v0, v1);
-				hitdist = magnitude( chit.impact - v0 );
+				hitdist = length( chit.impact - v0 );
 				//  impact = chit.impact;  // for debugging
 				dragmode = (bhit) ? 2 : dragmode;
 				dragmode = (chit) ? 3 : dragmode;   
@@ -222,7 +225,7 @@ LPSTR lpszCmdLine, int nCmdShow)
 		gluPerspective(glwin.ViewAngle, (double)glwin.Width/ glwin.Height, 0.01, 10);
 		glMatrixMode(GL_MODELVIEW);
 		glPushMatrix(); glLoadIdentity();
-		glMultMatrixf(Pose(camerapos, cameraorientation).Inverse().Matrix());
+		glMultMatrixf(Pose(camerapos, cameraorientation).inverse().matrix());
 
 		//glColor3f(((dragmode>=2)?1.0f:0.0f), 0.5f, 0.5f);   // for debugging the user selection 
 		//float3 axes[] = { { 1, 0, 0 }, { 0, 1, 0 }, { 0, 0, 1 } };

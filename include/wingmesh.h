@@ -37,8 +37,21 @@
 #include <algorithm>
 #include <assert.h>
 
-#include "vecmatquat.h"
+#include "linalg.h"
 #include "geometric.h"
+
+#define COPLANAR   (0)
+#define UNDER      (1)
+#define OVER       (2)
+#define SPLIT      (OVER|UNDER)
+// #define PAPERWIDTH (0.0001f)  // legacy value
+#define PAPERWIDTH (0.0008f)    // number based on qplane.cpp comments
+
+inline int PlaneTest(const float4 &plane, const float3 &v, float epsilon = PAPERWIDTH) {
+	float a = dot(v, plane.xyz()) + plane.w;
+	int   flag = (a>epsilon) ? OVER : ((a<-epsilon) ? UNDER : COPLANAR);
+	return flag;
+}
 
 
 struct WingMesh
@@ -549,7 +562,7 @@ inline float3    SupportPoint(const WingMesh *m, const float3& dir) { return m->
 
 inline void WingMeshTranslate(WingMesh & m, const float3 & translation) { for(auto & v : m.verts) v += translation; for(auto & f : m.faces) PlaneTranslate(f, translation); }
 inline void WingMeshRotate(WingMesh & m, const float4 & rotation) { for(auto & v : m.verts) v = qrot(rotation, v); for(auto & f : m.faces) PlaneRotate(f, rotation); }
-inline void WingMeshScale(WingMesh & m, const float3 & scaling) { for(auto & v : m.verts) v = cmul(v, scaling); for(auto & f : m.faces) PlaneScale(f, scaling); }
+inline void WingMeshScale(WingMesh & m, const float3 & scaling) { for(auto & v : m.verts) v *= scaling; for(auto & f : m.faces) PlaneScale(f, scaling); }
 inline void WingMeshScale(WingMesh & m, float scaling) { for(auto & v : m.verts) v *= scaling; for(auto & f : m.faces) PlaneScale(f, scaling); }
 
 inline std::vector<int3> WingMeshTris(const WingMesh &m) // generates a list of indexed triangles from the wingmesh's faces
@@ -684,7 +697,7 @@ int VertFindOrAdd(std::vector<float3> &array, const float3& v,float epsilon=0.00
 {
 	for(unsigned int i=0;i<array.size();i++)
 	{
-		if(magnitude(array[i]-v)<epsilon) 
+		if(length(array[i]-v)<epsilon) 
 			return i;
 	}
 	array.push_back(v);
@@ -734,7 +747,7 @@ inline WingMesh WingMeshDual(const WingMesh &m, float r=1.0f, const float3 &p=fl
 	d.fback.resize(m.vback.size());
 	for (unsigned int i = 0; i<m.verts.size(); i++)
 	{
-		d.faces[i] = float4(normalize(m.verts[i]), -r*r / magnitude(m.verts[i]));
+		d.faces[i] = float4(normalize(m.verts[i]), -r*r / length(m.verts[i]));
 		d.fback[i] = m.vback[i];
 	}
 	d.verts.resize(m.faces.size());

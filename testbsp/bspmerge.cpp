@@ -38,7 +38,7 @@ std::unique_ptr<BSPNode> BSPClean(std::unique_ptr<BSPNode> n)
 		n->isleaf = n->over->isleaf;
         n->over.reset();
         n->under.reset();
-        n->plane() = float4(0);
+        n->plane() = float4(0,0,0,0);
 	}
 	assert(n->convex.verts.size());
 	return n;

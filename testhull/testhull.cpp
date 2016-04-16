@@ -6,7 +6,9 @@
 #include <vector>
 // in project properties, add "../include" to the vc++ directories include path
 
-#include "vecmatquat.h"   
+#include "linalg.h"   
+using namespace linalg::aliases;  // float3, int2, float3x3 etc
+
 #include "glwin.h"  // minimal opengl for windows setup wrapper
 #include "hull.h"
 
@@ -19,7 +21,6 @@ int g_cloudsize = 20;
 inline float randf(){ return static_cast<float>(rand()) / static_cast<float>(RAND_MAX); }
 
 float3 vrand(){ return {randf(),randf(),randf()}; }
-int max_element(const int3& v) { return std::max(std::max(v.x, v.y),v.z); }
 
 void Init()  // creates a random point cloud and generates initial hull for it.
 {
@@ -30,7 +31,7 @@ void Init()  // creates a random point cloud and generates initial hull for it.
 	g_tris = ::calchull(g_verts, g_vlimit);
 	g_vlimit = 0;
 	for (auto t : g_tris)
-		g_vlimit = std::max(g_vlimit, 1+ max_element(t));
+		g_vlimit = std::max(g_vlimit, 1+ maxelem(t));
 }
 
 
@@ -99,9 +100,9 @@ int main(int argc, char *argv[])
 		glPushMatrix();
 		gluLookAt(0, 0, 2, 0, 0, 0, 0, 1, 0);
 
-		float4 R[4] = { { 1, 0, 0, 0 }, { 0, 1, 0, 0 }, { 0, 0, 1, 0 }, { 0, 0, 0, 1 } };
+		float4x4 R = { { 1, 0, 0, 0 }, { 0, 1, 0, 0 }, { 0, 0, 1, 0 }, { 0, 0, 0, 1 } };
 		R[0].xyz() = qxdir(model_orientation); R[1].xyz() = qydir(model_orientation); R[2].xyz() = qzdir(model_orientation);
-		glMultMatrixf(&R[0].x);
+		glMultMatrixf(R);
 
 		glEnable(GL_DEPTH_TEST);
 

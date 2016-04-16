@@ -92,7 +92,7 @@ inline Mesh MeshFromHeightField(unsigned short *image, int dimx, int dimy, std::
 		int yn = (y < dimy - 1 && vid[i + dimx] >= 0) ? y + 1 : y;
 		auto norm = cross(verts[vid[xn + y*dimx]].position - verts[vid[xp + y*dimx]].position, verts[vid[x + yn*dimx]].position - verts[vid[x + yp*dimx]].position);
 		norm =  (norm==float3(0, 0, 0)) ? float3(0, 0, 1) : normalize(norm);
-		verts[vid[i]].orientation = RotationArc(float3(0, 0, 1), norm);
+		verts[vid[i]].orientation = quat_from_to(float3(0, 0, 1), norm);
 		if (xp != x && yp != y)
 			tris.push_back(int3(vid[i], vid[i - 1], vid[i - dimx]));
 		if (xn != x && yn != y)
@@ -112,7 +112,7 @@ inline Mesh MeshFlatShadeTex(const std::vector<float3> &verts, const std::vector
 	for (auto t : tris)
 	{
 		float3 n = TriNormal(verts[t[0]], verts[t[1]], verts[t[2]]);
-		auto vn = vabs(n);
+		auto vn = abs(n);
 		int k = argmax(&vn.x, 3);
 		int c = (int)vout.size();
 		tout.push_back({ c, c + 1, c + 2 });
@@ -120,7 +120,7 @@ inline Mesh MeshFlatShadeTex(const std::vector<float3> &verts, const std::vector
 		float3 sb = gradient(verts[t[0]], verts[t[1]], verts[t[2]], verts[t[0]][(k + 2) % 3], verts[t[1]][(k + 2) % 3], verts[t[2]][(k + 2) % 3]);
 		bool flipu = dot(sb, cross(n, st))<0.0f;
 		st = cross(sb, n);
-		auto q = quatfrommat(float3x3(st, sb, n)); //  RotationArc(float3(0, 0, 1), n);
+		auto q = quatfrommat(float3x3(st, sb, n)); //  quat_from_to(float3(0, 0, 1), n);
 		for (int j = 0; j < 3; j++)
 		{
 			const float3 &v = verts[t[j]];
@@ -140,7 +140,7 @@ inline Mesh MeshSmoothish(const std::vector<float3> &points, const std::vector<i
 		float3 sn = normalize(cross(points[t[1]] - points[t[0]], points[t[2]] - points[t[0]]));
 		float3 st = gradient(points[t[0]], points[t[1]], points[t[2]], verts[t[0]].texcoord.x, verts[t[1]].texcoord.x, verts[t[2]].texcoord.x);
 		float3 sb = cross(sn, st);
-		auto q = quatfrommat(float3x3(st, sb, sn)); //  RotationArc(float3(0, 0, 1), n);
+		auto q = quatfrommat(float3x3(st, sb, sn)); //  quat_from_to(float3(0, 0, 1), n);
 		for (int i = 0; i < 3; i++)
 		{
 			verts[t[i]].orientation += q;

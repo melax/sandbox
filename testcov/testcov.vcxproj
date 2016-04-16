@@ -87,6 +87,9 @@
   <ItemGroup>
     <ClCompile Include="testcov.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\include\linalg.h" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

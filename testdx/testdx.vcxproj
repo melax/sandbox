@@ -90,6 +90,7 @@
   <ItemGroup>
     <ClInclude Include="..\include\dxshaders.h" />
     <ClInclude Include="..\include\dxwin.h" />
+    <ClInclude Include="..\include\linalg.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

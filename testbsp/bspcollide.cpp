@@ -37,7 +37,7 @@ Face* FaceHit(BSPNode *leaf,const float4 &plane,const float3 &s)
 	for(unsigned int i=0;i<leaf->brep.size();i++)
 	{
 		Face & f = leaf->brep[i];
-		if(f==plane || f==-plane ) continue;  // was coplanar
+		if(f.plane()==plane || f.plane()==-plane ) continue;  // was coplanar
 		static int craptest=0;   // sometimes the normal is facing the other way, but that's ok.
 		if(craptest)
 		{ 
@@ -350,14 +350,14 @@ int PortionUnder(float4 plane,std::vector<float3> &verts,
 		float ta=0.0f,tb=1.0f;
 		for(unsigned int i=0;i<10;i++) {
 			float tmid = (ta+tb)/2.0f;
-			float4 qmid = qlerp(q0, q1, tmid);
+			float4 qmid = qnlerp(q0, q1, tmid);
 			float3     vmid = lerp(v0,v1,tmid);
 			float dmid = dot(plane.xyz(),vmid+qrot(qmid,verts[closest1]))+plane.w;
 			*((dmid>0)?&ta:&tb)=tmid;
 		}
 		*nw0 = plane.xyz();
 		*w0  = lerp(v0,v1,ta);
-		*wq0 = qlerp(q0,q1,ta);
+		*wq0 = qnlerp(q0,q1,ta);
 		*vrtw0= closest1;
 		// lets hope that closest1 is still the closest.
 		assert(dot(plane.xyz(),*w0+qrot(*wq0,verts[closest1]))+plane.w >0);
@@ -388,13 +388,13 @@ int PortionUnder(float4 plane,std::vector<float3> &verts,
 		float ta=0.0f,tb=1.0f;
 		for(unsigned int i=0;i<5;i++) {
 			float tmid = (ta+tb)/2.0f;
-			float4     qmid = qlerp(q0,q1,tmid);
+			float4     qmid = qnlerp(q0,q1,tmid);
 			float3     vmid = lerp(v0,v1,tmid);
 			float dmid = dot(plane.xyz(), vmid + qrot(qmid, verts[closest0])) + plane.w;
 			*((dmid<0)?&ta:&tb)=tmid;
 		}
 		*w1  = lerp(v0,v1,tb);
-		*wq1 = qlerp(q0,q1,tb);
+		*wq1 = qnlerp(q0,q1,tb);
 		// lets hope that closest0 is still the closest.
 		//assert(dot(plane.normal,*w1+*wq1*verts[closest0])+plane.dist <0);
 	}

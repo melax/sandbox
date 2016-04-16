@@ -13,6 +13,9 @@
   <ItemGroup>
     <ClCompile Include="jointdrive.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\include\linalg.h" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{1468EA6D-654B-4C8B-8442-1D123601C08D}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>

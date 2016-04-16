@@ -57,7 +57,7 @@ struct
 };
 
 
-std::vector<float3> genboxverts(float3 r){std::vector<float3> verts; for (auto z : { -1.0f, 1.0f }) for (auto y : { -1.0f, 1.0f }) for (auto x : { -1.0f, 1.0f }) verts.push_back(cmul(r,float3(x,y,z))); return verts;}
+std::vector<float3> genboxverts(float3 r){std::vector<float3> verts; for (auto z : { -1.0f, 1.0f }) for (auto y : { -1.0f, 1.0f }) for (auto x : { -1.0f, 1.0f }) verts.push_back(float3(x,y,z)*r); return verts;}
 
 int main(int argc, const char *argv[]) try
 {
@@ -70,7 +70,7 @@ int main(int argc, const char *argv[]) try
 	}
 	rbscalemass(&rbs[0], 5.0f); // make torso heavier than limb bones
 	rbs[0].position.z = 1.0f;  // lift a meter off the ground.
-	DXWin mywin("Joint Drive - powered rag doll model");
+	DXWin mywin("Joint Drive - powered rag doll model", { 800,600 });
 	std::vector<Mesh> meshes;
 	for (auto &rb : rbs)
 	{
@@ -110,6 +110,7 @@ int main(int argc, const char *argv[]) try
 
 		mywin.RenderScene(camera, Append(Addresses(meshes), std::vector<Mesh*>({ &ground })));
 	}
+	return 0;
 }
 catch (std::exception e)
 {

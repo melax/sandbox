@@ -13,7 +13,9 @@
 #include <limits>    // std::numeric_limits
 
 // in project properties, add "../include" to the vc++ directories include path
-#include "vecmatquat.h"   
+#include "linalg.h"   
+using namespace linalg::aliases; // for int2, float3, float3x3, ...
+
 #include "glwin.h"  // minimal opengl for windows setup wrapper
 #include "hull.h"
 #include "gjk.h"
@@ -39,9 +41,9 @@ float4 planemostbelow(const std::vector<float4> &planes, const float3 &v)
 void InitTex()  // create a checkerboard texture 
 {
 	const int imagedim = 16;
-	ubyte3 checker_image[imagedim * imagedim];
+	byte3 checker_image[imagedim * imagedim];
 	for (int y = 0; y < imagedim; y++) for (int x = 0; x < imagedim; x++)
-		checker_image[y * imagedim + x] = ((x/4 + y/4) % 2) ? ubyte3(191, 255, 255) : ubyte3(63, 127, 127);
+		checker_image[y * imagedim + x] = ((x/4 + y/4) % 2) ? byte3(191, 255, 255) : byte3(63, 127, 127);
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1); 
 	glEnable(GL_TEXTURE_2D); glBindTexture(GL_TEXTURE_2D, 0);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
@@ -56,7 +58,8 @@ void gldraw(const std::vector<float3> &verts, const std::vector<int3> &tris)
 	for (auto t : tris)
 	{
 		auto n = TriNormal(verts[t[0]], verts[t[1]], verts[t[2]]);
-		glNormal3fv(n); auto vn = vabs(n);
+		glNormal3fv(n); 
+		auto vn = abs(n);
 		int k = argmax(&vn.x, 3);
 		for (int j = 0; j < 3; j++)
 		{
@@ -77,13 +80,13 @@ void wmwire(const WingMesh &m)
 	}
 	glEnd();
 }
-void wmwire(const WingMesh &m, const Pose &pose) { glPushMatrix(); glMultMatrixf(pose.Matrix()); wmwire(m); glPopMatrix(); }
+void wmwire(const WingMesh &m, const Pose &pose) { glPushMatrix(); glMultMatrixf(pose.matrix()); wmwire(m); glPopMatrix(); }
 
 void wmdraw(const WingMesh &m)
 {
 	gldraw(m.verts, m.GenerateTris());
 }
-void wmdraw(const WingMesh &m, const Pose &pose) { glPushMatrix(); glMultMatrixf(pose.Matrix()); wmdraw(m); glPopMatrix(); }
+void wmdraw(const WingMesh &m, const Pose &pose) { glPushMatrix(); glMultMatrixf(pose.matrix()); wmdraw(m); glPopMatrix(); }
 
 void rbdraw(const RigidBody *rb)
 {
@@ -154,10 +157,10 @@ int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst,LPSTR lpszC
 		frame+=animating;
 		if (glwin.MouseState)  // on mouse drag 
 		{
-			view_yaw   += (glwin.MouseX - mouseprev.x) * 0.3f;  // poor man's trackball
-			view_pitch += (glwin.MouseY - mouseprev.y) * 0.3f;
+			view_yaw   += (glwin.mousepos.x - mouseprev.x) * 0.3f;  // poor man's trackball
+			view_pitch += (glwin.mousepos.y - mouseprev.y) * 0.3f;
 		}
-		mouseprev = { glwin.MouseX, glwin.MouseY };
+		mouseprev = { glwin.mousepos.x, glwin.mousepos.y };
 		view_dist *= powf(1.1f, (float)glwin.mousewheel);
 
 		boxpose.orientation = normalize(float4(sinf(frame*0.01f),sin(frame*0.035f),sin(frame*0.045f),1.0f));  // animate the source object
@@ -186,9 +189,9 @@ int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst,LPSTR lpszC
 				auto cp = v - plane.xyz()*dot(plane, float4(v, 1));               // cp is closest point on the plane
 				match.push_back(std::pair<float3, float3>(v, cp));
 				if (dot(v, plane.xyz()) > 0 && (hit = ConvexHitCheck(planesw, { 0, 0, 0 }, v)))  // closest plane is  a backface and point is directly behind object
-					linears.push_back(ConstrainAlongDirection(NULL, v, &trackmodel, trackmodel.pose().Inverse()*hit.impact, normalize(v), -50,50));   // push straight backwards
+					linears.push_back(ConstrainAlongDirection(NULL, v, &trackmodel, trackmodel.pose().inverse()*hit.impact, normalize(v), -50,50));   // push straight backwards
 				else
-					linears.push_back(ConstrainAlongDirection(NULL, v, &trackmodel, trackmodel.pose().Inverse()*cp, plane.xyz(), -50, 50));
+					linears.push_back(ConstrainAlongDirection(NULL, v, &trackmodel, trackmodel.pose().inverse()*cp, plane.xyz(), -50, 50));
 			}
 			PhysicsUpdate(rigidbodies, linears, angulars, {});
 		}

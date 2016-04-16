@@ -92,6 +92,7 @@
     <ClCompile Include="testbsp.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\include\linalg.h" />
     <ClInclude Include="..\include\wingmesh.h" />
     <ClInclude Include="bsp.h" />
   </ItemGroup>

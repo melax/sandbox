@@ -2,13 +2,15 @@
 // testcnn     minimal program to ensure the neural network code works.
 // 
 //  I didn't want to bloat this repo with data files, so please download the four mnist data files and place in this directory.
-//  look for names "train-images-idx3-ubyte".  Easy to find.  
-//  There are many copies on the internet including a handful of other github repos. 
+//  look for names "train-images-idx3-ubyte".  Easy to find.   try the main site:    http://yann.lecun.com/exdb/mnist/  
+//  There are many copies on the internet including a handful of other github repos for example: https://github.com/wichtounet/mnist.git . 
+//
 
 #include <iostream>
 #include <fstream>
 #include <vector>
-#include "cnn.h"
+#include <chrono>
+#include <cnn.h>
 #include <geometric.h>
 #include <Windows.h>  // for messagebox if an error is thrown
 
@@ -49,12 +51,30 @@ std::vector<std::vector<float>> mnist_read_labels(std::string filename, int coun
 }
 int minst_best(std::vector<float> &v) { assert(v.size() == 10); int best = 0; for (int j = 0;j < 10;j++) if (v[j]>v[best]) best = j; return best; }
 
+class progress_report
+{
+    typedef std::chrono::high_resolution_clock clock;
+    const char * msg; int n, pct; clock::time_point t0;
+public:
+    progress_report(const char * msg, int n) : msg(msg), n(n), pct(), t0(clock::now()) { std::cout << msg << "... 0%"; }
+    void update(int i)
+    {
+        const int new_pct = (i+1)*100/n;
+        if(new_pct == pct) return;
+        pct = new_pct;
+        std::cout << '\r' << msg << "... " << pct << "%";
+        if(pct == 100) std::cout << " in " << std::chrono::duration<double>(clock::now() - t0).count() << " seconds" << std::endl;
+    }
+};
 
 void mnist()
 {
 	std::cout << "mnist\n";
-	std::cout << "be patient this may take minutes.  suggest you use 'release' mode.\n";
-	std::cout << "should get close to 99% correctness\n"; 
+	std::cout << "be patient this may take minutes.\n";
+#	ifdef _DEBUG
+	 std::cout << "Suggest you use 'Release' mode instead of 'Debug'.\n";
+#	endif
+	std::cout << "should get close to 99% correctness\n";
 	auto train_in = mnist_read_images("train-images-idx3-ubyte", 60000);
 	auto train_lb = mnist_read_labels("train-labels-idx1-ubyte", 60000);
 	auto test_in  = mnist_read_images("t10k-images-idx3-ubyte" , 10000);
@@ -62,6 +82,7 @@ void mnist()
 
 	// I just used a typical cnn setup here.
 	// Feel free to try other configurations
+
 	CNN cnn({});
 	cnn.layers.push_back(new CNN::LConv({ 28,28,1 }, { 5,5,1,16 }, { 24,24,16 }));
 	cnn.layers.push_back(new CNN::LActivation<TanH>(24 * 24 * 16));
@@ -73,16 +94,26 @@ void mnist()
 	cnn.layers.push_back(new CNN::LFull(4 * 4 * 64, 64));
 	cnn.layers.push_back(new CNN::LActivation<TanH>(64));
 	cnn.layers.push_back(new CNN::LFull(64, 10));
+	cnn.Init();
 
 
 	for (int e = 0; e < 20;e++) // each training epoch does an initial test followed by backprop on all 60K samples.
 	{
+        auto p = progress_report("Evaluating", 10000);
 		int correct = 0;
 		for (int i = 0;i < 10000;i++)
+        {
 			correct += (minst_best(cnn.Eval(test_in[i])) == minst_best(test_lb[i]));
+            p.update(i);
+        }
 		std::cout << correct << " of 10000 correct\n";
+
+        p = progress_report("Training", 60000);
 		for (int i = 0;i < 60000;i++)
+        {
 			cnn.Train(train_in[i], train_lb[i]);
+            p.update(i);
+        }
 	}
 }
 
@@ -115,6 +146,7 @@ void junk()
 	CNN::LConv cl({ 5,5,1 }, { 3,3,1,2 }, { 3,3,2 });
 	CNN cnn({});
 	cnn.layers.push_back(&cl);
+	cnn.Init();
 	std::ifstream("deleteme.txt") >> cl;
 	std::cout << "weights initial: " << cl;
 	std::cout << "\n\n";

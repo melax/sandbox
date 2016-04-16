@@ -92,6 +92,7 @@
   <ItemGroup>
     <ClInclude Include="..\include\glwin.h" />
     <ClInclude Include="..\include\hull.h" />
+    <ClInclude Include="..\include\linalg.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

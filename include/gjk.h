@@ -20,7 +20,7 @@
 #include <functional>
 
 
-#include "vecmatquat.h"
+#include "linalg.h"
 #include "geometric.h"           // a collection of useful utilities such as intersection and projection
 #include "hull.h"
 
@@ -355,7 +355,7 @@ namespace gjk_implementation
 		hitinfo.p0w = src.pa;
 		hitinfo.p1w = src.pb;
 		hitinfo.impact = (src.pa + src.pb)*0.5f;
-		hitinfo.separation = magnitude(src.pa - src.pb )+ FLT_MIN;
+		hitinfo.separation = length(src.pa - src.pb )+ FLT_MIN;
 		hitinfo.normal     =  normalize(src.v);
 		hitinfo.dist       = -dot(hitinfo.normal,hitinfo.impact);
 		fillhitv(hitinfo,src);
@@ -381,9 +381,8 @@ namespace gjk_implementation
 		last.v=v;
 		MKPoint w = PointOnMinkowski(A,B,-v);
 		NextMinkSimplex[0](next,last,w);
-		last=next;
 		// todo: add the use of the lower bound distance for termination conditions
-		while((dot(w.p,v) < dot(v,v) - 0.00001f) && iter++<100) 
+		while(!iter|| (dot(w.p,v) < dot(v,v) - 0.00001f) && iter++<100) 
 		{
 			last=next;  // not ideal, a swapbuffer would be better
 			v=last.v;
@@ -418,7 +417,7 @@ namespace gjk_implementation
 				Contact hitinfo;
 				hitinfo.normal = -minpenetrationplane.xyz();  // flip!!??
 				hitinfo.dist   = -minpenetrationplane.w;  // negate this too to be consistent
-				hitinfo.separation = minpenetrationplane.w; // based on convention order of A and B and what is used in the non-penetration case (separation>0)
+				hitinfo.separation = std::min(0.0f, minpenetrationplane.w); // based on convention order of A and B and what is used in the non-penetration case (separation>0)
 				float4 b= inverse(float4x4({ next.W[0].p,1 }, { next.W[1].p,1 }, { next.W[2].p,1 }, { next.W[3].p,1 })).w;         // just take last column since its equiv to mul(M,[0001])
 				hitinfo.p0w = mul(float4x4({ next.W[0].a,1 }, { next.W[1].a,1 }, { next.W[2].a,1 }, { next.W[3].a,1 }), b).xyz();  // this point in A that's closest to B will be inside B too
 				hitinfo.p1w = mul(float4x4({ next.W[0].b,1 }, { next.W[1].b,1 }, { next.W[2].b,1 }, { next.W[3].b,1 }), b).xyz();  // should be about the same as the above point
@@ -559,22 +558,25 @@ namespace gjk_implementation
 } // namespace  gjk_implementation
 
 
-inline gjk_implementation::Contact Separated(std::function<float3(const float3&)> A, std::function<float3(const float3&)>B, int findclosest=1)
+template<class SFA, class SFB> gjk_implementation::Contact Separated(SFA A, SFB B, int findclosest=1)
 {
+	std::function<float3(const float3&)> test_a = A, test_b = B;  // generates a compile error if A or B doesn't match signature we want
+
 	return gjk_implementation::Separated(A, B, findclosest);  // pass through into the namespace  
 }
 
-inline std::function<float3(const float3&)> SupportFunc(const std::vector<float3> &points)   // example of how one might write an on-the-fly (lambda) support function for a container
+inline auto SupportFunc(const std::vector<float3> &points)   // example of how one might write an on-the-fly (lambda) support function for a container
 {
 	return[&points](const float3 &dir){ return points[maxdir(points.data(), points.size(), dir)]; };
 }
+
 inline gjk_implementation::Contact Separated(const std::vector<float3> &a, const std::vector<float3> &b, int findclosest=1)  // how to call Separated for two point clouds
 {
 	return gjk_implementation::Separated(SupportFunc(a), SupportFunc(b), findclosest);
 }
 
 
-inline std::function<float3(const float3&)> SupportFuncTrans(std::function<float3(const float3&)> sf, const float3& position, const float4 &orientation)   // example supportfunc for posed meshes 
+template<class SF> auto SupportFuncTrans(const float3& position, const float4 &orientation, SF sf)   // example supportfunc for posed meshes 
 {
 	return [sf, position, orientation](const float3 &dir) {return position + qrot(orientation, sf(qrot(qconj(orientation), dir))); };
 }
@@ -582,8 +584,9 @@ inline std::function<float3(const float3&)> SupportFuncTrans(std::function<float
 
 inline gjk_implementation::Contact Separated(const std::vector<float3> &a,const float3 &ap,const float4 &aq, const std::vector<float3> &b,const float3 &bp,const float4 &bq, int findclosest=1)
 {
-	return gjk_implementation::Separated(SupportFuncTrans(SupportFunc(a), ap, aq), SupportFuncTrans(SupportFunc(b), bp, bq), findclosest);
+	return gjk_implementation::Separated(SupportFuncTrans( ap, aq,SupportFunc(a)), SupportFuncTrans(bp, bq,SupportFunc(b)), findclosest);
 }
+
 
 //------ Contact Patch -----------------
 
@@ -615,8 +618,9 @@ inline Patch ContactPatch(CA s0, CB s1, float max_separation)  // return 0 if s1
 
 	const float3 &n = hitinfo[0].normal;  // since this needs to be flipped than what was in my head today
 	int &hc = ++hitinfo.count;   // set count to 1, including initial sample in patch
-	float3 tangent = Orth(n);
-	float3 bitangent = cross(n, tangent); // tangent X bitangent == n
+	float4 qs = quat_from_to(n, { 0,0,1 });
+	float3 tangent = qxdir(qs); // orthogonal to n
+	float3 bitangent = qydir(qs); // cross(n, tangent);  should have tangent X bitangent == n
 	float3 rollaxes[4] = { tangent, bitangent, -tangent, -bitangent };
 	for (auto &raxis : rollaxes)
 	{
@@ -624,13 +628,13 @@ inline Patch ContactPatch(CA s0, CB s1, float max_separation)  // return 0 if s1
 		float4 jiggle = normalize(float4(raxis*sinf(3.14f / 180.0f*(contactpatchjiggle) / 2.0f), 1));   // divide by 2 since generating a quaternion
 		float3 pivot = hitinfo[0].p0w;
 		Pose ar = Pose(n*0.2f, float4(0, 0, 0, 1))  * Pose(-pivot, float4(0, 0, 0, 1)) * Pose(float3(0, 0, 0), jiggle) * Pose(pivot, float4(0, 0, 0, 1));
-		hitinfo[hc] = Separated(SupportFuncTrans(s0, ar.position, ar.orientation), s1, 1);
+		hitinfo[hc] = Separated(SupportFuncTrans(ar.position, ar.orientation,s0), s1, 1);
 		hitinfo[hc].normal = n;// all parallel to the initial separating plane;
-		hitinfo[hc].p0w = ar.Inverse() * hitinfo[hc].p0w;  // contact back into unadjusted space
+		hitinfo[hc].p0w = ar.inverse() * hitinfo[hc].p0w;  // contact back into unadjusted space
 		hitinfo[hc].separation = dot(n, hitinfo[hc].p0w - hitinfo[hc].p1w);
 		bool match = false;
 		for (int j = 0; !match && j<hc; j++)
-			match = magnitude(hitinfo[hc].p0w - hitinfo[j].p0w) < 0.05f || magnitude(hitinfo[hc].p1w - hitinfo[j].p1w) < 0.05f;
+			match = length(hitinfo[hc].p0w - hitinfo[j].p0w) < 0.05f || length(hitinfo[hc].p1w - hitinfo[j].p1w) < 0.05f;
 		if (match)
 			continue;
 		hc++;

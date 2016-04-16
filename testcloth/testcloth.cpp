@@ -21,10 +21,10 @@ bool g_wireframe = 0;
 void InitTex()  // create a checkerboard texture 
 {
 	const int imagedim = 16;
-	ubyte3 checker_image[imagedim * imagedim];
+	byte3 checker_image[imagedim * imagedim];
 	for (int y = 0; y < imagedim; y++)
 	 for (int x = 0; x < imagedim; x++)
-		checker_image[y * imagedim + x] = ((x + y) % 2) ? ubyte3(0, 255, 255) : ubyte3(0, 127, 127);
+		checker_image[y * imagedim + x] = ((x + y) % 2) ? byte3(0, 255, 255) : byte3(0, 127, 127);
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 	glEnable(GL_TEXTURE_2D);
 	glBindTexture(GL_TEXTURE_2D, 0);

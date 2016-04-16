@@ -101,8 +101,8 @@ inline std::pair<float3, float3> Extents(const std::vector<Face*> &faces)
     for (auto f : faces)
     {
         auto b = Extents(*f);
-        bbox.first = cmin(b.first, bbox.first);
-        bbox.second = cmax(b.second, bbox.second);
+        bbox.first  = min(b.first, bbox.first);
+        bbox.second = max(b.second, bbox.second);
     }
     return bbox;
 }
@@ -138,14 +138,18 @@ std::unique_ptr<BSPNode> BSPUnion(std::unique_ptr<BSPNode> a, std::unique_ptr<BS
 std::unique_ptr<BSPNode> BSPIntersect(std::unique_ptr<BSPNode> a, std::unique_ptr<BSPNode> b);
 std::unique_ptr<BSPNode> BSPClean(std::unique_ptr<BSPNode> n); 
 
-void     BSPDeriveConvex(BSPNode *node, WingMesh *convex);
+std::unique_ptr<BSPNode> BSPDup(BSPNode *n);
+
+void     BSPDeriveConvex(BSPNode &node, WingMesh convex);
 void     BSPMakeBrep(BSPNode *r, std::vector<Face> && faces);  // only uses faces to sample for texture and material
 std::vector<Face> BSPRipBrep(BSPNode *r);
 void     BSPTranslate(BSPNode & n,const float3 & translation);
 void     BSPRotate(BSPNode & n, const float4 & rotation);
 void     BSPScale(BSPNode & n, const float3 & scaling);
 void     BSPScale(BSPNode & n, float scaling);
-void     NegateTree(BSPNode & n);
+BSPNode& NegateTree(BSPNode & n);
+inline   std::unique_ptr<BSPNode> NegateTree(std::unique_ptr<BSPNode> n) { NegateTree(*n.get()); return n; }
+inline   std::unique_ptr<BSPNode> BSPTranslate(std::unique_ptr<BSPNode> n,const float3 &translation) { BSPTranslate(*n.get(), translation); return n; }
 
 int      HitCheck(BSPNode *node,int solid,float3 v0,float3 v1,float3 *impact);
 int      HitCheckSolidReEnter(BSPNode *node,float3 v0,float3 v1,float3 *impact); // wont just return v0 if you happen to start in solid

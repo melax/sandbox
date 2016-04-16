@@ -37,7 +37,7 @@
 #include <algorithm>
 #include <assert.h>
 
-#include "vecmatquat.h"  // hull code expects int3 and float3 and a few related functions to be implemented in the obvious way
+#include "linalg.h"  // hull code expects int3 and float3 and a few related functions to be implemented in the obvious way
 #include "geometric.h"           // collection of basic 3d functions
 
 
@@ -214,7 +214,7 @@ namespace convex_hull_implementation
 			return{ -1, -1, -1, -1 };
 		basis[1] = cross(float3(1,0,0),basis[0]);
 		basis[2] = cross(float3(0,1,0),basis[0]);
-		basis[1] = normalize( (magnitude(basis[1])>magnitude(basis[2])) ? basis[1]:basis[2]);
+		basis[1] = normalize( (length(basis[1])>length(basis[2])) ? basis[1]:basis[2]);
 		int p2 = maxdir(verts,verts_count,basis[1]);
 		if(p2 == p0 || p2 == p1)
 		{
@@ -291,7 +291,7 @@ namespace convex_hull_implementation
 				if (tris[j].dead()) continue;
 				if (!hasvert(tris[j].v, vid)) break;
 				int3 nt = tris[j].v;
-				if (above(verts.data(), nt, center, 0.01f*epsilon) || magnitude(cross(verts[nt[1]] - verts[nt[0]], verts[nt[2]] - verts[nt[1]]))< epsilon*epsilon*0.1f)
+				if (above(verts.data(), nt, center, 0.01f*epsilon) || length(cross(verts[nt[1]] - verts[nt[0]], verts[nt[2]] - verts[nt[1]]))< epsilon*epsilon*0.1f)
 				{
 					int nb = tris[j].n[0];
 					assert(nb >= 0); assert(!tris[nb].dead()); assert(!hasvert(tris[nb].v, vid)); assert(tris[nb].id<(int)j);
@@ -320,10 +320,10 @@ namespace convex_hull_implementation
 		for(int j=0;j<verts_count;j++) 
 		{
 			isextreme.push_back(0);
-			bmin = cmin(bmin,verts[j]);
-			bmax = cmax(bmax,verts[j]);
+			bmin = min(bmin,verts[j]);
+			bmax = max(bmax,verts[j]);
 		}
-		float epsilon = magnitude(bmax-bmin) * 0.001f;
+		float epsilon = length(bmax-bmin) * 0.001f;
 
 		int4 p = FindSimplex(verts,verts_count);
 		if(p.x==-1) return std::vector<int3>(); // simplex failed
@@ -374,7 +374,7 @@ namespace convex_hull_implementation
 				if(tris[j].dead()) continue;
 				if(!hasvert(tris[j].v,v)) break;
 				int3 nt=tris[j].v;
-				if(above(verts,nt,center,0.01f*epsilon)  || magnitude(cross(verts[nt[1]]-verts[nt[0]],verts[nt[2]]-verts[nt[1]]))< epsilon*epsilon*0.1f )
+				if(above(verts,nt,center,0.01f*epsilon)  || length(cross(verts[nt[1]]-verts[nt[0]],verts[nt[2]]-verts[nt[1]]))< epsilon*epsilon*0.1f )
 				{
 					int nb = tris[j].n[0];
 					assert(nb>=0);assert(!tris[nb].dead());assert(!hasvert(tris[nb].v,v));assert(tris[nb].id<(int)j);

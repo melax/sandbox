@@ -25,7 +25,9 @@
 #include <stdio.h>
 #include <float.h>
 
-#include "vecmatquat.h"
+#include "linalg.h"
+using namespace linalg::aliases;
+#include "geometric.h"
 #include "gjk.h"
 
 const float   physics_deltaT = (1.0f / 60.0f);
@@ -36,7 +38,7 @@ const float   physics_biasfactorjoint = 0.3f;
 const float   physics_biasfactorpositive = 0.3f;
 const float   physics_biasfactornegative = 0.3f;
 const float   physics_falltime_to_ballistic = 0.2f;
-const float   physics_driftmax = 0.03f;
+ float   physics_driftmax = 0.03f;
 const float   physics_damping = 0.15f;  // 1 means critically damped,  0 means no damping
 
 
@@ -117,9 +119,10 @@ class RigidBody : public State
 	float			massinv;  
 	//float3x3		tensor;  // inertia tensor
 	float3x3		tensorinv_massless;  
-	float3x3		Iinv;    // Inverse Inertia Tensor rotated into world space 
+	float3x3		Iinv;    // inverse Inertia Tensor rotated into world space 
 	float3			spin() { return mul(Iinv, angular_momentum); }     // often called Omega in most references
 	float			radius;
+	float           radius_inner;
 	float3          bmin,bmax; // in local space
 	float3			position_next;
 	float4          orientation_next;
@@ -137,7 +140,7 @@ class RigidBody : public State
 	std::vector<Spring*>	springs;
 	std::vector<Shape>      shapes;
 	std::vector<RigidBody*> ignore; // things to ignore during collision checks
-	RigidBody(std::vector<Shape> shapes_, const float3 &_position) : shapes(shapes_), orientation_next(0, 0, 0, 1), orientation_old(0, 0, 0, 1), orientation_start(0, 0, 0, 1)
+	RigidBody(std::vector<Shape> shapes_, const float3 &_position) : shapes(shapes_), orientation_next(0, 0, 0, 1), orientation_old(0, 0, 0, 1), orientation_start(0, 0, 0, 1),radius_inner(0)
 	{
 		position_start = position_old = position_next = position = _position;
 		collide = (shapes.size()) ? 3 : 0;
@@ -155,12 +158,12 @@ class RigidBody : public State
 	
 		float3x3 tensor = Inertia(shapes, { 0, 0, 0 });
 		massinv = 1.0f / mass;
-		Iinv = (tensorinv_massless = inverse(tensor))  * massinv;
+		Iinv = (tensorinv_massless = linalg::inverse(tensor))  * massinv;
 	
 		std::vector<float3> allverts;
 		for (auto &m : shapes)
 			allverts.insert(allverts.end(), m.verts.begin(), m.verts.end());
-		radius = magnitude(*std::max_element(allverts.begin(), allverts.end(), [](const float3 &a, const float3 &b){return dot(a, a) < dot(b, b); }));
+		radius = length(*std::max_element(allverts.begin(), allverts.end(), [](const float3 &a, const float3 &b){return dot(a, a) < dot(b, b); }));
 		std::tie(bmin, bmax) = Extents(allverts);
 	}
 };
@@ -195,7 +198,7 @@ class Spring
 inline float4 DiffQ(const float4 &orientation, const float3x3 &tensorinv, const float3 &angular)
 {
 	float4 s_orientation_normed = normalize(orientation);
-	float3x3 s_orientation_matrix = qgetmatrix(s_orientation_normed);
+	float3x3 s_orientation_matrix = qmat(s_orientation_normed);
 	float3x3 Iinv = mul(s_orientation_matrix, tensorinv, transpose(s_orientation_matrix));
 	float3 halfspin = mul(Iinv, angular) * 0.5f;
 	return qmul(float4(halfspin.x, halfspin.y, halfspin.z, 0), s_orientation_normed);
@@ -327,7 +330,10 @@ inline std::vector<LimitLinear> ConstrainPositionNailed( RigidBody *rb0, const f
 	float3 d = (((rb1)?rb1->pose()*p1:p1) - ((rb0)?rb0->pose()*p0:p0) );
 	return {LimitLinear(rb0,rb1,p0,p1,float3(1,0,0),d.x), LimitLinear(rb0,rb1,p0,p1,float3(0,1,0),d.y), LimitLinear(rb0,rb1,p0,p1,float3(0,0,1),d.z) };
 }
-
+inline LimitLinear ConstrainUnderPlane(RigidBody *rb, const float4 &plane,float maxforce=FLT_MAX)  // includes shape[0] geometry
+{
+	return ConstrainAlongDirection(NULL, plane.xyz()*-plane.w, rb, maxdir_value(rb->shapes[0].verts, qrot(qconj(rb->orientation), plane.xyz())), -plane.xyz(), 0, maxforce);
+}
 inline std::vector<LimitAngular> ConstrainAngularRangeW(RigidBody *rb0, const float4 &jb0, RigidBody *rb1, const float4 &jf1, const float3& _jointlimitmin, const float3& _jointlimitmax)
 {
 	// a generic configurable 6dof style way to specify angular limits.  used for hard limits such as joint ranges.
@@ -341,7 +347,7 @@ inline std::vector<LimitAngular> ConstrainAngularRangeW(RigidBody *rb0, const fl
 		return ConstrainAngularRangeW(rb0, qmul(jb0, cb), rb1, qmul(jf1, cb), float3(_jointlimitmin.z, 0, 0), float3(_jointlimitmax.z, 0, 0));
 	}
 	float4 r = qmul(qconj(jb0), jf1);
-	float4 s = RotationArc(float3(0, 0, 1.0f), qzdir(r));
+	float4 s = quat_from_to(float3(0, 0, 1.0f), qzdir(r));
 	float4 t = qmul(qconj(s), r);
 	
 	if(jmax.x==jmin.x)
@@ -402,19 +408,19 @@ struct PhysContact : public gjk_implementation::Contact
 	float3     p0 , p1 ;   // the points of contact in the local space of the rigidbodies
 	PhysContact(RigidBody *rb0, RigidBody *rb1, const gjk_implementation::Contact &c) : rb0(rb0), rb1(rb1), gjk_implementation::Contact(c)
 	{
-		p0 = (rb0) ? rb0->pose().Inverse() * p0w : p0w;
-		p1 = (rb1) ? rb1->pose().Inverse() * p1w : p1w;
+		p0 = (rb0) ? rb0->pose().inverse() * p0w : p0w;
+		p1 = (rb1) ? rb1->pose().inverse() * p1w : p1w;
 	}
 };
 
-inline  std::function<float3(const float3&)> SupportFunc(RigidBody *rb,const Shape& shape) { return SupportFuncTrans(SupportFunc(shape.verts), rb->position, rb->orientation); }
+inline  std::function<float3(const float3&)> SupportFunc(RigidBody *rb,const Shape& shape) { return SupportFuncTrans(rb->position, rb->orientation,SupportFunc(shape.verts)); }  // note, using auto for the return type caused vs2015 to crash.
 
 inline void FindShapeWorldContacts(std::vector<PhysContact> &contacts_out, const std::vector<RigidBody*>& rigidbodies, const std::vector<std::vector<float3> *> & cells)
 {
 	for (auto rb : rigidbodies) for (auto &shape : rb->shapes)   // foreach rigidbody shape
 	{
 		if(!(rb->collide&1)) continue;
-		float distance_range = std::max(physics_driftmax, magnitude(rb->linear_momentum) *physics_deltaT / rb->mass);  // dont need to create potential contacts if beyond this range
+		float distance_range = std::max(physics_driftmax, length(rb->linear_momentum) *physics_deltaT / rb->mass);  // dont need to create potential contacts if beyond this range
 		for (auto  cell : cells)
 			for(auto &c : ContactPatch(SupportFunc(rb,shape), SupportFunc(*cell), distance_range) )
 				contacts_out.push_back(PhysContact(rb, NULL, c));  
@@ -427,7 +433,7 @@ inline void FindShapeShapeContacts(std::vector<PhysContact> &contacts_out_append
 	for (auto rb0 : rigidbodies) for (auto rb1 : rigidbodies) if (rb0<rb1)
 	{
 		if (!(rb0->collide & rb1->collide & 2)) continue;             // 2nd bit means dont collide with other rigidbodies
-		if (magnitude(rb1->position - rb0->position) > rb0->radius + rb1->radius) continue;
+		if (length(rb1->position - rb0->position) > rb0->radius + rb1->radius) continue;
 		if (std::find(rb0->ignore.begin(), rb0->ignore.end(), rb1) != rb0->ignore.end()) continue;
 		for (auto &s0 : rb0->shapes) for (auto &s1 : rb1->shapes)
 		for (auto &c : ContactPatch(SupportFunc(rb0,s0), SupportFunc(rb1,s1), physics_driftmax))
@@ -448,9 +454,9 @@ inline std::vector<LimitLinear> ConstrainContacts(const std::vector<PhysContact>
 		
 		float minsep = physics_driftmax*0.25f;
 		float separation = c.separation; //  verify direction here 
-		float bouncevel = std::max(0.0f, (-dot(c.normal, v) - magnitude(physics_gravity)*physics_falltime_to_ballistic) * physics_restitution);  // ballistic non-resting contact, allow elastic response
+		float bouncevel = std::max(0.0f, (-dot(c.normal, v) - length(physics_gravity)*physics_falltime_to_ballistic) * physics_restitution);  // ballistic non-resting contact, allow elastic response
 		linearconstraints.push_back(LimitLinear(rb0, rb1, c.p0, c.p1, -c.normal, std::min((separation-minsep)*physics_biasfactorpositive,separation) , -bouncevel, { 0, FLT_MAX }));  // could also add (-bouncevel*physics_deltaT) to targetdist too
-		auto q = RotationArc({ 0,0,1 }, -c.normal);   // to get orthogonal axes on the plane
+		auto q = quat_from_to({ 0,0,1 }, -c.normal);   // to get orthogonal axes on the plane
 		float3 normal = qzdir(q);
 		float3 tangent = qxdir(q); //  Orth(-c.normal);
 		float3 binormal = qydir(q); //  cross(c.normal, tangent);
@@ -489,7 +495,7 @@ inline void rbinitvelocity(RigidBody *rb)
 
 	rb->linear_momentum += force*physics_deltaT;
 	rb->angular_momentum += torque*physics_deltaT;
-	rb->Iinv = mul(qgetmatrix(rb->orientation), rb->tensorinv_massless * rb->massinv, transpose(qgetmatrix(rb->orientation)));
+	rb->Iinv = mul(qmat(rb->orientation), rb->tensorinv_massless * rb->massinv, transpose(qmat(rb->orientation)));
 }
 
 
@@ -511,7 +517,7 @@ inline void rbupdatepose(RigidBody *rb)
 	rb->orientation_old = rb->orientation;
 	rb->position = rb->position_next;
 	rb->orientation = rb->orientation_next;
-	rb->Iinv = mul(qgetmatrix(rb->orientation), rb->tensorinv_massless * rb->massinv, transpose(qgetmatrix(rb->orientation)));
+	rb->Iinv = mul(qmat(rb->orientation), rb->tensorinv_massless * rb->massinv, transpose(qmat(rb->orientation)));
 }
 
 inline void PhysicsUpdate(std::vector<RigidBody*> &rigidbodies, std::vector<LimitLinear> Linears, std::vector<LimitAngular> &Angulars, const std::vector<std::vector<float3> *> &wgeom)

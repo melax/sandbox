@@ -16,7 +16,7 @@ template<class T> inline T Pop(std::vector<T> & c) { auto val = std::move(c.back
 #define M_PIf (3.14f)
 
 #define FUZZYWIDTH (PAPERWIDTH*100)
-float qsnap=0.25f;
+float qsnap=0.5f;
 #define QUANTIZEDCHECK (qsnap*(1.0f/256.0f * 0.5f))
 
 int currentmaterial = 0;
@@ -89,9 +89,9 @@ void texcylinder(Face *face)
 	FaceExtractMatVals(face,sa,sb,sb+float3(0,0,1.0f),float2(ta,0),float2(tb,0),float2(tb,1));
 //	float3 so=LineProject(sa,sb,face->normal * -face->dist);
 	//float to = atan2f(face->normal.x,face->normal.y)/(2.0f*PI);
-//	float to = ta + (tb-ta) * magnitude(so-sa)/magnitude(sb-sa);
-//	face->gu *= (tb-ta)/magnitude(sa-sb);
-//	face->gv *= magnitude(face->gu);
+//	float to = ta + (tb-ta) * length(so-sa)/length(sb-sa);
+//	face->gu *= (tb-ta)/length(sa-sb);
+//	face->gv *= length(face->gu);
 //	face->ot = float3(to,0,0);
 }
 
@@ -179,7 +179,7 @@ void FaceRotate(Face & face, const float4 &r)
 
 void FaceScale(Face & face, const float3 & scaling)
 {
-    for(auto & v : face.vertex) v = cmul(v, scaling);
+    for(auto & v : face.vertex) v *= scaling;
     PlaneScale(face.plane(), scaling);
 }
 
@@ -207,7 +207,7 @@ int FaceClosestEdge(Face *face,const float3 &sample_point)
 		unsigned int i1 = (i+1)%face->vertex.size();
 		float3 v0(face->vertex[i ]);
 		float3 v1(face->vertex[i1]);
-		float d = magnitude(LineProject(v0,v1,sample_point)-sample_point);
+		float d = length(LineProject(v0,v1,sample_point)-sample_point);
 		if(closest==-1 || d<mindr)
 		{
 			mindr=d;
@@ -280,8 +280,12 @@ static void FaceEdgeSplicer(Face & face,int vi0,BSPNode *n)
 	int vi1 = (vi0+1)%face.vertex.size();
 	float3 v0 = face.vertex[vi0];
 	float3 v1 = face.vertex[vi1];
-	assert(magnitude(v0-v1) > QUANTIZEDCHECK );
-	int f0 = PlaneTest(float4(n->xyz(), n->w), v0);
+	if (length(v0 - v1) <= QUANTIZEDCHECK)
+	{
+		edgesplitcount++;
+	}
+	assert(length(v0-v1) > QUANTIZEDCHECK );
+	int f0 = PlaneTest(float4(n->xyz(), n->w), v0); 
 	int f1 = PlaneTest(float4(n->xyz(), n->w), v1);
 	if(f0==COPLANAR && f1== COPLANAR)
 	{
@@ -306,11 +310,11 @@ static void FaceEdgeSplicer(Face & face,int vi0,BSPNode *n)
 	else
 	{
 		edgesplitcount++;
-		assert(magnitude(v0-v1) > QUANTIZEDCHECK);
+		assert(length(v0-v1) > QUANTIZEDCHECK);
 		assert((f0|f1) == SPLIT);
 		float3 vmid = PlaneLineIntersection(*n,v0,v1);
-		assert(magnitude(vmid-v1) > QUANTIZEDCHECK);
-		assert(magnitude(v0-vmid) > QUANTIZEDCHECK);
+		assert(length(vmid-v1) > QUANTIZEDCHECK);
+		assert(length(v0-vmid) > QUANTIZEDCHECK);
 		int fmid = PlaneTest(float4(n->xyz(), n->w), vmid);
 		assert(fmid==0);
 		face.vertex.insert(face.vertex.begin() + vi0 + 1, vmid); //  Insert(face.vertex, vmid, vi0 + 1);
@@ -352,7 +356,7 @@ void FaceSanityCheck(Face *face)
 	for(unsigned int i=0;i<face->vertex.size();i++)
 	{
 		int i1 = (i+1)%face->vertex.size();
-		assert(magnitude(face->vertex[i1]-face->vertex[i])>QUANTIZEDCHECK);
+		assert(length(face->vertex[i1]-face->vertex[i])>QUANTIZEDCHECK);
 	}
 }
 
@@ -550,7 +554,7 @@ Face *NeighboringEdge(BSPNode *root,Face *face,int eid)
 				for(unsigned int j=0;j<f->vertex.size();j++)
 				{
 					int j1 = (j+1)%f->vertex.size();
-					if(magnitude(f->vertex[j]-v1)<0.001f && magnitude(f->vertex[j1]-v0)<0.001f)
+					if(length(f->vertex[j]-v1)<0.001f && length(f->vertex[j1]-v0)<0.001f)
 					{
 						NeighboringEdgeNode=n;
 						NeighboringEdgeId=j;

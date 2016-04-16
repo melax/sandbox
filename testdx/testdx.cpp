@@ -1,5 +1,5 @@
 
-#include "vecmatquat.h"
+#include "linalg.h"
 #include "mesh.h"
 #include "dxwin.h"
 

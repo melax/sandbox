@@ -551,7 +551,7 @@ public:
 	static LRESULT WINAPI MsgProcG(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	{
 		if(msg==WM_NCCREATE)
-			SetWindowLongPtr(hWnd, GWLP_USERDATA, (LONG)(reinterpret_cast<CREATESTRUCT *>(lParam)->lpCreateParams));  // grab my pointer passed into createwindow
+			SetWindowLongPtr(hWnd, GWLP_USERDATA, (LONG_PTR)(reinterpret_cast<CREATESTRUCT *>(lParam)->lpCreateParams));  // grab my pointer passed into createwindow
 		auto w = reinterpret_cast<DXWin *>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
 		return (w)? w->MsgProc(hWnd, msg, wParam, lParam ) : DefWindowProc( hWnd, msg, wParam, lParam );
 	}

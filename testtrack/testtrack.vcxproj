@@ -91,8 +91,8 @@
     <ClInclude Include="..\include\geometric.h" />
     <ClInclude Include="..\include\gjk.h" />
     <ClInclude Include="..\include\glwin.h" />
+    <ClInclude Include="..\include\linalg.h" />
     <ClInclude Include="..\include\physics.h" />
-    <ClInclude Include="..\include\vecmatquat.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

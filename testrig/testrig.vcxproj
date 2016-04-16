@@ -89,10 +89,10 @@
   <ItemGroup>
     <ClInclude Include="..\include\geometric.h" />
     <ClInclude Include="..\include\gjk.h" />
+    <ClInclude Include="..\include\linalg.h" />
     <ClInclude Include="..\include\mesh.h" />
     <ClInclude Include="..\include\minixml.h" />
     <ClInclude Include="..\include\physics.h" />
-    <ClInclude Include="..\include\vecmatquat.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

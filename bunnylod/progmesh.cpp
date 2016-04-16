@@ -15,7 +15,9 @@
 #include <windows.h>
 #include <assert.h>
 
-#include "../include/vecmatquat_minimal.h"
+#include "../include/linalg.h"    // typical 3D math routines following hlsl style for the most part
+using namespace linalg::aliases;
+#include "../include/geometric.h"
 #include "progmesh.h"
 
 template<class T> int   Contains(const std::vector<T> & c, const T & t){ return std::count(begin(c), end(c), t); }
@@ -97,7 +99,7 @@ void Triangle::ComputeNormal()
 	float3 v1=vertex[1]->position;
 	float3 v2=vertex[2]->position;
 	normal = cross(v1-v0,v2-v1);
-	if(magnitude(normal)==0)return;
+	if(length(normal)==0)return;
 	normal = normalize(normal);
 }
 
@@ -168,7 +170,7 @@ float ComputeEdgeCollapseCost(Vertex *u,Vertex *v) {
 	// would be generated.  i.e. normal of a remaining face gets
 	// flipped.  I never seemed to run into this problem and
 	// therefore never added code to detect this case.
-	float edgelength = magnitude(v->position - u->position);
+	float edgelength = length(v->position - u->position);
 	float curvature=0;
 
 	// find the "sides" triangles that are on the edge uv
