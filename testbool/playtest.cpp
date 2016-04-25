@@ -353,7 +353,7 @@ int main(int argc,const char argv[]) try
 		}
 
 
-		float3 thrust = float3(keyheld['D'] - keyheld['A'], keyheld['W'] - keyheld['S'], keyheld[' '] - keyheld['Z']);
+		float3 thrust = float3((float)(keyheld['D'] - keyheld['A']), (float)(keyheld['W'] - keyheld['S']), (float)(keyheld[' '] - keyheld['Z']));
 		player.wasd_mlook(glwin.dmouse, thrust, bsp.get());
 		if (camsnap)
 		{

@@ -35,6 +35,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "testcnn", "testcnn\testcnn.
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "testbool", "testbool\testbool.vcxproj", "{145BBE4D-EA4A-4903-81BB-50F63606A36B}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "legacy_voxblob", "voxblob\legacy_voxblob.vcxproj", "{8955E4E8-C047-436B-9125-916D3653BA8F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -145,6 +147,14 @@ Global
 		{145BBE4D-EA4A-4903-81BB-50F63606A36B}.Release|Win32.Build.0 = Release|Win32
 		{145BBE4D-EA4A-4903-81BB-50F63606A36B}.Release|x64.ActiveCfg = Release|x64
 		{145BBE4D-EA4A-4903-81BB-50F63606A36B}.Release|x64.Build.0 = Release|x64
+		{8955E4E8-C047-436B-9125-916D3653BA8F}.Debug|Win32.ActiveCfg = Debug|Win32
+		{8955E4E8-C047-436B-9125-916D3653BA8F}.Debug|Win32.Build.0 = Debug|Win32
+		{8955E4E8-C047-436B-9125-916D3653BA8F}.Debug|x64.ActiveCfg = Debug|x64
+		{8955E4E8-C047-436B-9125-916D3653BA8F}.Debug|x64.Build.0 = Debug|x64
+		{8955E4E8-C047-436B-9125-916D3653BA8F}.Release|Win32.ActiveCfg = Release|Win32
+		{8955E4E8-C047-436B-9125-916D3653BA8F}.Release|Win32.Build.0 = Release|Win32
+		{8955E4E8-C047-436B-9125-916D3653BA8F}.Release|x64.ActiveCfg = Release|x64
+		{8955E4E8-C047-436B-9125-916D3653BA8F}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

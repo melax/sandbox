@@ -263,8 +263,9 @@ struct HitInfo { bool hit; float3 impact; float3 normal; operator bool(){ return
 
 inline HitInfo PolyHitCheck(const std::vector<float3>& verts, const float4 &plane, const float3 &v0, const float3 &v1)
 {
-	float d0, d1;
-	HitInfo hitinfo = { ((d0 = dot(float4(v0, 1), plane)) > 0 && (d1 = dot(float4(v1, 1), plane)) < 0), { 0, 0, 0 }, { 0, 0, 0 } };  // if segment crosses into plane
+	float d0 = dot(float4(v0, 1), plane);
+	float d1 = dot(float4(v1, 1), plane);
+	HitInfo hitinfo = { ((d0  > 0) && (d1  < 0)), { 0, 0, 0 }, { 0, 0, 0 } };  // if segment crosses into plane
 	hitinfo.normal = plane.xyz();
 	hitinfo.impact = v0 + (v1 - v0)* d0 / (d0 - d1);  //  if both points on plane this will be 0/0, if parallel you might get infinity
 	for (unsigned int i = 0; hitinfo&& i < verts.size(); i++)
