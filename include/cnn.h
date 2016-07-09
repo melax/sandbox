@@ -14,8 +14,8 @@
 #include <istream>
 #include <assert.h>
 
-#include <linalg.h>
-#include <geometric.h>  // for the multi dimensional iterators
+#include "linalg.h"
+#include "geometric.h"  // for the multi dimensional iterators
 
 #include <immintrin.h>
 static bool simd_enable=true;
@@ -328,6 +328,28 @@ struct CNN
             return D;
         }
     };
+	struct LSoftMax final : public LBase
+	{
+		LSoftMax(int n) {}
+		std::vector<float> forward(const std::vector<float> &input) override
+		{
+			float sum = 0.0f;
+			auto out = Transform(input, [&sum](float x) {float y = std::expf(x); sum += y; return y; });
+			for (auto &y : out)
+				y /= sum;
+			return out;
+		}
+		std::vector<float> backward(const std::vector<float> &X, const std::vector<float> &Y, const std::vector<float> &E) override
+		{
+			float dp = 0;  // sum or dot product of error with output  (note that changing one input upward pushes everybody else down) 
+			for (unsigned int i = 0; i < Y.size(); i++)
+				dp += E[i] * Y[i];
+			std::vector<float> D(Y.size());
+			std::transform(E.begin(), E.end(), Y.begin(), D.begin(), [dp](float e, float y) { return y*(e-dp); });    // yup, after cancelling and substituting the calculus derivatives you end up with just this
+			return D;
+		}
+
+	};
     std::vector<LBase*> layers;
 
     std::vector<float> Eval(const std::vector<float> &x)

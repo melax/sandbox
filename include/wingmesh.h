@@ -85,6 +85,10 @@ struct WingMesh
     WingMesh & operator = (WingMesh && r) { edges=move(r.edges); verts=move(r.verts); faces=move(r.faces); vback=move(r.vback); fback=move(r.fback); unpacked=r.unpacked; return *this; }
 
 	int VertDegree(int v) const { int e0 = vback[v], e = e0, k = 0;  if (e != -1) do{ k++; e = edges[edges[e].adj].next; } while (e != e0); return k; }
+	std::vector<int> VertEdges(int v) const 
+	{ 
+		std::vector<int> ve;  int e0 = vback[v], e = e0;  if (e != -1) do { ve.push_back(e); e = edges[edges[e].adj].next; } while (e != e0); return ve;
+	}
 
 	void SanityCheck() const 
 	{

@@ -100,13 +100,13 @@ inline float3x3 Inertia(const std::vector<Shape> &meshes, const float3& com)
 class State : public Pose
 {
   public:
-					State(const float3 &p, const float4 &q, const float3 &v, const float3 &r) : Pose(p, q), linear_momentum(v), angular_momentum(r){}
-					State():linear_momentum(0,0,0),angular_momentum(0,0,0) {};
-	float3			linear_momentum ;   
-	float3			angular_momentum;
+	                State(const float3 &p, const float4 &q, const float3 &v, const float3 &r) : Pose(p, q), linear_momentum(v), angular_momentum(r){}
+	                State():linear_momentum(0,0,0),angular_momentum(0,0,0) {};
+	float3          linear_momentum ;   
+	float3          angular_momentum;
 
-    Pose&           pose() { return *this; }
-    const Pose&     pose() const { return *this; }
+	Pose&           pose() { return *this; }
+	const Pose&     pose() const { return *this; }
 
 	State&          state() { return *this; }
 	const State&    state() const { return *this; }
@@ -115,29 +115,29 @@ class State : public Pose
 class RigidBody : public State 
 {
   public:
-	float			mass;
-	float			massinv;  
-	//float3x3		tensor;  // inertia tensor
-	float3x3		tensorinv_massless;  
-	float3x3		Iinv;    // inverse Inertia Tensor rotated into world space 
-	float3			spin() { return mul(Iinv, angular_momentum); }     // often called Omega in most references
-	float			radius;
+	float           mass;
+	float           massinv;  
+	//float3x3      tensor;  // inertia tensor
+	float3x3        tensorinv_massless;  
+	float3x3        Iinv;    // inverse Inertia Tensor rotated into world space 
+	float3          spin() { return mul(Iinv, angular_momentum); }     // often called Omega in most references
+	float           radius;
 	float           radius_inner;
 	float3          bmin,bmax; // in local space
-	float3			position_next;
+	float3          position_next;
 	float4          orientation_next;
-	float3			position_old;  // used by penetration rollback
-	float4   		orientation_old;  // used by penetration rollback
-	float3			position_start;
+	float3          position_old;  // used by penetration rollback
+	float4          orientation_old;  // used by penetration rollback
+	float3          position_start;
 	float4          orientation_start;
 	float           damping;
-	float			gravscale;
-	float			friction;  // friction multiplier
-	State			old;
-	int				collide;  // collide&1 body to world  collide&2 body to body
+	float           gravscale;
+	float           friction;  // friction multiplier
+	State           old;
+	int             collide;  // collide&1 body to world  collide&2 body to body
 	float3          com; // computed in constructor, but geometry gets translated initially 
-	float3          PositionUser() {return pose()* -com; }  // based on original origin
-	std::vector<Spring*>	springs;
+	float3          PositionUser() const {return pose()* -com; }  // based on original origin
+	std::vector<Spring*>    springs;
 	std::vector<Shape>      shapes;
 	std::vector<RigidBody*> ignore; // things to ignore during collision checks
 	RigidBody(std::vector<Shape> shapes_, const float3 &_position) : shapes(shapes_), orientation_next(0, 0, 0, 1), orientation_old(0, 0, 0, 1), orientation_start(0, 0, 0, 1),radius_inner(0)
@@ -181,11 +181,11 @@ inline void rbscalemass(RigidBody *rb,float s)  // scales the mass and all relev
 class Spring 
 {
   public:
-	RigidBody *		bodyA;
-	float3			anchorA;
-	RigidBody *		bodyB;
-	float3			anchorB;
-	float			k; // spring constant
+	RigidBody*  bodyA;
+	float3      anchorA;
+	RigidBody*  bodyB;
+	float3      anchorB;
+	float       k; // spring constant
 };
 
 
@@ -242,7 +242,7 @@ public:
 	float  maxtorque;
 	LimitAngular():Limit(NULL,NULL){}
 	LimitAngular(RigidBody *rb0, RigidBody *rb1, const float3 &axis, float targetspin=0, float mintorque=-FLT_MAX, float maxtorque=FLT_MAX) 
-		:Limit(rb0, rb1), axis(axis), targetspin(targetspin), mintorque(mintorque), maxtorque(maxtorque), torque(0) {}	
+	            :Limit(rb0, rb1), axis(axis), targetspin(targetspin), mintorque(mintorque), maxtorque(maxtorque), torque(0) {}	
 	void RemoveBias(){ targetspin = (mintorque<0) ? 0 : std::min(targetspin, 0.0f); }  // not zero since its ok to let one-sided constraints fall to their bound;
 	void Iter()
 	{
@@ -310,7 +310,7 @@ inline std::vector<LimitAngular> ConstrainAngularDrive( RigidBody *rb0, RigidBod
 {
 	float4 q0 = (rb0)?rb0->orientation:float4(0,0,0,1);
 	float4 q1 = (rb1)?rb1->orientation:float4(0,0,0,1);
-    float4 dq = qmul(q1, qconj(qmul(q0, target)));  // quat that takes a direction in r0+target orientation into r1 orientation
+	float4 dq = qmul(q1, qconj(qmul(q0, target)));  // quat that takes a direction in r0+target orientation into r1 orientation
 	if(dq.w<0) dq=-dq;
 	float3 axis     = safenormalize(dq.xyz()); // dq.axis();
 	float3 binormal = Orth(axis);
@@ -325,6 +325,16 @@ inline LimitLinear ConstrainAlongDirection(RigidBody *rb0,const float3 &p0,Rigid
 {
 	return LimitLinear( rb0,rb1,p0,p1,axisw, dot( ((rb1)?rb1->pose()*p1:p1) - ((rb0)?rb0->pose()*p0:p0) ,axisw),0.0f,{minforce,maxforce});
 }
+inline std::vector<LimitLinear> ConstrainAlongDirectionDeadzone(RigidBody *rb0, const float3 &p0, RigidBody *rb1, const float3 &p1, const float3 &axisw,float radius, float2 forcelimit)
+{
+	// allows for a dead zone with given radius
+	return
+	{ 
+		LimitLinear(rb0, rb1, p0, p1, axisw, dot(((rb1) ? rb1->pose()*p1 : p1) - ((rb0) ? rb0->pose()*p0 : p0), axisw)+radius, 0.0f, { 0,forcelimit.y }) ,
+		LimitLinear(rb0, rb1, p0, p1, axisw, dot(((rb1) ? rb1->pose()*p1 : p1) - ((rb0) ? rb0->pose()*p0 : p0), axisw)-radius, 0.0f, { forcelimit.x,0 }) , 
+	};
+}
+
 inline std::vector<LimitLinear> ConstrainPositionNailed( RigidBody *rb0, const float3 &p0, RigidBody *rb1, const float3 &p1)
 {
 	float3 d = (((rb1)?rb1->pose()*p1:p1) - ((rb0)?rb0->pose()*p0:p0) );
@@ -341,10 +351,10 @@ inline std::vector<LimitAngular> ConstrainAngularRangeW(RigidBody *rb0, const fl
 	float3 jmin = _jointlimitmin * 3.14f / 180.0f;
 	float3 jmax = _jointlimitmax * 3.14f/180.0f; 
 
-	if(jmin.x==0 && jmax.x==0 && jmin.y==0 && jmax.y==0 && jmin.z<jmax.z)
+	if(jmin.x==0 && jmax.x==0 && /* jmin.y==0 && jmax.y==0 && */  jmin.z<jmax.z)   // testing non 0 range about y
 	{
 		float4 cb = normalize(float4(0,-1,0,1));
-		return ConstrainAngularRangeW(rb0, qmul(jb0, cb), rb1, qmul(jf1, cb), float3(_jointlimitmin.z, 0, 0), float3(_jointlimitmax.z, 0, 0));
+		return ConstrainAngularRangeW(rb0, qmul(jb0, cb), rb1, qmul(jf1, cb), float3(_jointlimitmin.z, _jointlimitmin.y, 0), float3(_jointlimitmax.z, _jointlimitmax.y, 0));
 	}
 	float4 r = qmul(qconj(jb0), jf1);
 	float4 s = quat_from_to(float3(0, 0, 1.0f), qzdir(r));
@@ -368,7 +378,13 @@ inline std::vector<LimitAngular> ConstrainAngularRangeW(RigidBody *rb0, const fl
 		Angulars_out.push_back(LimitAngular(rb0,rb1, qydir(jf1), 2 * (-s.y+sin(jmin.y/2.0f)) /physics_deltaT,0));   
 		Angulars_out.push_back(LimitAngular(rb0,rb1,-qydir(jf1), 2 * ( s.y-sin(jmax.y/2.0f)) /physics_deltaT,0));  
 	}
-	Angulars_out.push_back(LimitAngular(rb0,rb1,qzdir(jf1),physics_biasfactorjoint * 2 * -t.z /physics_deltaT)); // btw '2' is because of quat angle is t/2
+	if(jmin.z==jmax.z)
+		Angulars_out.push_back(LimitAngular(rb0,rb1,qzdir(jf1),physics_biasfactorjoint * 2 * -t.z /physics_deltaT)); // btw '2' is because of quat angle is t/2
+	else
+	{
+		Angulars_out.push_back(LimitAngular(rb0, rb1,  qzdir(jf1), 2 * (-t.z + sin(jmin.z / 2.0f)) / physics_deltaT, 0));
+		Angulars_out.push_back(LimitAngular(rb0, rb1, -qzdir(jf1), 2 * ( t.z - sin(jmax.z / 2.0f)) / physics_deltaT, 0));
+	}
 	return Angulars_out;
 }
 

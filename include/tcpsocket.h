@@ -110,3 +110,83 @@ std::vector<char> testserver(const char* a="GET foo")
 //	if (int status = WSAStartup(MAKEWORD(1, 1), &wsdata))   RESOURCE_ERROR(std::to_string(status) + " error from wsastartup");
 
 //
+
+SOCKET start_server(int port = 80) 
+{
+	// On WINDOWS be sure to call WSAStartup winsock before calling this routine
+	int status;
+	WSADATA whatever;
+	if ((status = WSAStartup(MAKEWORD(1, 1), &whatever)) != 0) 
+	{
+		throw(std::exception("FAIL:  WSAStartup socket startup"));
+		return INVALID_SOCKET;
+	}
+
+	SOCKADDR_IN listen_addr;  /* Local socket - internet style */
+	listen_addr.sin_family = AF_INET;
+	listen_addr.sin_addr.s_addr = INADDR_ANY;
+	listen_addr.sin_port = htons(port);        /* Convert to network ordering */
+	auto listen_sock = socket(AF_INET, SOCK_STREAM, 0);
+	if (listen_sock == INVALID_SOCKET) 
+	{
+		throw(std::exception((std::string("FAIL: socket create: ")+std::to_string(WSAGetLastError())).c_str()));
+		return INVALID_SOCKET;
+	}
+	if (bind(listen_sock, (struct sockaddr FAR *) &listen_addr, sizeof(listen_addr)) == -1) {
+		perror("ERROR:  bind:  ");
+		throw(std::exception((std::string("FAIL: socket bind: ") + std::to_string(WSAGetLastError())).c_str()));
+		return INVALID_SOCKET;
+	}
+	if (listen(listen_sock, 4) < 0) 
+	{
+		perror("listen:  ");
+		// printf("%d is the error", WSAGetLastError());
+		WSACleanup();
+		throw(std::exception((std::string("FAIL: socket listen: ") + std::to_string(WSAGetLastError())).c_str()));
+		return INVALID_SOCKET;
+	}
+	return listen_sock;
+}
+
+void do_server_thing(SOCKET listen_sock,std::string reply) 
+{
+	if (listen_sock == INVALID_SOCKET) 
+	{
+		return;
+	}
+	if (!PollRead(listen_sock)) 
+		return; 
+
+	// SOCKET s = Accept();
+	SOCKADDR_IN accept_addr;    // Accept socket address - internet style 
+	int accept_addr_len;        // Accept socket address length 
+	accept_addr_len = sizeof(accept_addr);
+	SOCKET s = accept(listen_sock, (struct sockaddr FAR *) &accept_addr,
+		(int FAR *) &accept_addr_len);
+	if (s < 0) {
+		perror("accept:  ");
+		// printf("%d is the error", WSAGetLastError());
+		WSACleanup(); // should we throw?  
+		return;// INVALID_SOCKET;
+	}
+
+
+	if (s == INVALID_SOCKET) { return; }
+	if (!PollRead(s)) { closesocket(s);return; }
+	char buf[2048];
+	int rc = 0;
+	buf[rc] = '\0';
+	int bc = 0;
+	while (PollRead(s) && (bc = recv(s, buf + rc, 1024 - rc, 0)) >0) {
+		rc = rc + bc;
+	}
+	buf[rc] = '\0';
+
+
+	char outbuf[256];
+	sprintf(outbuf, "HTTP/1.0 200 OK\nContent Type: text/plain\n\n");
+	rc = send(s, outbuf, strlen(outbuf), 0);
+	sprintf(outbuf, "%s\n",reply.c_str());
+	rc = send(s, outbuf, strlen(outbuf), 0);
+	closesocket(s);
+}

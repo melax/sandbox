@@ -3,8 +3,8 @@
 // doesn't fully meet spec
 //
 
-#ifndef ZEPTOXMLPARSE_H
-#define ZEPTOXMLPARSE_H
+#ifndef SANDBOX_MINI_XML_PARSE_H
+#define SANDBOX_MINI_XML_PARSE_H
 
 #include <string>
 #include <iostream>
@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <assert.h>
 #include <exception>
+
 class xmlNode
 {
 public:
@@ -224,4 +225,4 @@ struct FromString
 
 
 
-#endif  // ZEPTOXMLPARSE_H
+#endif  // SANDBOX_MINI_XML_PARSE_H

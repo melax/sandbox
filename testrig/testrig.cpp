@@ -32,6 +32,8 @@ std::vector<float4> Planes(const std::vector<float3> &verts, const std::vector<i
 
 int main(int argc, const char *argv[]) try
 {
+	bool showskin = false;
+
 	std::vector<Joint> joints;
 	std::vector<RigidBody> rbs;
 	std::map<std::string,unsigned int> rbindex;
@@ -51,7 +53,14 @@ int main(int argc, const char *argv[]) try
 	rbscalemass(&rbs[0], 3.0f);
 	rbscalemass(&rbs[1], 5.0f);
 
-	DXWin mywin("DX testing articulated rigged model", { 800,600 });
+	Mesh skin;
+	skin.hack = { 1,1,1,1 };
+	std::vector<VertexS> sverts = ArrayImport<VertexS>(xml.child("model").child("mesh").child("vertexbuffer").body);
+	//for (auto &s : sverts) { s.orientation = qmul(s.orientation, float4(1, 0, 0, 0)); s.texcoord = { s.position.x,s.position.y }; } // trying to make not everything black
+	skin.tris = ArrayImport<int3>(xml.child("model").child("mesh").child("indexbuffer").body);
+	auto basepose = Transform(rbs, [](const RigidBody &rb) {return Pose(rb.PositionUser(), rb.orientation); });
+
+
 	std::vector<Mesh> meshes;
 	for (auto &rb : rbs)
 	{
@@ -92,8 +101,10 @@ int main(int argc, const char *argv[]) try
 	struct Pin{ float3 w; RigidBody* rb; float3 p; };
 	std::vector<Pin> pins;   
 	
+	DXWin mywin("DX testing articulated rigged model");
 	mywin.keyboardfunc = [&](int key, int, int)
 	{
+		showskin = key == 's' != showskin;
 		if (key == 'g') for (auto &rb : rbs) rb.gravscale = 1.0f - rb.gravscale;
 		if (key == 'p' && selected)
 			Append<Pin>(pins, { spoint, selected, rbpoint });
@@ -134,12 +145,18 @@ int main(int argc, const char *argv[]) try
 			Append(linears, ConstrainPositionNailed(NULL, p.w,p.rb,p.p));
 		PhysicsUpdate(Addresses(rbs), linears, angulars, { &groundpoints });
 
+		{
+			//auto deltapose = Transform(rbs, [](const RigidBody &rb) {return Pose(); });// Pose(rb.PositionUser(), rb.orientation) * Pose(rb.position_start - rb.com, { 0,0,0,1 }).inverse(); });
+			auto deltapose = Transform(rbs, [](const RigidBody &rb) {return Pose(rb.PositionUser(), rb.orientation) * Pose(rb.position_start - rb.com, { 0,0,0,1 }).inverse(); });
+			skin.verts = Skin(sverts, deltapose);
+		}
+
 		for (unsigned int i = 0; i < rbs.size(); i++)
 		{
 			meshes[i].pose = rbs[i].pose();
 		}
 
-		mywin.RenderScene(camera, Append(Addresses(meshes),std::vector<Mesh*>({ &ground, &mesh_cube })));
+		mywin.RenderScene(camera, (showskin) ? std::vector<Mesh*>{ &ground, &skin, &mesh_cube } :  Append(Addresses(meshes), std::vector<Mesh*>({ &ground, &mesh_cube })));
 	}
 }
 catch (std::exception e)

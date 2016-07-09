@@ -3,7 +3,7 @@
 #ifndef MISC_GL_H
 #define MISC_GL_H
 
-#include <geometric.h>
+#include "geometric.h"
 #include "glwin.h"
 #include "mesh.h"
 
@@ -119,6 +119,24 @@ inline void glGridxy(float r, float3 c = { 0, 1, 0 }, const Pose &pose = { { 0,0
 	glPopMatrix();
 }
 
+void gldraw(const std::vector<float3> &verts, const std::vector<int3> &tris)
+{
+	glBegin(GL_TRIANGLES);
+	glColor4f(1, 1, 1, 0.25f);
+	for (auto t : tris)
+	{
+		auto n = TriNormal(verts[t[0]], verts[t[1]], verts[t[2]]);
+		glNormal3fv(n); auto vn = abs(n);
+		int k = argmax(&vn.x, 3);
+		for (int j = 0; j < 3; j++)
+		{
+			const auto &v = verts[t[j]];
+			glTexCoord2f(v[(k + 1) % 3], v[(k + 2) % 3]);
+			glVertex3fv(v);
+		}
+	}
+	glEnd();
+}
 
 inline void MeshDraw(const Mesh &mesh)  
 {

@@ -5,9 +5,9 @@
 #define MESH_H
 
 #include <vector>
-#include <geometric.h>
 #include <string>
 #include <algorithm>  // for std::sort which should take a lambda
+#include "geometric.h"
 
 std::vector<int3> adjacencies(const std::vector<int3> &tris)
 {
@@ -58,6 +58,52 @@ struct Vertex  // pretty much just need one vertex layout to do anything.
 
 inline std::istream &operator >>(std::istream &s, Vertex &v) { return s >> v.position >> v.orientation >> v.texcoord; }
 
+//----------- skinning support ----------------
+struct VertexS : public Vertex  
+{
+	int4 bones;   
+	float4 weights;
+};
+inline std::istream &operator >>(std::istream &s, VertexS &v) { return s >> (Vertex&)v >> v.bones >> v.weights; }
+
+inline Pose skin_dualquat(int4 bones, float4 weights, const std::vector<Pose> &pose)  // dual quat skinning (screw motion)
+{
+	Pose p;
+	float4 b0 = pose[bones[0]].orientation;
+	float4 b1 = pose[bones[1]].orientation;
+	float4 b2 = pose[bones[2]].orientation;
+	float4 b3 = pose[bones[3]].orientation;
+	if (dot(b0, b1)<0) b1 = -(b1);
+	if (dot(b0 + b1, b2)<0) b2 = -(b2);
+	if (dot(b0 + b1 + b2, b3)<0) b3 = -(b3);
+	float4 q = (
+		b0*weights[0] +
+		b1*weights[1] +
+		b2*weights[2] +
+		b3*weights[3]);
+	p.position =         // convert translational inputs to dualquat's dual part and back.
+		qmul(
+			qmul(float4(pose[bones[0]].position, 0), b0) * weights[0] +
+			qmul(float4(pose[bones[1]].position, 0), b1) * weights[1] +
+			qmul(float4(pose[bones[2]].position, 0), b2) * weights[2] +
+			qmul(float4(pose[bones[3]].position, 0), b3) * weights[3]
+			, qconj(q)
+			).xyz() / dot(q, q); // this works since q hasn't been normalized yet
+	p.orientation = normalize(q);
+	return p;
+}
+
+inline Vertex Skin(const VertexS &s, const std::vector<Pose> &pose)
+{
+	Pose p = skin_dualquat(s.bones, s.weights, pose);
+	return { p*s.position,qmul(p.orientation,s.orientation),s.texcoord };
+}
+inline std::vector<Vertex> Skin(const std::vector<VertexS> &sverts, const std::vector<Pose> &pose)
+{
+	return Transform(sverts, [&pose](const VertexS &s) {return Skin(s, pose); });
+}
+
+//------------------------------------------
 
 struct Mesh
 {

@@ -382,7 +382,7 @@ namespace gjk_implementation
 		MKPoint w = PointOnMinkowski(A,B,-v);
 		NextMinkSimplex[0](next,last,w);
 		// todo: add the use of the lower bound distance for termination conditions
-		while(!iter|| (dot(w.p,v) < dot(v,v) - 0.00001f) && iter++<100) 
+		while(!iter++|| (dot(w.p,v) < dot(v,v) - 0.00001f) && iter++<100) 
 		{
 			last=next;  // not ideal, a swapbuffer would be better
 			v=last.v;

@@ -94,6 +94,9 @@
     <ClInclude Include="..\include\minixml.h" />
     <ClInclude Include="..\include\physics.h" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="default_hand.chr" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

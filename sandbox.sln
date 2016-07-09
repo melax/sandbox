@@ -37,6 +37,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "testbool", "testbool\testbo
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "legacy_voxblob", "voxblob\legacy_voxblob.vcxproj", "{8955E4E8-C047-436B-9125-916D3653BA8F}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "testsubdiv", "testsubdiv\testsubdiv.vcxproj", "{9E2B8F51-95DE-43C2-81BB-AD78AE8DC99A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -155,6 +157,14 @@ Global
 		{8955E4E8-C047-436B-9125-916D3653BA8F}.Release|Win32.Build.0 = Release|Win32
 		{8955E4E8-C047-436B-9125-916D3653BA8F}.Release|x64.ActiveCfg = Release|x64
 		{8955E4E8-C047-436B-9125-916D3653BA8F}.Release|x64.Build.0 = Release|x64
+		{9E2B8F51-95DE-43C2-81BB-AD78AE8DC99A}.Debug|Win32.ActiveCfg = Debug|Win32
+		{9E2B8F51-95DE-43C2-81BB-AD78AE8DC99A}.Debug|Win32.Build.0 = Debug|Win32
+		{9E2B8F51-95DE-43C2-81BB-AD78AE8DC99A}.Debug|x64.ActiveCfg = Debug|x64
+		{9E2B8F51-95DE-43C2-81BB-AD78AE8DC99A}.Debug|x64.Build.0 = Debug|x64
+		{9E2B8F51-95DE-43C2-81BB-AD78AE8DC99A}.Release|Win32.ActiveCfg = Release|Win32
+		{9E2B8F51-95DE-43C2-81BB-AD78AE8DC99A}.Release|Win32.Build.0 = Release|Win32
+		{9E2B8F51-95DE-43C2-81BB-AD78AE8DC99A}.Release|x64.ActiveCfg = Release|x64
+		{9E2B8F51-95DE-43C2-81BB-AD78AE8DC99A}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

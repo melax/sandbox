@@ -20,8 +20,10 @@
 // some misc convenience functions
 template<typename F, typename S> auto Transform(std::vector<S> &src, F f) { std::vector<std::result_of_t<F(S)>> dst(src.size()); std::transform(src.begin(), src.end(), dst.begin(), f); return dst; }
 template<typename F, typename S> auto Transform(const std::vector<S> &src, F f) { std::vector<std::result_of_t<F(S)>> dst(src.size()); std::transform(src.begin(), src.end(), dst.begin(), f); return dst; }
-template<class T> std::vector<T> & Append(std::vector<T> &a, const T& t) { a.push_back(t); return a; }
+template<class T> std::vector<T> & Append(std::vector<T> &a, const T&  t) { a.push_back(t); return a; }
+template<class T> std::vector<T> & Append(std::vector<T> &a,       T&& t) { a.push_back(std::move(t)); return a; }
 template<class T> std::vector<T> & Append(std::vector<T> &a, const std::vector<T> &b) { a.insert(a.end(), b.begin(), b.end()); return a; }
+template<class T> std::vector<T> & Append(std::vector<T> &a, std::vector<T> &&b)      { for(auto &e:b) a.push_back(std::move(e)); return a; } 
 template<class T> std::vector<T*>  Addresses(std::vector<T> &a) { return Transform(a, [](T &t)->T* {return &t; }); }
 
 
@@ -29,8 +31,9 @@ template<class T> std::vector<T*>  Addresses(std::vector<T> &a) { return Transfo
 
 inline std::string basepathname(std::string fname) { return std::string(fname.begin(), fname.begin() + fname.find_last_of('.')); } // FIXME  stl string newb  not sure if correct if no '.' exists
 inline bool fileexists(std::string filename) { std::ifstream i(filename, std::ifstream::in);  return i.is_open(); }
+inline std::string filesuffix(std::string fname) { std::string s(fname.begin() + fname.find_last_of('.'), fname.end()); return (s.find('/') == std::string::npos && s.find('\\') == std::string::npos) ? s : ""; }
 
-inline const char* strstp(const char *s, char c) { while (*s && *s != c) s++; return s; }  // pointer to first c in string s or end of string if not found
+inline const char* strstp(const char *s, char c) { const char* p = NULL; while (*s) { if (*s == c) p = s; s++; } return p?p:s; }  // pointer to last c in string s or end of string if not found
 inline std::string fileprefix(const char *filename) { return std::string(filename, strstp(filename, '.')); }
 inline std::string fileprefix(std::string filename) { return fileprefix(filename.c_str()); }
 

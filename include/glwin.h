@@ -240,6 +240,7 @@ class GLWin
 			glDisable(GL_TEXTURE_2D);
 			glDisable(GL_LIGHTING);
    			glDisable(GL_DEPTH_TEST);
+			glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity();
 			glMatrixMode(GL_PROJECTION);
 			  glPushMatrix();
 				glLoadIdentity();
@@ -248,7 +249,7 @@ class GLWin
 					SpitLetters(s);
 					glRasterPos2f(0,0);
 			  glPopMatrix();
-			glMatrixMode(GL_MODELVIEW);
+			glMatrixMode(GL_MODELVIEW); glPopMatrix();
 		glPopAttrib();
 	}
 public:
@@ -260,8 +261,10 @@ public:
 		char buffer[1024];
 		vsnprintf_s<1024>(buffer, sizeof(buffer), s, args);
 		va_end(args);
-		int rows = Height/font_char_dims.y ;
-		int cols = Width /font_char_dims.x ;
+		int2x2 viewport;  // current viewport settings  [[x y][w h]] 
+		glGetIntegerv(GL_VIEWPORT, (GLint*)&viewport);
+		int rows = std::max(1,viewport[1].y/font_char_dims.y) ;
+		int cols = viewport[1].x/font_char_dims.x ;
 		if(cp.y>=rows){ cp.y=rows-1;}
 		if(cp.y<0) { cp.y+= rows;} // caller gives a negative y
 		if(cp.y<0) { cp.y = 0;} // caller gives a too much negative y

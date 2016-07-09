@@ -27,8 +27,8 @@
 #pragma comment(lib,"dxguid.lib")
 #endif
 
-#include <geometric.h>
-#include <mesh.h>
+#include "geometric.h"
+#include "mesh.h"
 
 // not sure if best way to do this:
 #include "dxshaders.h"  // defines shaders in a big string (char*) dxshaders
