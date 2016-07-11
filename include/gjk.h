@@ -418,9 +418,9 @@ namespace gjk_implementation
 				hitinfo.normal = -minpenetrationplane.xyz();  // flip!!??
 				hitinfo.dist   = -minpenetrationplane.w;  // negate this too to be consistent
 				hitinfo.separation = std::min(0.0f, minpenetrationplane.w); // based on convention order of A and B and what is used in the non-penetration case (separation>0)
-				float4 b= inverse(float4x4({ next.W[0].p,1 }, { next.W[1].p,1 }, { next.W[2].p,1 }, { next.W[3].p,1 })).w;         // just take last column since its equiv to mul(M,[0001])
-				hitinfo.p0w = mul(float4x4({ next.W[0].a,1 }, { next.W[1].a,1 }, { next.W[2].a,1 }, { next.W[3].a,1 }), b).xyz();  // this point in A that's closest to B will be inside B too
-				hitinfo.p1w = mul(float4x4({ next.W[0].b,1 }, { next.W[1].b,1 }, { next.W[2].b,1 }, { next.W[3].b,1 }), b).xyz();  // should be about the same as the above point
+				float4 b= linalg::inverse(float4x4({ next.W[0].p,1 }, { next.W[1].p,1 }, { next.W[2].p,1 }, { next.W[3].p,1 })).w;         // just take last column since its equiv to mul(M,[0001])
+                hitinfo.p0w = linalg::mul(float4x4({ next.W[0].a, 1 }, { next.W[1].a, 1 }, { next.W[2].a, 1 }, { next.W[3].a, 1 }), b).xyz();  // this point in A that's closest to B will be inside B too
+                hitinfo.p1w = linalg::mul(float4x4({ next.W[0].b, 1 }, { next.W[1].b, 1 }, { next.W[2].b, 1 }, { next.W[3].b, 1 }), b).xyz();  // should be about the same as the above point
 				hitinfo.impact=  (hitinfo.p0w + hitinfo.p1w)*0.5f;
 		 
 				fillhitv(hitinfo,last);
@@ -565,7 +565,7 @@ template<class SFA, class SFB> gjk_implementation::Contact Separated(SFA A, SFB 
 	return gjk_implementation::Separated(A, B, findclosest);  // pass through into the namespace  
 }
 
-inline auto SupportFunc(const std::vector<float3> &points)   // example of how one might write an on-the-fly (lambda) support function for a container
+inline std::function<float3(float3)> SupportFunc(const std::vector<float3> &points)   // example of how one might write an on-the-fly (lambda) support function for a container
 {
 	return[&points](const float3 &dir){ return points[maxdir(points.data(), points.size(), dir)]; };
 }
@@ -576,7 +576,7 @@ inline gjk_implementation::Contact Separated(const std::vector<float3> &a, const
 }
 
 
-template<class SF> auto SupportFuncTrans(const float3& position, const float4 &orientation, SF sf)   // example supportfunc for posed meshes 
+template<class SF> std::function<float3(float3)> SupportFuncTrans(const float3& position, const float4 &orientation, SF sf)   // example supportfunc for posed meshes 
 {
 	return [sf, position, orientation](const float3 &dir) {return position + qrot(orientation, sf(qrot(qconj(orientation), dir))); };
 }
