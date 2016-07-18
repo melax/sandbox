@@ -111,7 +111,7 @@ std::vector<char> testserver(const char* a="GET foo")
 
 //
 
-SOCKET start_server(int port = 80) 
+inline SOCKET start_server(int port = 80)
 {
 	// On WINDOWS be sure to call WSAStartup winsock before calling this routine
 	int status;
@@ -148,14 +148,14 @@ SOCKET start_server(int port = 80)
 	return listen_sock;
 }
 
-void do_server_thing(SOCKET listen_sock,std::string reply) 
+inline SOCKET CheckListenSocket(SOCKET listen_sock)
 {
 	if (listen_sock == INVALID_SOCKET) 
 	{
-		return;
+		return INVALID_SOCKET;
 	}
 	if (!PollRead(listen_sock)) 
-		return; 
+		return INVALID_SOCKET;
 
 	// SOCKET s = Accept();
 	SOCKADDR_IN accept_addr;    // Accept socket address - internet style 
@@ -167,12 +167,20 @@ void do_server_thing(SOCKET listen_sock,std::string reply)
 		perror("accept:  ");
 		// printf("%d is the error", WSAGetLastError());
 		WSACleanup(); // should we throw?  
-		return;// INVALID_SOCKET;
+		return INVALID_SOCKET;
 	}
 
 
-	if (s == INVALID_SOCKET) { return; }
-	if (!PollRead(s)) { closesocket(s);return; }
+	if (s == INVALID_SOCKET) { return INVALID_SOCKET; }
+	if (!PollRead(s)) { closesocket(s);return INVALID_SOCKET; }
+	return s;
+}
+
+inline SOCKET ServeSocket(SOCKET s, std::string reply)
+{
+	// s is not the 'listen' socket, its the socket used to transfer data.
+	if (s == INVALID_SOCKET)
+		return s;
 	char buf[2048];
 	int rc = 0;
 	buf[rc] = '\0';
@@ -180,13 +188,35 @@ void do_server_thing(SOCKET listen_sock,std::string reply)
 	while (PollRead(s) && (bc = recv(s, buf + rc, 1024 - rc, 0)) >0) {
 		rc = rc + bc;
 	}
+	if (bc < 0)
+	{
+		closesocket(s);
+		return INVALID_SOCKET;
+	}
 	buf[rc] = '\0';
-
+	if (rc == 0)
+		return s;
 
 	char outbuf[256];
-	sprintf(outbuf, "HTTP/1.0 200 OK\nContent Type: text/plain\n\n");
+	sprintf(outbuf, "HTTP/1.1 200 OK\nAccess-Control-Allow-Origin: *\nContent-Length: %d\nContent-Type: text/plain\n\n",reply.length());
 	rc = send(s, outbuf, strlen(outbuf), 0);
 	sprintf(outbuf, "%s\n",reply.c_str());
 	rc = send(s, outbuf, strlen(outbuf), 0);
-	closesocket(s);
+	// closesocket(s);
+	return s;
+}
+
+
+
+
+static SOCKET persist_sock = INVALID_SOCKET;
+inline void do_server_thing_persist(SOCKET listen_sock, std::string reply)  // for keep-alive protocol
+{
+	persist_sock = ServeSocket((persist_sock != INVALID_SOCKET) ? persist_sock : CheckListenSocket(listen_sock), reply);
+}
+
+
+inline void do_server_thing(SOCKET listen_sock,std::string reply) 
+{
+	ServeSocket(CheckListenSocket(listen_sock), reply);
 }

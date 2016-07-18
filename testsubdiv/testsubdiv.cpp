@@ -152,7 +152,7 @@ WingMesh WingMeshLoad(const char *filename)
 int main(int argc, char *argv[])
 {
 	std::cout << "Test...\n";
-	auto body = WingMeshLoad("BodyData/EntireBody.obj");
+	auto body = WingMeshLoad("EntireBody.obj");
 	auto body1 = WingMeshSubDiv(body);
 	auto body2 = WingMeshSubDiv(body1);
 

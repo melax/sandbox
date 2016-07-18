@@ -197,31 +197,6 @@ inline std::vector<T> ArrayImport(std::string str)
 	return a;
 }
 
-//  ToString() - convenience class/function for using << overloads to generate strings inline within a single expression
-// Example Usage:   return ToString() << "test" << my_vec3 << " more " << my_float_var << " and so on";
-//            or:   set_thermometer_gui_string( ToString() << (temperature*9/5+32) ); 
-struct ToString
-{
-	std::ostringstream o;
-	std::string str(){ return o.str(); }
-	operator std::string(){ return o.str(); }
-	template<class T>ToString &operator<<(const T &t) { o << t; return *this; }
-};
-
-// StringTo and FromString  - convenience class/function for using >> overloads to convert from strings inline within a single expression
-//    f(StringTo<float3>("6 7 8"));  // if f() is overloaded specify type with StringTo<>()
-//    g(FromString("9"));            // works if g isn't overloaded such as it takes a float
-//
-template<class T> inline  T StringTo(std::string s) { T v; std::istringstream i(std::move(s)); i >> v; return v; }
-
-struct FromString
-{
-	const std::string &s;
-	FromString(const std::string &s) :s(s){}
-	template<class T> operator T (){ return StringTo<T>(s); }
-	operator std::string(){ return s; }
-};
-
 
 
 
