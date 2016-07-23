@@ -218,5 +218,6 @@ inline void do_server_thing_persist(SOCKET listen_sock, std::string reply)  // f
 
 inline void do_server_thing(SOCKET listen_sock,std::string reply) 
 {
-	ServeSocket(CheckListenSocket(listen_sock), reply);
+	SOCKET s = ServeSocket(CheckListenSocket(listen_sock), reply);
+	if(s!=INVALID_SOCKET) closesocket(s);
 }
