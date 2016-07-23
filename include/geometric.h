@@ -200,7 +200,7 @@ inline bool tri_interior(const float3& v0, const float3& v1, const float3& v2, c
 	return (b.x >= 0.0f && b.y >= 0.0f && b.z >= 0.0f);
 }
 
-inline float3 ProjectOntoPlane(const float4 &plane, const float3 &v) { return v - plane.xyz()*dot(plane, { v,1 }); }
+inline float3 ProjectOntoPlane(const float4 &plane, const float3 &v) { return v - plane.xyz()*dot(plane, float4( v, 1 )); }
 
 inline  float3 PlaneProjectOf(const float3 &v0, const float3 &v1, const float3 &v2, const float3 &point)
 {

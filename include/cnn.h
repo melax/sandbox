@@ -35,6 +35,11 @@ struct ReLU
     static float f(float t) { return std::max(0.0f, t); }
     static float df(float f_t) { return (f_t > 0.0f) ? 1.0f : 0.0f; }
 };
+struct LeakyReLU
+{
+    static float f(float t) { return std::max(0.01f*t, t); }
+    static float df(float f_t) { return (f_t > 0.0f) ? 1.0f : 0.01f; }
+};
 
 int2 make_packed_stride(const int2 & dims) { return {1, dims.x}; }
 int3 make_packed_stride(const int3 & dims) { return {1, dims.x, dims.x*dims.y}; }
@@ -350,6 +355,25 @@ struct CNN
 		}
 
 	};
+    struct LCrossEntropy final : public LBase
+    {
+        LCrossEntropy(int n) {}
+        std::vector<float> forward(const std::vector<float> &input) override
+        {
+            float sum = 0.0f;
+            const auto max_value = *std::max_element(input.begin(), input.end());
+            auto out = Transform(input, [&sum, &max_value](float x) {float y = std::expf(x - max_value); sum += y; return y; });
+            for (auto &y : out)
+                y /= sum;
+            return out;
+        }
+        std::vector<float> backward(const std::vector<float> &X, const std::vector<float> &Y, const std::vector<float> &E) override
+        {
+            std::vector<float> D = E;
+            return D;
+        }
+
+    };
     std::vector<LBase*> layers;
 
     std::vector<float> Eval(const std::vector<float> &x)

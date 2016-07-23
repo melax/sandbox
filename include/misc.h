@@ -20,8 +20,22 @@
 #include <vector>
 
 // some misc convenience functions
+#if _MSC_VER >= 1900 
 template<typename F, typename S> auto Transform(std::vector<S> &src, F f) { std::vector<std::result_of_t<F(S)>> dst(src.size()); std::transform(src.begin(), src.end(), dst.begin(), f); return dst; }
 template<typename F, typename S> auto Transform(const std::vector<S> &src, F f) { std::vector<std::result_of_t<F(S)>> dst(src.size()); std::transform(src.begin(), src.end(), dst.begin(), f); return dst; }
+#else // for visual studio 2013 support
+template <
+    template <typename, typename> class Container,
+    typename Value,
+    typename Allocator = std::allocator<Value>, typename Func >
+    auto Transform(const Container<Value, Allocator> & input, const Func &f)
+    -> Container<decltype(f(std::declval<Value>())), std::allocator<decltype(f(std::declval<Value>()))>> {
+    Container<decltype(f(std::declval<Value>())), std::allocator<decltype(f(std::declval<Value>()))>> ret;
+    std::transform(std::begin(input), std::end(input), std::back_inserter(ret), f);
+    return ret;
+}
+#endif
+
 template<class T> std::vector<T> & Append(std::vector<T> &a, const T&  t) { a.push_back(t); return a; }
 template<class T> std::vector<T> & Append(std::vector<T> &a,       T&& t) { a.push_back(std::move(t)); return a; }
 template<class T> std::vector<T> & Append(std::vector<T> &a, const std::vector<T> &b) { a.insert(a.end(), b.begin(), b.end()); return a; }
