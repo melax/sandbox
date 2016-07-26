@@ -695,6 +695,65 @@ inline WingMesh WingMeshCrop(const WingMesh &src,const float4 &slice)
 
 
 
+inline WingMesh WingMeshSubDiv(WingMesh wm)
+{
+	std::vector<float3> fvertsnew;
+	auto nv = (int) wm.verts.size();
+	auto ne = (int) wm.edges.size();
+	auto nf = (int) wm.faces.size();
+	fvertsnew.clear();
+
+	for (int fid = 0;fid < nf;fid++)
+	{
+		float3 com(0, 0, 0);
+		auto fverts = wm.GenerateFaceVerts(fid);
+		for (auto v : fverts)
+			com += v;
+		com /= (float)fverts.size();
+		fvertsnew.push_back(com);
+	}
+	for (int i = 0;i < ne;i++)
+	{
+		if (wm.edges[i].v >= nv || wm.edges[i].Adj().v >= nv)   // already split
+			continue;
+		auto &e = wm.edges[i];
+		auto &a = wm.edges[e.adj];
+		float3 v_new = (wm.verts[e.v] + wm.verts[a.v] + fvertsnew[e.face] + fvertsnew[a.face]) / 4.0f;
+		wm.SplitEdge(i, v_new);
+	}
+	for (int vid = 0;vid < nv;vid++)
+	{
+		int k = 0;
+		float3 fcom, ecom;
+		for (auto &eid : wm.VertEdges(vid))
+		{
+			ecom += wm.verts[wm.edges[eid].Adj().v];
+			fcom += fvertsnew[wm.edges[eid].face];
+			k++;
+		}
+		wm.verts[vid] = wm.verts[vid] * ((k - 2.0f) / k) + ecom*(1.0f / k / k) + fcom*(1.0f / k / k);
+	}
+
+	for (int fid = 0;fid < nf;fid++)
+	{
+		std::vector<int> eids;
+		for (auto edge : wm.FaceView(fid))
+		{
+			if (edge.v >= nv)
+				eids.push_back(edge.id);
+		}
+		wm.BuildEdge(eids[1], eids[0]);
+		wm.SplitEdge(wm.edges.size() - 1, fvertsnew[fid]);
+		int eid_new = wm.edges.size() - 2; // this whould be the one with the correct face
+		assert(wm.edges[eid_new].v == wm.verts.size() - 1);
+		assert(wm.edges[eid_new].face == fid);
+		for (int e = eids.size() - 1; e >= 2;e--)
+			wm.BuildEdge(eids[e], eid_new);
+	}
+	return wm;
+}
+
+
 
 /*
 int VertFindOrAdd(std::vector<float3> &array, const float3& v,float epsilon=0.001f)
