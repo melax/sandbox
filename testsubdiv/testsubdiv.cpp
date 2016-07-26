@@ -120,12 +120,14 @@ int main(int argc, char *argv[])
 	};
 
 	float3 mousevec_prev;
-	float4 model_orientation(0, 0, 0, 1);
+	float camdist = 2.0f;
+	Pose  camera({ 0,0,camdist }, { 0, 0, 0, 1 });
 	while (glwin.WindowUp())
 	{
 		if (glwin.MouseState)  // on mouse drag 
 		{
-			model_orientation = qmul(VirtualTrackBall(float3(0, 0, 2), float3(0, 0, 0), mousevec_prev, glwin.MouseVector), model_orientation);
+			camera.orientation = qmul(camera.orientation,qconj(VirtualTrackBall(float3(0, 0, 2), float3(0, 0, 0), mousevec_prev, glwin.MouseVector)));
+			camera.position    = qzdir(camera.orientation)*camdist;
 		}
 		mousevec_prev = glwin.MouseVector;
 
@@ -145,11 +147,7 @@ int main(int argc, char *argv[])
 
 		glMatrixMode(GL_MODELVIEW);
 		glPushMatrix();
-		gluLookAt(0, 0, 2, 0, 0, 0, 0, 1, 0);
-
-		float4x4 R = { { 1, 0, 0, 0 },{ 0, 1, 0, 0 },{ 0, 0, 1, 0 },{ 0, 0, 0, 1 } };
-		R[0].xyz() = qxdir(model_orientation); R[1].xyz() = qydir(model_orientation); R[2].xyz() = qzdir(model_orientation);
-		glMultMatrixf(R);
+		glMultMatrixf(camera.inverse().matrix());
 
 		glEnable(GL_DEPTH_TEST);
 
@@ -160,11 +158,11 @@ int main(int argc, char *argv[])
 		glEnable(GL_CULL_FACE);
 		//glEnable(GL_LIGHTING);
 		glEnable(GL_LIGHT0);
-		wmwire(body2);
+		wmwire(body );
 		glTranslatef(0.3f,0,0 );
 		wmwire(body1);
 		glTranslatef( 0.3f,0,0);
-		wmwire(body );
+		wmwire(body2);
 
 
 
