@@ -18,9 +18,13 @@ int APIENTRY WinMain(HINSTANCE hCurrentInst, HINSTANCE hPreviousInst, LPSTR lpsz
 	WingMesh cube_wm = WingMeshCube(1.0f);
 	WingMesh oct_wm = WingMeshDual(cube_wm, 1.4f);
 	auto cube_mesh = MeshFlatShadeTex(cube_wm);
-	auto oct_mesh  = MeshFlatShadeTex(oct_wm );
+	auto oct_mesh = MeshFlatShadeTex(oct_wm);
 	int frame = 0;
 	bool stereo = 0;
+	dxwin.keyboardfunc = [&](int key, int, int)
+	{
+		stereo =  key == 's' != stereo;
+	};
 	while (dxwin.WindowUp())
 	{
 		frame++;
