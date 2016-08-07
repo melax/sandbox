@@ -215,14 +215,14 @@ LPSTR lpszCmdLine, int nCmdShow)
 		}
 
 		glPushAttrib(GL_ALL_ATTRIB_BITS);
-		glViewport(0, 0, glwin.Width,glwin.Height); // Set up the viewport
+		glViewport(0, 0, glwin.res.x,glwin.res.y); // Set up the viewport
 		glClearColor(0.1f, 0.1f, 0.15f, 1);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		glEnable(GL_DEPTH_TEST);
 		glDisable(GL_TEXTURE_2D);
 		glMatrixMode(GL_PROJECTION); 		// Set up matrices
 		glPushMatrix(); glLoadIdentity();
-		gluPerspective(glwin.ViewAngle, (double)glwin.Width/ glwin.Height, 0.01, 10);
+		gluPerspective(glwin.ViewAngle, (double)glwin.aspect_ratio(), 0.01, 10);
 		glMatrixMode(GL_MODELVIEW);
 		glPushMatrix(); glLoadIdentity();
 		glMultMatrixf(Pose(camerapos, cameraorientation).inverse().matrix());

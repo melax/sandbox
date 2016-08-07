@@ -20,8 +20,8 @@
 #include <functional>
 #include <vector>
 
-#define NOMINMAX
-#include <windows.h>
+#include "mswin.h"
+
 #include <cstring>
 #include <cstdarg>   // For va_list, va_start, ...
 #include <cstdio>    // For vsnprintf
@@ -32,7 +32,7 @@
 #pragma comment(lib,"glu32.lib")
 #endif
 
-class GLWin
+class GLWin : public MSWin
 {
 
 
@@ -157,32 +157,7 @@ class GLWin
 
 	HWND CreateOpenGLWindow(const char* title)  // make a double-buffered, rgba, opengl window
 	{
-		HINSTANCE hInstance = hInstance = GetModuleHandleA(NULL);
-		WNDCLASSA   wc;   // force non-unicode16 version using 'A' suffix 
-		wc.style = CS_OWNDC;
-		wc.lpfnWndProc   = (WNDPROC)MsgProcG;
-		wc.cbClsExtra    = 0;
-		wc.cbWndExtra    = 0;
-		wc.hInstance     = hInstance;
-		wc.hIcon         = LoadIcon(NULL, IDI_WINLOGO);
-		wc.hCursor       = LoadCursor(NULL, IDC_ARROW);
-		wc.hbrBackground = NULL;
-		wc.lpszMenuName  = NULL;
-		wc.lpszClassName = "OpenGL";
-
-		if (!RegisterClassA(&wc)) 
-			throw("RegisterClassA() failed:  Cannot register window class.");  // supposedly should only register the window class once
-
-		SetRect(&window_inset, 0, 0, 0, 0);
-		AdjustWindowRect(&window_inset, WS_OVERLAPPEDWINDOW, 0);
-		int2 win_position(50, 50);
-		HWND hWnd = CreateWindowA("OpenGL", title, WS_OVERLAPPEDWINDOW | WS_CLIPSIBLINGS | WS_CLIPCHILDREN,
-				win_position.x + window_inset.left, win_position.y+window_inset.top, Width + window_inset.right - window_inset.left, Height + window_inset.bottom - window_inset.top,
-			    NULL, NULL, hInstance, this);  // force non-unicode16 non-wchar version of Windows's CreateWindow
-
-		if (hWnd == NULL)
-			throw("CreateWindow() failed:  Cannot create a window.");
-
+		MSWin::CreateMSWindow(title, res);
 		hDC = GetDC(hWnd);
 
 		/* there is no guarantee that the contents of the stack that become
@@ -206,16 +181,9 @@ class GLWin
 		RegisterTouchWindow(hWnd, 0);
 		return hWnd;
 	}    
-	void ComputeMouseVector(){
-		float spread = (float)tan(ViewAngle/2*3.14/180);  
-		float y = spread * ((Height- mousepos.y)-Height/2.0f) /(Height/2.0f);
-		float x = spread * (mousepos.x -Width/2.0f)  /(Height/2.0f);
-		MouseVector = normalize(float3(x,y,-1));
-	}
-	void Reshape(int width, int height){
-		// called initially and when the window changes size
-		Width=width;
-		Height=height;
+	void WinReshape(int width, int height)
+	{
+		res = { width,height };
 		glViewport(0, 0, width, height);
 		glMatrixMode(GL_PROJECTION);
 		glLoadIdentity();
@@ -275,23 +243,12 @@ public:
 		PrintString(buffer,float2((float)cp.x,(float)cp.y)/float2((float)cols, (float)rows));
 	}
 
-	HWND    hWnd;
 	HDC     hDC;              // device context 
     HGLRC   hRC;              // opengl context 
-	RECT    window_inset;     // the extra pixels windows needs for its borders on windowed windows.
-	int 	Width  ;
-	int 	Height ;
-	int     mousewheel;   // if and how much its been rolled up/down this frame
-	int2    mousepos;
-	int2    mousepos_previous;
-	float3  MouseVector;      // 3D direction mouse points
-	float3  OldMouseVector;
-	int     MouseState;     // true iff left button down
-	float 	ViewAngle;
-	std::function<void(int, int, int)> keyboardfunc;
 
-	GLWin(const char *title,int w=512,int h=512) : Width(w), Height(h), mousepos({0,0}), MouseState(0), mousewheel(0), ViewAngle(45.0f) //, keyboardfunc([](int, int, int){})
+	GLWin(const char *title, int w = 512, int h = 512) : MSWin(title, { w,h }) 
 	{
+		reshape = [this](int x, int y) {this->res = { x,y }; this->WinReshape(x, y); };
 		hWnd = CreateOpenGLWindow(title);
 		if (hWnd == NULL) throw("failed to create opengl window");
 
@@ -307,133 +264,7 @@ public:
 	{
 		DestroyOpenGLWindow();
 	}
-	LONG WINAPI MsgProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
-	{ 
 
-		switch(uMsg) {
-		case WM_TOUCH:
-		{
-			std::vector<TOUCHINPUT> inputs(LOWORD(wParam));
-			if (!inputs.size() || !GetTouchInputInfo((HTOUCHINPUT)lParam, inputs.size(), inputs.data(), sizeof(TOUCHINPUT)))
-				return 0;
-			for (auto &e : inputs)
-			{
-				//MouseX = e.x;
-				//MouseY = e.y;
-				//MouseState = e.dwFlags;
-			}
-
-			return 0;
-		}
-		case WM_SIZE:
-			Reshape(LOWORD(lParam), HIWORD(lParam));
-			PostMessage(hWnd, WM_PAINT, 0, 0);
-			return 0;
-		case WM_CHAR:
-			switch (wParam) {
-				case 27: /* ESC key */
-					PostQuitMessage(0);
-					break;
-			}
-			if(keyboardfunc)
-				keyboardfunc(wParam, mousepos.x, mousepos.y); // to match glut's api, add the x and y.
-			return 0;
-
-		case WM_LBUTTONDOWN:
-			SetCapture(hWnd);  // set the capture to get mouse moves outside window
-			mousepos_previous = mousepos = { LOWORD(lParam),HIWORD(lParam) };
-			ComputeMouseVector();
-			OldMouseVector = MouseVector; // for touch devices to avoid unwanted snappings
-			downevent = 1;
-			MouseState = 1;
-			return 0;
-
-		case WM_LBUTTONUP:
-			mousepos = { LOWORD(lParam),HIWORD(lParam) };
-			if(mousepos.x & 1 << 15) mousepos.x -= (1 << 16);
-			if(mousepos.y & 1 << 15) mousepos.y -= (1 << 16);
-			ComputeMouseVector();
-			MouseState=0;
-			ReleaseCapture();
-			return 0;
-
-		case WM_MOUSEMOVE:
-			mousepos = { LOWORD(lParam),HIWORD(lParam) };
-			if(mousepos.x & 1 << 15) mousepos.x -= (1 << 16); // when negative probably needed because 16bit vs 32
-			if(mousepos.y & 1 << 15) mousepos.y -= (1 << 16);
-			ComputeMouseVector();
-			return 0;
-		case  WM_MOUSEWHEEL:
-			//shiftdown = (wParam&MK_SHIFT) ? 1 : 0;  
-			//ctrldown = (wParam&MK_CONTROL) ? 1 : 0;
-			mousewheel += GET_WHEEL_DELTA_WPARAM(wParam) / WHEEL_DELTA;
-			return 0;
-		case WM_SETFOCUS:
-			focus = 1;
-			break;
-		case WM_KILLFOCUS:
-			focus = 0;
-			break;
-		case WM_CLOSE:
-			PostQuitMessage(0);
-			return 0;
-		}
-		return DefWindowProc(hWnd, uMsg, wParam, lParam); 
-	}
-	bool downevent;
-	bool centermouse = false;
-	bool centered_last_frame = false;
-	bool focus = true;
-	float2 dmouse = { 0,0 };
-
-	bool WindowUp()
-	{
-		downevent  = 0;
-		mousewheel = 0;    // reset to 0 each frame
-		mousepos_previous = mousepos;
-		OldMouseVector = MouseVector;
-		MSG   msg;		   // Windows message		
-		while(PeekMessage(&msg, hWnd, 0, 0, PM_NOREMOVE)) {
-		    if(GetMessage(&msg, hWnd, 0, 0)) {
-				TranslateMessage(&msg);
-				DispatchMessage(&msg);
-		    } 
-			else 
-			{
-				return false; 
-		    }
-		}
-
-		if (centermouse && focus) {
-			RECT rect;
-			RECT crect;
-			POINT pt;
-			GetWindowRect(hWnd, &rect);
-			GetClientRect(hWnd, &crect);
-			GetCursorPos(&pt);
-			if (1) // (windowed)
-			{
-				rect.left -= window_inset.left; // todo: look into the function: ScreenToClient(hwnd,point)
-				rect.top -= window_inset.top;
-			}
-			if (centered_last_frame)
-			{
-				dmouse.x = (float)(pt.x - rect.left - (Width / 2)) / (Width / 2.0f);
-				dmouse.y = -(float)(pt.y - rect.top - (Height / 2)) / (Height / 2.0f);
-			}
-			else
-				dmouse = { 0,0 };
-			SetCursorPos(Width / 2 + rect.left, Height / 2 + rect.top);
-			MouseVector = float3(0, 0, -1);
-			centered_last_frame = 1;
-		}
-		else
-		{
-			centered_last_frame = 0;
-		}
-
-		return true;
-	}
 	bool SwapBuffers() { return  (::SwapBuffers(hDC)!=0); }
 
 	static LRESULT WINAPI MsgProcG( HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam )

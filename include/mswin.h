@@ -48,7 +48,8 @@ public:
 
 	RECT                    window_inset;     // the extra pixels windows needs for its borders on windowed windows.
 	std::function<void(int, int, int)> keyboardfunc;
-	std::function<void()> preshutdown = []() {};
+	std::function<void()>              preshutdown = []() {};
+	std::function<void(int,int)>       reshape     = []() {};
 
 	float aspect_ratio() { return (float)res.x / (float)res.y; }
 	void ComputeMouseVector() 
@@ -59,8 +60,7 @@ public:
 		float x = spread * (mousepos.x - res.x / 2.0f) / (res.y / 2.0f);
 		MouseVector = normalize(float3(x, y, -1));
 	}
-
-	MSWin(const char *title, int2 res) :res(res),mousepos(0, 0), MouseState(0), mousewheel(0), ViewAngle(60.0f) //, keyboardfunc([](int, int, int){})
+	MSWin(const char *title, int2 res) :res(res), mousepos(0, 0), MouseState(0), mousewheel(0), ViewAngle(60.0f), reshape([this](int x, int y) {this->res = { x,y }; })//, keyboardfunc([](int, int, int){})
 	{
 	}
 	// virtual LONG WINAPI MsgProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) = 0;  // since we override
@@ -141,6 +141,11 @@ public:
 		case  WM_MOUSEWHEEL:
 			//shiftdown = (wParam&MK_SHIFT) ? 1 : 0;  ctrldown = (wParam&MK_CONTROL) ? 1 : 0;
 			mousewheel += GET_WHEEL_DELTA_WPARAM(wParam) / WHEEL_DELTA;
+			return 0;
+		case WM_SIZE:
+			if(reshape)
+				reshape(LOWORD(lParam), HIWORD(lParam));
+			PostMessage(hWnd, WM_PAINT, 0, 0);
 			return 0;
 		case WM_SETFOCUS:
 			focus = 1;

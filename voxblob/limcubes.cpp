@@ -1076,7 +1076,7 @@ int main(int argc, const char argv[]) try
 
 		glPushAttrib(GL_ALL_ATTRIB_BITS);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		glViewport(0, 0, glwin.Width, glwin.Height);
+		glViewport(0, 0, glwin.res.x, glwin.res.y);
 		glClearColor(0, 0, 0, 1);
 		glEnable(GL_CULL_FACE);
 
@@ -1087,7 +1087,7 @@ int main(int argc, const char argv[]) try
 
 		glMatrixMode(GL_PROJECTION);
 		glPushMatrix(); glLoadIdentity();
-		gluPerspective(glwin.ViewAngle, (double)glwin.Width / glwin.Height, 0.02, 70.0);
+		gluPerspective(glwin.ViewAngle, (double)glwin.aspect_ratio(), 0.02, 70.0);
 
 		glMatrixMode(GL_MODELVIEW);
 		glPushMatrix(); glLoadIdentity();
