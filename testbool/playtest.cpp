@@ -361,7 +361,7 @@ int main(int argc,const char argv[]) try
 		}
 		else if (cammove)
 		{
-			camera.position += mul(qmat(camera.orientation), float3(keyheld['D'] - keyheld['A'], keyheld['Q'] - keyheld['Z'], keyheld['S'] - keyheld['W']));
+			camera.position += mul(qmat(camera.orientation), float3(int3(keyheld['D'] - keyheld['A'], keyheld['Q'] - keyheld['Z'], keyheld['S'] - keyheld['W'])));
 			camera.orientation = normalize(qmul(camera.orientation, quat_from_to(float3(0, 0, 1), float3(glwin.dmouse, 1))));
 		}
 		glPushAttrib(GL_ALL_ATTRIB_BITS);
