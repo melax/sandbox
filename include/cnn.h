@@ -356,14 +356,28 @@ struct CNN
 	};
 	struct LCrossEntropy final : public LBase
 	{
-		LCrossEntropy(int n) {}
+		size_t group_size;
+		LCrossEntropy(int n, size_t group_size=0) : group_size(group_size) {}
 		std::vector<float> forward(const std::vector<float> &input) override
 		{
-			float sum = 0.0f;
-			const auto max_value = *std::max_element(input.begin(), input.end());
-			auto out = Transform(input, [&sum, &max_value](float x) {float y = std::expf(x - max_value); sum += y; return y; });
-			for (auto &y : out)
-				y /= sum;
+			if (!group_size)
+				group_size = input.size();
+			auto out = input;
+			for (size_t g = 0; g < input.size()/group_size; g++) {
+				auto start = out.begin() + g*group_size;
+				auto end = out.begin() + (g + 1)*group_size;
+				float sum = 0.0f;
+				const auto max_value = *std::max_element(start, end);
+				for (auto it = start; it != end; ++it) {
+					float y = std::exp(*it - max_value);
+					sum += y;
+					*it = y;
+				}
+				for (auto it = start; it != end; ++it) {
+					*it /= sum;
+				}
+
+			}
 			return out;
 		}
 		std::vector<float> backward(const std::vector<float> &X, const std::vector<float> &Y, const std::vector<float> &E) override
