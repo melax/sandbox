@@ -49,7 +49,7 @@ public:
 	RECT                    window_inset;     // the extra pixels windows needs for its borders on windowed windows.
 	std::function<void(int, int, int)> keyboardfunc;
 	std::function<void()>              preshutdown = []() {};
-	std::function<void(int,int)>       reshape     = []() {};
+	std::function<void(int,int)>       reshape     = [](int,int) {};
 
 	float aspect_ratio() { return (float)res.x / (float)res.y; }
 	void ComputeMouseVector() 
