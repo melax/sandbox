@@ -91,12 +91,27 @@ WingMesh WingMeshLoad(const char *filename)
 	return wm;
 }
 
+float3 *HitCheckPoint(std::vector<float3> &points,const float3 &v0,float3 v1,float box_radius)  // typically used for vertex selection 
+{
+	float3 *point_hit = NULL;
+	float w = -box_radius;
+	std::vector<float4> planes = { { 1, 0, 0, w },{ 0, 1, 0, w },{ 0, 0, 1, w },{ -1, 0, 0, w },{ 0, -1, 0, w },{ 0, 0, -1, w } };
+	for (float3 &p : points)
+	{
+		if (auto h = ConvexHitCheck(planes, Pose(p, { 0, 0, 0, 1 }), v0, v1))
+		{
+			point_hit = &p;
+			v1 = h.impact;
+		}
+	}
+	return point_hit;
+}
+
+
 int main(int argc, char *argv[])
 {
 	std::cout << "Test...\n";
 	auto body = WingMeshLoad("EntireBody.obj");
-	auto body1 = WingMeshSubDiv(body);
-	auto body2 = WingMeshSubDiv(body1);
 
 	//auto box = WingMeshSubDiv(WingMeshSubDiv(WingMeshCube(0.5f)));
 
@@ -122,15 +137,30 @@ int main(int argc, char *argv[])
 	float3 mousevec_prev;
 	float camdist = 2.0f;
 	Pose  camera({ 0,0,camdist }, { 0, 0, 0, 1 });
+	float boxr = 0.002f;
+
+	float3 *selected = NULL;
 	while (glwin.WindowUp())
 	{
-		if (glwin.MouseState)  // on mouse drag 
+		if (!glwin.MouseState)
+		{
+			selected = HitCheckPoint(body.verts, camera.position, camera*(glwin.MouseVector*100.0f), boxr);
+		}
+		else if (selected)
+		{
+			*selected += (qrot(camera.orientation, glwin.MouseVector) - qrot(camera.orientation, glwin.OldMouseVector))  * length(*selected - camera.position);
+			*selected = camera.position + (*selected - camera.position) * powf(1.1f, (float)glwin.mousewheel);
+			glwin.mousewheel = 0;
+		}
+		else // on mouse drag 
 		{
 			camera.orientation = qmul(camera.orientation,qconj(VirtualTrackBall(float3(0, 0, 2), float3(0, 0, 0), mousevec_prev, glwin.MouseVector)));
 			camera.position    = qzdir(camera.orientation)*camdist;
 		}
 		mousevec_prev = glwin.MouseVector;
 
+		auto body1 = WingMeshSubDiv(body);
+		auto body2 = WingMeshSubDiv(body1);
 
 
 		glPushAttrib(GL_ALL_ATTRIB_BITS);
@@ -153,7 +183,8 @@ int main(int argc, char *argv[])
 
 
 		glDisable(GL_BLEND);
-
+		for (auto &p : body.verts)
+			glcolorbox(float3(&p==selected?2:1)*boxr, Pose(p, { 0,0,0,1 }));
 		glColor3f(0, 1, 1);
 		glEnable(GL_CULL_FACE);
 		//glEnable(GL_LIGHTING);
