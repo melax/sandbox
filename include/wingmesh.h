@@ -539,6 +539,26 @@ struct WingMesh
 		SanityCheck();
 	}
 
+	bool TryToggleEdge(int va, int vb)  // if va and vb are on the same face add or remove an edge as necessary
+	{
+		auto aedges = VertEdges(va);
+		auto bedges = VertEdges(vb);
+		int  ae = -1, be = -1, face = -1;
+		for (int a : aedges)for (int b : bedges) if (edges[a].face == edges[b].face)
+		{
+			ae = a;be = b;face = edges[a].face;
+		}
+		if (face == -1)
+			return false;
+		if (edges[ae].next == be)
+			RemoveEdges(&ae, 1);
+		else if (edges[be].next == ae)
+			RemoveEdges(&be, 1);
+		else
+			BuildEdge(ae, be);
+		return true;
+	}
+
 
 	std::vector<int3> GenerateTris() const  // generates a list of indexed triangles from the wingmesh's faces
 	{

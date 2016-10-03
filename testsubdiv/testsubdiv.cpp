@@ -114,19 +114,36 @@ int main(int argc, char *argv[])
 	auto body = WingMeshLoad("EntireBody.obj");
 
 	//auto box = WingMeshSubDiv(WingMeshSubDiv(WingMeshCube(0.5f)));
-
+	float3 *selected = NULL;
+	float3 *operand  = NULL; // for any two point operations
 	GLWin glwin("Test CatmullClark");
-	glwin.keyboardfunc = [](int key, int, int)
+	glwin.keyboardfunc = [&](int key, int, int)
 	{
 			switch (std::tolower(key))
 			{
 			case ' ':
-
 				break;
 			case 27:   // ESC
 			case 'q':
 				exit(0);
 				break;
+			case 'e':
+			{	
+				if (operand == selected)
+				{
+					operand = NULL;  // de-select 
+					break;  
+				}
+				if (!operand || !selected)
+				{
+					operand = selected;
+					break;
+				}
+				body.TryToggleEdge(operand - body.verts.data(), selected - body.verts.data());
+				operand = NULL;
+				selected = NULL;
+				break;
+			}
 			default:
 				std::cout << "unassigned key (" << (int)key << "): '" << key << "'\n";
 				break;
@@ -139,7 +156,6 @@ int main(int argc, char *argv[])
 	Pose  camera({ 0,0,camdist }, { 0, 0, 0, 1 });
 	float boxr = 0.002f;
 
-	float3 *selected = NULL;
 	while (glwin.WindowUp())
 	{
 		if (!glwin.MouseState)
@@ -156,6 +172,8 @@ int main(int argc, char *argv[])
 		{
 			camera.orientation = qmul(camera.orientation,qconj(VirtualTrackBall(float3(0, 0, 2), float3(0, 0, 0), mousevec_prev, glwin.MouseVector)));
 			camera.position    = qzdir(camera.orientation)*camdist;
+			camdist *= pow(1.1f, (float)glwin.mousewheel);
+			glwin.mousewheel = 0;
 		}
 		mousevec_prev = glwin.MouseVector;
 
@@ -184,7 +202,15 @@ int main(int argc, char *argv[])
 
 		glDisable(GL_BLEND);
 		for (auto &p : body.verts)
-			glcolorbox(float3(&p==selected?2:1)*boxr, Pose(p, { 0,0,0,1 }));
+			glcolorbox(float3((&p==operand||&p==selected)?2:1)*boxr, Pose(p, { 0,0,0,1 }));
+		if (operand)
+		{
+			glBegin(GL_LINES);
+			glColor3f(1, 1, 1);
+			glVertex3fv(*operand);
+			glVertex3fv(camera*(glwin.MouseVector*length(*operand - camera.position)));
+			glEnd();
+		}
 		glColor3f(0, 1, 1);
 		glEnable(GL_CULL_FACE);
 		//glEnable(GL_LIGHTING);
@@ -196,7 +222,6 @@ int main(int argc, char *argv[])
 		wmwire(body2);
 
 
-
 		// Restore state
 		glMatrixMode(GL_PROJECTION);
 		glPopMatrix();
@@ -205,7 +230,8 @@ int main(int argc, char *argv[])
 		glPopAttrib();
 
 		glwin.PrintString({ 0, 0 }, "Press ESC to quit.");
-
+		if (selected) glwin.PrintString({ 0, 1 }, "vertex current:  %d", (int)(selected - body.verts.data()));
+		if (operand ) glwin.PrintString({ 0, 2 }, "vertex operand:  %d", (int)(operand  - body.verts.data()));
 		glwin.SwapBuffers();
 	}
 
