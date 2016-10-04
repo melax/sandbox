@@ -202,7 +202,7 @@ int main(int argc, char *argv[])
 
 		glDisable(GL_BLEND);
 		for (auto &p : body.verts)
-			glcolorbox(float3((&p==operand||&p==selected)?2:1)*boxr, Pose(p, { 0,0,0,1 }));
+			glcolorbox(float3((&p==operand||&p==selected)?2.0f:1.0f)*boxr, Pose(p, { 0,0,0,1 }));
 		if (operand)
 		{
 			glBegin(GL_LINES);
