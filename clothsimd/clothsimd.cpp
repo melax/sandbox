@@ -34,6 +34,8 @@
 
 #include "wingmesh.h"
 
+#include <immintrin.h>
+
 //--------------- for convenience -----------------
 
 inline float  Round(float a, float precision) { return floorf(0.5f + a / precision)*precision; }
