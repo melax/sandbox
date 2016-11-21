@@ -56,8 +56,6 @@ struct vol_iteration
 inline int2   asint2(const float2 &v) { return{ (int  )v.x, (int  )v.y }; }
 inline float2 asfloat2(const int2 &v) { return{ (float)v.x, (float)v.y }; }
 
-inline float3x3 mul(const float3x3 &a, const float3x3 &b, const float3x3 &c) { return mul(mul(a, b), c);  }  // VS2017 release candidate failing to compile the multi-arg mul from linalg.h
-
 inline float3 safenormalize(const float3 &v) { return (v == float3(0, 0, 0)) ? float3(0, 0, 1) : normalize(v); }
 
 // template <class T> T clamp(T a, const T mn = T(0), const T mx = T(1)) { return std::min(std::max(a, mn), mx); }  // templating this messed up the within_range and clamp for linalg types
