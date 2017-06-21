@@ -14,7 +14,6 @@
     <ProjectGuid>{0000E173-0000-0000-0000-000000000000}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>testmath</RootNamespace>
-    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">

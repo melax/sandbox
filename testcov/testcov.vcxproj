@@ -14,7 +14,6 @@
     <ProjectGuid>{3259EC6C-4F5C-4CB6-A6BB-D29099CA2E0F}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>testcov</RootNamespace>
-    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">

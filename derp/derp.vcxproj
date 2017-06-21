@@ -14,7 +14,6 @@
     <ProjectGuid>{BF4023E5-46A2-45FD-B616-E63AA17BF631}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>testdq</RootNamespace>
-    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
     <ProjectName>derp</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />

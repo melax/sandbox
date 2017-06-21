@@ -14,7 +14,6 @@
     <ProjectGuid>{CBFA606C-2813-4FAB-AC18-F3F830FADEDD}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>testbsp</RootNamespace>
-    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">

@@ -22,7 +22,6 @@
     <ProjectGuid>{A5B757A6-2197-4CA5-A439-8EF0EB3EB9ED}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>clothsimd</RootNamespace>
-    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
     <ProjectName>legacy_clothsimd</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />

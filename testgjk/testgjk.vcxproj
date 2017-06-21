@@ -14,7 +14,6 @@
     <ProjectGuid>{A15B7BD9-DC89-4553-80E6-5140731C804C}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>testgjk</RootNamespace>
-    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
