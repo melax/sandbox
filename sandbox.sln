@@ -39,6 +39,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "legacy_voxblob", "voxblob\l
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "testsubdiv", "testsubdiv\testsubdiv.vcxproj", "{9E2B8F51-95DE-43C2-81BB-AD78AE8DC99A}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "test_reflect", "test_reflect\test_reflect.vcxproj", "{865E19A4-105C-4011-9EBD-14189B26FBEA}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -165,6 +167,14 @@ Global
 		{9E2B8F51-95DE-43C2-81BB-AD78AE8DC99A}.Release|Win32.Build.0 = Release|Win32
 		{9E2B8F51-95DE-43C2-81BB-AD78AE8DC99A}.Release|x64.ActiveCfg = Release|x64
 		{9E2B8F51-95DE-43C2-81BB-AD78AE8DC99A}.Release|x64.Build.0 = Release|x64
+		{865E19A4-105C-4011-9EBD-14189B26FBEA}.Debug|Win32.ActiveCfg = Debug|Win32
+		{865E19A4-105C-4011-9EBD-14189B26FBEA}.Debug|Win32.Build.0 = Debug|Win32
+		{865E19A4-105C-4011-9EBD-14189B26FBEA}.Debug|x64.ActiveCfg = Debug|x64
+		{865E19A4-105C-4011-9EBD-14189B26FBEA}.Debug|x64.Build.0 = Debug|x64
+		{865E19A4-105C-4011-9EBD-14189B26FBEA}.Release|Win32.ActiveCfg = Release|Win32
+		{865E19A4-105C-4011-9EBD-14189B26FBEA}.Release|Win32.Build.0 = Release|Win32
+		{865E19A4-105C-4011-9EBD-14189B26FBEA}.Release|x64.ActiveCfg = Release|x64
+		{865E19A4-105C-4011-9EBD-14189B26FBEA}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

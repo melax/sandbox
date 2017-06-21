@@ -13,34 +13,21 @@
 
 
 #include <string>
-#include <iostream>
-#include <fstream>
 #include <strstream>
 #include <sstream>
+#include <iostream>
+#include <fstream>
 #include <vector>
 
 // some misc convenience functions
-#if _MSC_VER >= 1900 
-template<typename F, typename S> auto Transform(std::vector<S> &src, F f) { std::vector<std::result_of_t<F(S)>> dst(src.size()); std::transform(src.begin(), src.end(), dst.begin(), f); return dst; }
-template<typename F, typename S> auto Transform(const std::vector<S> &src, F f) { std::vector<std::result_of_t<F(S)>> dst(src.size()); std::transform(src.begin(), src.end(), dst.begin(), f); return dst; }
-#else // for visual studio 2013 support
-template <
-    template <typename, typename> class Container,
-    typename Value,
-    typename Allocator = std::allocator<Value>, typename Func >
-    auto Transform(const Container<Value, Allocator> & input, const Func &f)
-    -> Container<decltype(f(std::declval<Value>())), std::allocator<decltype(f(std::declval<Value>()))>> {
-    Container<decltype(f(std::declval<Value>())), std::allocator<decltype(f(std::declval<Value>()))>> ret;
-    std::transform(std::begin(input), std::end(input), std::back_inserter(ret), f);
-    return ret;
-}
-#endif
-
+template<typename F, typename S> auto Transform(std::vector<S> &src, F f) { std::vector<std::result_of_t<F(S)>> dst;dst.reserve(src.size()); std::transform(src.begin(), src.end(), std::back_inserter(dst), f); return dst; }
+template<typename F, typename S> auto Transform(const std::vector<S> &src, F f) { std::vector<std::result_of_t<F(S)>> dst;dst.reserve(src.size()); std::transform(src.begin(), src.end(), std::back_inserter(dst), f); return dst; }
 template<class T> std::vector<T> & Append(std::vector<T> &a, const T&  t) { a.push_back(t); return a; }
 template<class T> std::vector<T> & Append(std::vector<T> &a,       T&& t) { a.push_back(std::move(t)); return a; }
 template<class T> std::vector<T> & Append(std::vector<T> &a, const std::vector<T> &b) { a.insert(a.end(), b.begin(), b.end()); return a; }
 template<class T> std::vector<T> & Append(std::vector<T> &a, std::vector<T> &&b)      { for(auto &e:b) a.push_back(std::move(e)); return a; } 
-template<class T> std::vector<T*>  Addresses(std::vector<T> &a) { return Transform(a, [](T &t)->T* {return &t; }); }
+template<class T> std::vector<T*>  Addresses(      std::vector<T> &a) { return Transform(a, [](T &t)->T* {return &t; }); }
+template<class T> std::vector<T*>  Addresses(const std::vector<T> &a) { return Transform(a, [](T &t)->T* {return &t; }); }
 
 
 // fixme: basepathname and fileprefix are just two attempts to implemement the same thing
@@ -64,6 +51,36 @@ inline std::string freefilename(std::string prefix, std::string suffix)  // find
 
 
 
+inline std::vector<std::string> split(std::string line, std::string delimeter = " ", size_t minlength = 1)  // move to misc.h
+{
+	std::vector<std::string> tokens;
+	size_t pos = 0;
+	while ((pos = line.find(delimeter)) != std::string::npos)
+	{
+		auto token = line.substr(0, pos);
+		line.erase(0, pos + delimeter.length());
+		if (token.length()>= minlength)
+			tokens.push_back(token);
+	}
+	if (line.length()>=minlength)
+		tokens.push_back(line);
+	return tokens;
+}
+
+
+template<class T>
+inline std::vector<T> ArrayImport(std::string str)
+{
+	std::vector<T> a;
+	std::istringstream s(str);
+	T e;
+	while (((s >> e), s.good()))
+	{
+		a.push_back(e);
+		s.ignore(16, '\n');
+	}
+	return a;
+}
 
 //  ToString() - convenience class/function for using << overloads to generate strings inline within a single expression
 // Example Usage:   return ToString() << "test" << my_vec3 << " more " << my_float_var << " and so on";
@@ -90,6 +107,19 @@ struct FromString
 	operator std::string() { return s; }
 };
 
+
+template<class F, class T> void visit_fields(T&t, F f) { t.visit_fields(f); }
+
+template <unsigned int I = 0, class F, class... TS> inline typename std::enable_if<I == sizeof...(TS), void>::type
+visit_fields(std::tuple<TS...> &params, F f)
+{}
+
+template <unsigned int I = 0, class F, class... TS> inline typename std::enable_if< I < sizeof...(TS), void>::type
+	visit_fields(std::tuple<TS...> &params, F f)
+{
+	f(std::get<I + 1>(params), std::get<I>(params));
+	visit_fields<I + 2, F, TS...>(params, f);
+}
 
 
 

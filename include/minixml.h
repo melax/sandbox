@@ -37,7 +37,8 @@ public:
 	const Attribute *hasAttribute(const char *s)const { for(unsigned int i=0;i<attributes.size();i++)if(s==attributes[i].key)return &attributes[i];return NULL;}
 	std::string &    attribute(const char *s)         { Attribute *a = hasAttribute(s); if (a)return a->value; attributes.push_back({s,""}); return attributes.back().value; }
 	std::string      attribute(const char *s)const    { auto a = hasAttribute(s);  return (a) ? a->value : ""; }
-
+	xmlNode &        operator<<(Attribute a)          { attributes.push_back(a); return *this;}
+	xmlNode &        operator<<(xmlNode c)            { children.push_back(c);   return *this;}
 	xmlNode(const char *_tag):tag(_tag){}
 	xmlNode(){}
 	//xmlNode(const xmlNode &a) = delete;
@@ -182,21 +183,18 @@ inline void XMLSaveFile(const xmlNode &elem, const char *filename)
 }
 
 
-
-template<class T>
-inline std::vector<T> ArrayImport(std::string str)
+std::ostream& operator<<(std::ostream &os, const xmlNode &n)
 {
-	std::vector<T> a;
-	std::istringstream s(str);
-	T e;
-	while (((s >> e), s.good()))
-	{
-		a.push_back(e);
-		s.ignore(16, '\n');
-	}
-	return a;
+	os << "<" << n.tag << " ";
+	for (auto &h : n.attributes)
+		os << h.key << "=\"" << h.value << "\" ";
+	os << ">";
+	for (auto &c : n.children)
+		os << c;
+	os << n.body;
+	os << "</" << n.tag << ">";
+	return os;
 }
-
 
 
 

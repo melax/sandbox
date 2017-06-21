@@ -11,8 +11,8 @@
 #include <vector>
 #include <exception>
 
-#include "linalg.h"   
-using namespace linalg::aliases; // int2 byte3 
+#include "geometric.h"
+#include "misc.h"
 
 inline std::vector<byte3> monotorgb(const std::vector<unsigned char> &src)
 {
@@ -35,7 +35,7 @@ struct BMPHeader{
 	int   whatever        = 0;   // 4 bytes can be 0000
 	int   start           = 54;  // 54
 	int   dib_header_size = 40;  // 40  size of remainder of this struct, which is same as windows.h -> wingdi.h -> BITMAPINFOHEADER or struct tagBITMAPINFOHEADER
-	int2  dim;                   //  w,h width,height
+	int2  dim;                   //  w,h width,height   negative height means the origin is in the upper left
 	short color_planes    = 1;   // 1
 	short bpp             = 24;  // 24  bits per pixel
 	int   pixarraycomp    = 0;   // 0  compression flag   BI_RGB in wingdi.h
@@ -45,7 +45,7 @@ struct BMPHeader{
 	int   palettesize     = 0;   // 0
 	int   colors_important= 0;   // 0
 	BMPHeader(){};
-	BMPHeader(int2 dim) :dim(dim), imagesizebytes(dim.x*dim.y * 24 / 8), filesize(dim.x*dim.y * 24 / 8 + 54){}
+	BMPHeader(int2 dim) :dim(dim), imagesizebytes(abs(product(dim)) * 24 / 8), filesize(abs(product(dim)) * 24 / 8 + 54){}
 };
 static_assert(sizeof(BMPHeader) == 54 - 2, "incorrect header size");
 
@@ -53,7 +53,16 @@ struct BMPImage
 {
 	int2 dim;   // w,h
 	std::vector<byte3> image;
+	operator std::pair<byte3*, int2>() { return std::pair<byte3*, int2>(image.data(), dim); }
 };
+template<class T> inline std::vector<T> & FlipV(std::vector<T> &image, int2 dim)  // ugh
+{
+	for (int y = 0; y < dim.y / 2; y++)	for (int x = 0; x < dim.x; x++)
+		std::swap(image[y*dim.x + x], image[(dim.y - 1 - y)*dim.x + x]);
+	return image;
+}
+
+
 inline BMPImage BMPRead(const char *filename)
 {
 	std::ifstream file(filename, std::ios::binary);
@@ -67,6 +76,8 @@ inline BMPImage BMPRead(const char *filename)
 	file.read((char*)image.data(), header.imagesizebytes);
 	for (auto &pixel: image)
 		std::swap(pixel.x,pixel.z); // bgr to rgb
+	if (header.dim.y < 0)
+		FlipV(image, header.dim *= int2{ 1,-1 });
 	return { header.dim, image };
 }
 
@@ -84,12 +95,6 @@ inline void BMPWrite(const char *filename, std::vector<byte3> image, int2 dim)  
 	file.close();
 }
 
-template<class T> inline std::vector<T> & FlipV(std::vector<T> &image, int2 dim)  // ugh
-{
-	for (int y = 0; y < dim.y / 2; y++)	for (int x = 0; x < dim.x; x++)
-		std::swap(image[y*dim.x + x], image[(dim.y - 1 - y)*dim.x + x]);
-	return image;
-}
 
 inline std::vector<byte3>  ShortToRGB(const std::vector<unsigned short> &src, std::function<unsigned char(short)> f)
 {
@@ -135,7 +140,6 @@ inline std::vector<unsigned short> RGBToShort(const std::vector<byte3> &src,int2
 	FlipV(data, dim);
 	return data;
 }
-
 
 
 

@@ -14,7 +14,7 @@
 #include "misc_gl.h"
 #include "wingmesh.h"
 #include "minixml.h"
-
+#include "misc.h"
 
 void wmwire(const WingMesh &m)
 {
@@ -31,22 +31,6 @@ void wmdraw(const WingMesh &m)
 	gldraw(m.verts, m.GenerateTris());
 }
 
-
-std::vector<std::string> split(std::string line, std::string delimeter=" ")
-{
-	std::vector<std::string> tokens;
-	size_t pos = 0;
-	while ((pos = line.find(delimeter)) != std::string::npos)
-	{
-		auto token = line.substr(0, pos);
-		line.erase(0, pos + delimeter.length());
-		if (token.length())
-			tokens.push_back(token);
-	}
-	if (line.length())
-		tokens.push_back(line);
-	return tokens;
-}
 
 WingMesh WingMeshLoad(const char *filename)
 {

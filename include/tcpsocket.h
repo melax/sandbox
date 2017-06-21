@@ -1,16 +1,22 @@
 //
 // some tcp/ip socket code useful for reference
 //
+#pragma once
+#ifndef TCP_SOCKET_CONVENIENCE_WRAPPER
+#define TCP_SOCKET_CONVENIENCE_WRAPPER
+
 #include <vector>
 #include <exception>
 
-#  include <winsock.h>
+#include "misc.h"
+#define NOMINMAX
+#include <winsock.h>
 #pragma comment(lib,"ws2_32.lib")
 #define MSG_WAITALL 0x8   // omg, MS forgot to define MSG_WAITALL in winsock.h (http://www.windows-tech.info/14/89f04a075d8e9df7.php):
 
 
 
-#define RESOURCE_ERROR(m)  reporterror(__FILE__,__LINE__,m)
+
 inline bool reporterror(const char *file, int line, std::string e)
 {
 	std::string s = std::string(file) + ":" + std::to_string(line) + " " + e;
@@ -18,15 +24,16 @@ inline bool reporterror(const char *file, int line, std::string e)
 	throw(std::exception(s.c_str()));
 	return 0;
 }
+#define RESOURCE_ERROR(m)  reporterror(__FILE__,__LINE__,m)
 
-void perror(char *) { printf("%d is the error", WSAGetLastError()); }
+inline void perror(char *) { printf("%d is the error", WSAGetLastError()); }
 
 #  define DEFAULT_PORT  80
 
 
 
 
-SOCKET ConnectTCP(const char *machine = "localhost", int port = DEFAULT_PORT)
+inline SOCKET ConnectTCP(const char *machine = "localhost", int port = DEFAULT_PORT)
 {
 	// On WINDOWS be sure to call WSAStartup winsock before calling this routine
 	struct  hostent *phe;
@@ -63,13 +70,13 @@ SOCKET ConnectTCP(const char *machine = "localhost", int port = DEFAULT_PORT)
 	return sock;
 }
 
-int PollRead(SOCKET s)
+inline int PollRead(SOCKET s,long usec_timeout=0)
 {
 	if (s == INVALID_SOCKET) return 0;
 	fd_set re, wr, ex;
 	struct timeval tm;
 	tm.tv_sec = 0;
-	tm.tv_usec = 0;
+	tm.tv_usec = usec_timeout;
 	FD_ZERO(&re);
 	FD_ZERO(&wr);
 	FD_ZERO(&ex);
@@ -82,7 +89,7 @@ int PollRead(SOCKET s)
 
 
 
-void read(void *dst, int n, SOCKET s) { int r; (r = recv(s, (char*)dst, n, MSG_WAITALL)) == n || RESOURCE_ERROR(std::string("recv error ") + std::to_string(WSAGetLastError()) + " wanted:" + std::to_string(n) + " rv:" + std::to_string(r)); }
+inline void read(void *dst, int n, SOCKET s) { int r; (r = recv(s, (char*)dst, n, MSG_WAITALL)) == n || RESOURCE_ERROR(std::string("recv error ") + std::to_string(WSAGetLastError()) + " wanted:" + std::to_string(n) + " rv:" + std::to_string(r)); }
 
 template<class T>
 T read(SOCKET s) { T t; read(&t, sizeof(t), s); return t; }
@@ -97,7 +104,7 @@ std::vector<T> readarray(SOCKET s)
 	return a;
 }
 
-std::vector<char> testserver(const char* a="GET foo")
+inline std::vector<char> testserver(const char* a="GET foo")
 {
 	std::vector<char> testimage(32 * 32*3, 0);
 	auto s = ConnectTCP("localhost", 21212);  // on some systems, low numbered ports are reserved.
@@ -111,7 +118,7 @@ std::vector<char> testserver(const char* a="GET foo")
 
 //
 
-inline SOCKET start_server(int port = 80)
+inline SOCKET start_server(int port = 80) 
 {
 	// On WINDOWS be sure to call WSAStartup winsock before calling this routine
 	int status;
@@ -148,76 +155,75 @@ inline SOCKET start_server(int port = 80)
 	return listen_sock;
 }
 
-inline SOCKET CheckListenSocket(SOCKET listen_sock)
+inline void http_reply_text(SOCKET s, std::string reply, const char *type = "plain")
+{
+	std::string http_header = ToString() << "HTTP/1.0 200 OK\nAccess-Control-Allow-Origin: *\nContent-Length: " << reply.length() << "\nContent Type: text/" << type << "\n\n";
+	int rc = send(s, http_header.c_str(), http_header.length(), 0);
+	rc = send(s, reply.c_str(), reply.length(), 0);
+}
+
+
+inline std::pair<SOCKET,std::string> serverside_get_request(SOCKET listen_sock)
 {
 	if (listen_sock == INVALID_SOCKET) 
 	{
-		return INVALID_SOCKET;
+		return{ INVALID_SOCKET,"" };
 	}
 	if (!PollRead(listen_sock)) 
-		return INVALID_SOCKET;
-
+		return{ INVALID_SOCKET,"" };
+	std::cout << "listen_sock polled for read\n";
 	// SOCKET s = Accept();
 	SOCKADDR_IN accept_addr;    // Accept socket address - internet style 
 	int accept_addr_len;        // Accept socket address length 
 	accept_addr_len = sizeof(accept_addr);
 	SOCKET s = accept(listen_sock, (struct sockaddr FAR *) &accept_addr,
 		(int FAR *) &accept_addr_len);
-	if (s < 0) {
-		perror("accept:  ");
-		// printf("%d is the error", WSAGetLastError());
-		WSACleanup(); // should we throw?  
-		return INVALID_SOCKET;
-	}
-
-
-	if (s == INVALID_SOCKET) { return INVALID_SOCKET; }
-	if (!PollRead(s)) { closesocket(s);return INVALID_SOCKET; }
-	return s;
-}
-
-inline SOCKET ServeSocket(SOCKET s, std::string reply)
-{
-	// s is not the 'listen' socket, its the socket used to transfer data.
 	if (s == INVALID_SOCKET)
-		return s;
+	{
+		std::cout << "error "<< s << "on accept listen_sock\n";
+		perror("accept:  \n");
+		// printf("%d is the error", WSAGetLastError());
+		//WSACleanup(); // should we throw?  
+		return{ INVALID_SOCKET,"" };// INVALID_SOCKET;
+	}
+	if (!PollRead(s,1000)) 
+	{ 
+		int i=10;
+		while (!PollRead(s,100000) && --i)
+			std::cout << '.'; 
+		std::cout << " \ngot an accepted socket but nothing to read when poll select "<< i << " attempts remain\n";
+		if (i == 0)
+		{
+			http_reply_text(s, "wtf - no request??");
+			closesocket(s);
+			return{ INVALID_SOCKET,"" };
+		}
+	}
 	char buf[2048];
 	int rc = 0;
 	buf[rc] = '\0';
 	int bc = 0;
-	while (PollRead(s) && (bc = recv(s, buf + rc, 1024 - rc, 0)) >0) {
+	while (PollRead(s,1000) && (bc = recv(s, buf + rc, 1024 - rc, 0)) >0) {
+		
 		rc = rc + bc;
 	}
-	if (bc < 0)
-	{
-		closesocket(s);
-		return INVALID_SOCKET;
-	}
 	buf[rc] = '\0';
-	if (rc == 0)
-		return s;
-
-	char outbuf[256];
-	sprintf(outbuf, "HTTP/1.1 200 OK\nAccess-Control-Allow-Origin: *\nContent-Length: %d\nContent-Type: text/plain\n\n",reply.length());
-	rc = send(s, outbuf, strlen(outbuf), 0);
-	sprintf(outbuf, "%s\n",reply.c_str());
-	rc = send(s, outbuf, strlen(outbuf), 0);
-	// closesocket(s);
-	return s;
-}
-
-
-
-
-static SOCKET persist_sock = INVALID_SOCKET;
-inline void do_server_thing_persist(SOCKET listen_sock, std::string reply)  // for keep-alive protocol
-{
-	persist_sock = ServeSocket((persist_sock != INVALID_SOCKET) ? persist_sock : CheckListenSocket(listen_sock), reply);
+	if (bc < 0)
+		int k = 3;
+	return{ s,std::string(buf) };
 }
 
 
 inline void do_server_thing(SOCKET listen_sock,std::string reply) 
 {
-	SOCKET s = ServeSocket(CheckListenSocket(listen_sock), reply);
-	if(s!=INVALID_SOCKET) closesocket(s);
+	auto request = serverside_get_request(listen_sock);
+	if (request.first == INVALID_SOCKET)
+		return;
+	std::string http_header = ToString() << "HTTP/1.0 200 OK\nAccess-Control-Allow-Origin: *\nContent-Length: "<< reply.length() << "\nContent Type: text/plain\n\n";
+	int rc = send(request.first, http_header.c_str(), http_header.length(), 0);
+	rc = send(request.first, reply.c_str(), reply.length(), 0);
+	closesocket(request.first);
 }
+
+
+#endif  TCP_SOCKET_CONVENIENCE_WRAPPER
