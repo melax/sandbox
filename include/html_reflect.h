@@ -185,4 +185,59 @@ inline SOCKET http_reply_image(SOCKET s,Image<byte3> image)
 	return s;
 }
 
+template <class T>
+bool reflection_service(SOCKET listen_sock, T params, std::function<bool(SOCKET, std::string)> func= [](SOCKET, std::string) {return false;})
+{
+	auto s = serverside_get_request(listen_sock);
+	if (!s)
+		return false;
+
+	std::cout << s.message << "--------" << std::endl;
+	std::cout << "url: \"" << s.url << "\"" << std::endl;
+	if (func(s.socket, s.command))
+	{
+	}
+	else if (s.command == "")
+	{
+		auto htmldoc = to_form_html_doc(params, "params");
+		htmldoc.child("body").child("p").body = "generated html form from internal parameters and data.<br> *<a href=/pic>pic test</a> *<a href=/screenshot>screenshot</a> *<a href=.clear_color.green=1>go green</a>";
+		xmlNode refresh("meta");
+		refresh.attributes.push_back({ "http-equiv","refresh" });
+		refresh.attributes.push_back({ "content","10" });
+		//if (use_meta_refresh)
+		//	htmldoc.child("head").children.push_back(refresh);  // will cause browser to refresh every 10 seconds, after enabled, you may need to manually refresh once so that paage with this meta gets loaded 
+		std::string foodoc = ToString() << htmldoc;
+		std::cout << "foodoc: " << foodoc << std::endl;
+		http_reply_text(s.socket, foodoc, "html");
+
+	}
+	else
+	{
+		for (auto a : s.args)     // for each ':' separated argument 
+		{
+			auto res = assigner(params, a.c_str());
+			std::cout << "result of interpretor: " << res << " from " << a << std::endl;
+		}
+		if (!s.args.size())
+		{
+			auto aresult = assigner(params, s.command.c_str());
+			std::cout << " assigner result:  " << aresult << std::endl;
+		}
+		auto paramjson = to_json(params);
+		std::string paramsjsontxt = ToString() << json::tabbed(to_json(params), 4, 1);   // to show new internal state in a easy to read json format
+		std::cout << paramsjsontxt << std::endl;
+		std::string params_as_html = ToString() << to_html(params, "params");   // show new internal state with typical html formatting (not an html form)
+		std::cout << params_as_html << std::endl;
+		http_reply_text(s.socket, ToString() << "got it thanks\n" << "\n-------\n"
+			<< "<pre>\n" << paramsjsontxt << "\n</pre>\n"
+			<< "\n-------\n" << s.message << "---------\n"
+			<< params_as_html << "\n--------\n" << "ok"
+			<< "\n--------\n");
+	}
+	closesocket(s.socket);
+	std::cout << "done service this frame\n";
+	return true;
+}
+
+
 #endif  HTML_REFLECT_H

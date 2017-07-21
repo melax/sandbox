@@ -92,63 +92,24 @@ int main(int argc, char *argv[]) try
 
 	while (runtime_settings.continue_execution && glwin.WindowUp())
 	{
-		if (auto s = serverside_get_request(sock))
+		runtime_settings.connections_seen+=
+		reflection_service(sock,all_my_params,[&image,&glwin](SOCKET socket, std::string command)
 		{
-			std::cout << s.message << "--------" << std::endl;
-			std::cout << "url: \"" << s.url << "\"" << std::endl;
-			if (s.command == "")
+			if (command == "pic")
 			{
-				auto htmldoc = to_form_html_doc(all_my_params,"params");
-				htmldoc.child("body").child("p").body = "generated html form from internal parameters and data.<br> *<a href=/pic>pic test</a> *<a href=/screenshot>screenshot</a> *<a href=.clear_color.green=1>go green</a>";
-				xmlNode refresh("meta");
-				refresh.attributes.push_back({ "http-equiv","refresh" });
-				refresh.attributes.push_back({ "content","10" });
-				if (use_meta_refresh)
-					htmldoc.child("head").children.push_back(refresh);  // will cause browser to refresh every 10 seconds, after enabled, you may need to manually refresh once so that paage with this meta gets loaded 
-				std::string foodoc = ToString() << htmldoc;
-				std::cout << "foodoc: " << foodoc << std::endl;
-				http_reply_text(s.socket, foodoc, "html");
-
+				http_reply_image(socket, image);
+				return true;
 			}
-			else if (s.command == "pic")
-			{
-				http_reply_image(s.socket, image);
-			}
-			else if (s.command == "screenshot")
+			else if (command == "screenshot")
 			{
 				Image<byte3> cimage(glwin.res);
 				glReadPixels(0, 0, glwin.res.x, glwin.res.y, GL_RGB, GL_UNSIGNED_BYTE, cimage.raster.data());
 				FlipV(cimage.raster, cimage.dim());
-				http_reply_image(s.socket, cimage);
+				http_reply_image(socket, cimage);
+				return true;
 			}
-			else   
-			{
-				for (auto a : s.args)     // for each ':' separated argument 
-				{
-					auto res = assigner(all_my_params, a.c_str());
-					std::cout << "result of interpretor: " << res << " from "<< a << std::endl;
-				}
-				if(!s.args.size())
-				{
-					auto aresult = assigner(all_my_params, s.command.c_str() );
-					std::cout << " assigner result:  " << aresult << std::endl;
-				}
-				auto paramjson = to_json(all_my_params);
-				std::string paramsjsontxt = ToString() << json::tabbed(to_json(all_my_params),4,1);   // to show new internal state in a easy to read json format
-				std::cout << paramsjsontxt << std::endl;
-				std::string params_as_html = ToString() << to_html(all_my_params, "params");   // show new internal state with typical html formatting (not an html form)
-				std::cout << params_as_html << std::endl;
-				http_reply_text(s.socket, ToString() << "got it thanks\n" << "\n-------\n" 
-				                                     << "<pre>\n" << paramsjsontxt << "\n</pre>\n" 
-				                                     << "\n-------\n" << s.message << "---------\n" 
-				                                     << params_as_html << "\n--------\n" << "ok" 
-				                                     << "\n--------\n");
-			}
-			closesocket(s.socket);
-			std::cout << "done service this frame\n";
-			runtime_settings.connections_seen++; 
-		}
-
+			return false;
+		});
 		glClearColor(clear_color.red,clear_color.green,clear_color.blue,0.0);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		glPushAttrib(GL_ALL_ATTRIB_BITS);
