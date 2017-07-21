@@ -163,14 +163,41 @@ inline void http_reply_text(SOCKET s, std::string reply, const char *type = "pla
 }
 
 
-inline std::pair<SOCKET,std::string> serverside_get_request(SOCKET listen_sock)
+struct HTTPRequest 
+{ 
+	SOCKET                   socket; 
+	std::string              message; 
+	std::string              url;
+	std::string              command;
+	std::vector<std::string> args;
+	HTTPRequest(SOCKET socket = INVALID_SOCKET, std::string message = "") : socket(socket), message(message)
+	{
+		auto lines = split(message, "\n");
+		std::vector<std::string> tokens = lines.size() ? split(lines[0]) : std::vector<std::string>{};
+		url = tokens.size() >= 2 ? tokens[1] : "";
+		command = url;
+		if (command.length() && command[0] == '/')
+			command.erase(0, 1);
+		int q;
+		if ((q = command.find_first_of('?', 0)) >= 0)    // url is a submitted html form 
+		{
+			auto ca = split(command, "?", 0);
+			command = ca[0];
+			assert(ca.size() >= 2);
+			args = split(ca[1], ":");
+		}
+	}
+	operator bool() { return socket != INVALID_SOCKET; } 
+};
+
+inline HTTPRequest serverside_get_request(SOCKET listen_sock)
 {
 	if (listen_sock == INVALID_SOCKET) 
 	{
-		return{ INVALID_SOCKET,"" };
+		return { INVALID_SOCKET };
 	}
 	if (!PollRead(listen_sock)) 
-		return{ INVALID_SOCKET,"" };
+		return { INVALID_SOCKET,"" };
 	std::cout << "listen_sock polled for read\n";
 	// SOCKET s = Accept();
 	SOCKADDR_IN accept_addr;    // Accept socket address - internet style 
@@ -184,7 +211,7 @@ inline std::pair<SOCKET,std::string> serverside_get_request(SOCKET listen_sock)
 		perror("accept:  \n");
 		// printf("%d is the error", WSAGetLastError());
 		//WSACleanup(); // should we throw?  
-		return{ INVALID_SOCKET,"" };// INVALID_SOCKET;
+		return { INVALID_SOCKET,"" };
 	}
 	if (!PollRead(s,1000)) 
 	{ 
@@ -196,7 +223,7 @@ inline std::pair<SOCKET,std::string> serverside_get_request(SOCKET listen_sock)
 		{
 			http_reply_text(s, "wtf - no request??");
 			closesocket(s);
-			return{ INVALID_SOCKET,"" };
+			return { INVALID_SOCKET,"" };
 		}
 	}
 	char buf[2048];
@@ -210,19 +237,19 @@ inline std::pair<SOCKET,std::string> serverside_get_request(SOCKET listen_sock)
 	buf[rc] = '\0';
 	if (bc < 0)
 		int k = 3;
-	return{ s,std::string(buf) };
+	return  { s,std::string(buf) };
 }
 
 
-inline void do_server_thing(SOCKET listen_sock,std::string reply) 
+inline void do_server_thing(SOCKET listen_sock,std::string reply)  // fixed reply
 {
 	auto request = serverside_get_request(listen_sock);
-	if (request.first == INVALID_SOCKET)
+	if (request.socket == INVALID_SOCKET)
 		return;
 	std::string http_header = ToString() << "HTTP/1.0 200 OK\nAccess-Control-Allow-Origin: *\nContent-Length: "<< reply.length() << "\nContent Type: text/plain\n\n";
-	int rc = send(request.first, http_header.c_str(), http_header.length(), 0);
-	rc = send(request.first, reply.c_str(), reply.length(), 0);
-	closesocket(request.first);
+	int rc = send(request.socket, http_header.c_str(), http_header.length(), 0);
+	rc = send(request.socket, reply.c_str(), reply.length(), 0);
+	closesocket(request.socket);
 }
 
 

@@ -92,15 +92,11 @@ int main(int argc, char *argv[]) try
 
 	while (runtime_settings.continue_execution && glwin.WindowUp())
 	{
-		auto s = serverside_get_request(sock);
-		if (s.first != INVALID_SOCKET)
+		if (auto s = serverside_get_request(sock))
 		{
-			std::cout << s.second << "--------" << std::endl;
-			auto lines = split(s.second, "\n");
-			std::vector<std::string> tokens = lines.size() ? split(lines[0]) : std::vector<std::string>{};
-			std::string url = tokens.size()>=2?tokens[1]:"";
-			std::cout << "url: \"" << url << "\"" << std::endl;
-			if (url == "/" || url == "")
+			std::cout << s.message << "--------" << std::endl;
+			std::cout << "url: \"" << s.url << "\"" << std::endl;
+			if (s.command == "")
 			{
 				auto htmldoc = to_form_html_doc(all_my_params,"params");
 				htmldoc.child("body").child("p").body = "generated html form from internal parameters and data.<br> *<a href=/pic>pic test</a> *<a href=/screenshot>screenshot</a> *<a href=.clear_color.green=1>go green</a>";
@@ -111,39 +107,30 @@ int main(int argc, char *argv[]) try
 					htmldoc.child("head").children.push_back(refresh);  // will cause browser to refresh every 10 seconds, after enabled, you may need to manually refresh once so that paage with this meta gets loaded 
 				std::string foodoc = ToString() << htmldoc;
 				std::cout << "foodoc: " << foodoc << std::endl;
-				http_reply_text(s.first, foodoc, "html");
+				http_reply_text(s.socket, foodoc, "html");
 
 			}
-			else if (url == "/pic")
+			else if (s.command == "pic")
 			{
-				http_reply_image(s.first, image);
+				http_reply_image(s.socket, image);
 			}
-			else if (url == "/screenshot")
+			else if (s.command == "screenshot")
 			{
 				Image<byte3> cimage(glwin.res);
 				glReadPixels(0, 0, glwin.res.x, glwin.res.y, GL_RGB, GL_UNSIGNED_BYTE, cimage.raster.data());
 				FlipV(cimage.raster, cimage.dim());
-				http_reply_image(s.first, cimage);
+				http_reply_image(s.socket, cimage);
 			}
 			else   
 			{
-				if (url.length() && url[0] == '/')
-					url.erase(0, 1);
-				std::cout << "url trimmed: \"" << url << "\"" << std::endl;
-				int q;
-				if ((q = url.find_first_of('?', 0)) >= 0)    // url is a submitted html form 
+				for (auto a : s.args)     // for each ':' separated argument 
 				{
-					auto ca = split(url, "?",0);
-					assert(ca.size() >= 2);
-					for (auto a : split(ca[1], ":"))     // for each ':' separated argument 
-					{
-						auto res = assigner(all_my_params, a.c_str());
-						std::cout << "result of interpretor: " << res << " from "<< a << std::endl;
-					}
+					auto res = assigner(all_my_params, a.c_str());
+					std::cout << "result of interpretor: " << res << " from "<< a << std::endl;
 				}
-				else   // someone types an assignment commmand right in the url 
+				if(!s.args.size())
 				{
-					auto aresult = assigner(all_my_params, url.c_str());
+					auto aresult = assigner(all_my_params, s.command.c_str() );
 					std::cout << " assigner result:  " << aresult << std::endl;
 				}
 				auto paramjson = to_json(all_my_params);
@@ -151,9 +138,13 @@ int main(int argc, char *argv[]) try
 				std::cout << paramsjsontxt << std::endl;
 				std::string params_as_html = ToString() << to_html(all_my_params, "params");   // show new internal state with typical html formatting (not an html form)
 				std::cout << params_as_html << std::endl;
-				http_reply_text(s.first, ToString() << "got it thanks\n" << "\n-------\n" << "<pre>\n" << paramsjsontxt << "\n</pre>\n" << "\n-------\n" << s.second << "---------\n" << params_as_html << "\n--------\n" << "ok" << "\n--------\n");
+				http_reply_text(s.socket, ToString() << "got it thanks\n" << "\n-------\n" 
+				                                     << "<pre>\n" << paramsjsontxt << "\n</pre>\n" 
+				                                     << "\n-------\n" << s.message << "---------\n" 
+				                                     << params_as_html << "\n--------\n" << "ok" 
+				                                     << "\n--------\n");
 			}
-			closesocket(s.first);
+			closesocket(s.socket);
 			std::cout << "done service this frame\n";
 			runtime_settings.connections_seen++; 
 		}
