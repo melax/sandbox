@@ -1,12 +1,13 @@
+//
+// please include either glwin.h or glfwwin.h before including this module
+//
 
 #pragma once
 #ifndef MISC_GL_H
 #define MISC_GL_H
 
 #include "geometric.h"
-#include "glwin.h"
 #include "mesh.h"
-
 #include <assert.h>
 
 void drawimage(const byte3* imagedata, int2 dim, float2 p, float2 s, int tid = 0)
@@ -138,18 +139,50 @@ void gldraw(const std::vector<float3> &verts, const std::vector<int3> &tris)
 	glEnd();
 }
 
+void gldraw(const std::vector<float3> &verts, const std::vector<int3> &tris,const std::vector<int> &color)  // palette color 
+{
+	float3 rainbow_colors[] = { { 0.75f,0.5f,0.5f },{ 0.5f,0.75f,0.5f },{ 0.5f,0.5f,0.75f },{ 1,0,0 },{ 0,1,0 },{ 0,0,1 },{ 1,1,0 },{ 1,0,1 } };
+	glBegin(GL_TRIANGLES);
+	glColor4f(1, 1, 1, 0.25f);
+	for (auto t : tris)
+	{
+		auto n = TriNormal(verts[t[0]], verts[t[1]], verts[t[2]]);
+		glNormal3fv(n); auto vn = abs(n);
+		int k = argmax(&vn.x, 3);
+		for (int j = 0; j < 3; j++)
+		{
+			const auto &v = verts[t[j]];
+			glTexCoord2f(v[(k + 1) % 3], v[(k + 2) % 3]);
+			glColor3fv(rainbow_colors[color[t[j]] % 8]);
+			glVertex3fv(v);
+		}
+	}
+	glEnd();
+}
+
 inline void MeshDraw(const Mesh &mesh)  
 {
 	glPushMatrix();
 	glMultMatrixf(mesh.pose.matrix());
 	auto emitvert = [](const Vertex &v) ->void {glNormal3fv(qzdir(v.orientation)); glTexCoord2fv(v.texcoord); glVertex3fv(v.position); };
+	glColor4fv(mesh.hack);
 	glBegin(GL_TRIANGLES);
 	for (auto t : mesh.tris) for (int i = 0; i < 3; i++)
 		emitvert(mesh.verts[t[i]]);
 	glEnd();
 	glPopMatrix();
 }
-
+inline void MeshDrawWire(const Mesh &mesh)
+{
+	glPushMatrix();
+	glMultMatrixf(mesh.pose.matrix());
+	auto emitvert = [](const Vertex &v) ->void {glNormal3fv(qzdir(v.orientation)); glTexCoord2fv(v.texcoord); glVertex3fv(v.position); };
+	glBegin(GL_LINES);
+	for (auto t : mesh.tris) for (int i : {0, 1, 1, 2, 2, 0})
+		emitvert(mesh.verts[t[i]]);
+	glEnd();
+	glPopMatrix();
+}
 inline void glcolorbox(const float3 &r, const Pose &p)   // p = { { 0, 0, 0 }, { 0, 0, 0, 1 } })
 {
 	glPushMatrix();
@@ -177,8 +210,76 @@ inline void glcolorbox(const float3 &r, const Pose &p)   // p = { { 0, 0, 0 }, {
 
 inline void glwirebox(std::function<float3(int)> p) { glBegin(GL_LINES); for (auto e : boxedges()) glVertex3fv(p(e[0])), glVertex3fv(p(e[1])); glEnd(); }
 inline void glwirebox(std::vector<float3> verts) { assert(verts.size() == 8); glwirebox([&verts](int i) {return verts[i]; }); }
+inline void glwirebox(const float3 &bmin, const float3 &bmax) { glwirebox([bmin, bmax](int i) {return bmin + (bmax - bmin)*float3((float)(i & 1), (float)(i>>1&1), (float)(i>>2&1)); }); }
 inline void glwirefrustumz(const float2x2 &corners, const float2 &zrange) { glwirebox([&](int i)->float3 {return float3(corners[i & 1][0], corners[(i >> 1) & 1][1], 1.0f)*zrange[(i >> 2) & 1]; }); }
 inline void glwirefrustumz(float2 cmin, float2 cmax, float2 zrange) { return glwirefrustumz(float2x2(cmin, cmax), zrange); }
+
+struct VertexPC
+{
+	float3 position;
+	float4 color; // rgba
+};
+std::vector<VertexPC> ColorVerts(const std::vector<float3> points, float4 c=float4(1.0f)) { return Transform(points, [c](float3 p)->VertexPC{return{p,c};});}
+std::vector<VertexPC> ColorVerts(const std::vector<float3> points, float3 c) { return ColorVerts(points, float4(c, 1.0f)); } 
+struct SegmentPC
+{
+	VertexPC endpoints[2];
+	SegmentPC() {}
+	SegmentPC(VertexPC a, VertexPC b) :endpoints{ a,b } {}
+	SegmentPC(float3 a, float3 b, float4 c = float4(1.0f)) :endpoints{ {a,c},{b,c} } {}
+};
+std::vector<SegmentPC> ColorSegments(const std::vector<std::pair<float3, float3>> &lines, float4 c = float4(1.0f))
+{
+	return Transform(lines, [c](std::pair<float3, float3> e) {return SegmentPC(e.first, e.second, c); });
+}
+std::vector<SegmentPC> ColorSegments(const std::vector<float3> &points, float4 c = float4(1.0f))
+{
+	std::vector<SegmentPC> lines;
+	for (unsigned int i = 0; i < points.size()-1; i+=2)
+		lines.push_back({ points[i],points[i + 1],c });
+	return lines;
+}
+
+struct render_scene
+{
+	render_scene()
+	{
+		glPushAttrib(GL_ALL_ATTRIB_BITS);
+		glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity();
+		int2x2 viewport;  // current viewport settings  [[x y][w h]] 
+		glGetIntegerv(GL_VIEWPORT, (GLint*)&viewport);
+		glPerspective(60.0f, (float)viewport[1].x/(float)viewport[1].y, 0.01f, 50.0f);
+		glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity();
+	}
+	render_scene(const Pose &camera) :render_scene() { glMultMatrixf(camera.inverse().matrix()); }
+	render_scene(const Pose &camera,const std::vector<Mesh*> &meshes, const std::vector<SegmentPC> &lines = {}, const std::vector<VertexPC> &points = {}) :render_scene(camera)
+	{
+		glBegin(GL_LINES);
+		for (auto &line : lines) for (auto v : line.endpoints)
+			glColor3fv(v.color.xyz()), glVertex3fv(v.position);
+		glEnd();
+		glBegin(GL_POINTS);
+		for (auto v : points)
+			glColor3fv(v.color.xyz()), glVertex3fv(v.position);
+		glEnd();
+		glPushAttrib(GL_ALL_ATTRIB_BITS);
+		glEnable(GL_COLOR_MATERIAL);
+		glColor3f(1, 1, 1);
+		glEnable(GL_LIGHTING);
+		glEnable(GL_LIGHT0);
+		for (auto m : meshes)
+			MeshDraw(*m);
+		glPopAttrib();
+	}
+	~render_scene()
+	{
+		glMatrixMode(GL_PROJECTION);
+		glPopMatrix();
+		glMatrixMode(GL_MODELVIEW);
+		glPopMatrix();
+		glPopAttrib();
+	}
+};
 
 
 #endif // MISC_GL_H
